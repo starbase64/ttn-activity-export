@@ -10,7 +10,8 @@ from windows_bootstrap import install_wheel,installed,setup
 def fixture_wheel(tmp_path,member='example/module.py',data=b'VALUE=1\n'):
     path=tmp_path/'example-1.0-py3-none-any.whl'
     with zipfile.ZipFile(path,'w') as archive:
-        archive.writestr(member,data)
+        info=zipfile.ZipInfo('placeholder');info.filename=member
+        archive.writestr(info,data)  # Preserve deliberately unsafe separators on Windows too.
         archive.writestr('example-1.0.dist-info/METADATA','Name: example\nVersion: 1.0\n')
     return path,dict(name='example',version='1.0',filename=path.name,
         sha256=hashlib.sha256(path.read_bytes()).hexdigest(),url='https://files.pythonhosted.org/example.whl')

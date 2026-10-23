@@ -14,6 +14,7 @@ import tempfile
 import zipfile
 import xml.etree.ElementTree as ET
 from collections import defaultdict
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from archive import Archive, OfflineArchiveError
@@ -366,7 +367,9 @@ def backup_archive(source,destination):
     dest.parent.mkdir(parents=True,exist_ok=True)
     fd,name=tempfile.mkstemp(prefix='.garmin-backup-',suffix='.sqlite',dir=dest.parent);os.close(fd)
     try:
-        with Archive(src,readonly=True) as db, sqlite3.connect(name) as target:db.db.backup(target)
+        # sqlite3's own context manager commits but does not close its handle.
+        # Windows cannot rename the completed backup until the handle is closed.
+        with Archive(src,readonly=True) as db, closing(sqlite3.connect(name)) as target:db.db.backup(target)
         validate_archive(name)
         os.replace(name,dest)
     finally:
