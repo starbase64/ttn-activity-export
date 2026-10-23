@@ -49,7 +49,9 @@ def wheel_members(archive):
     result=[]
     for member in archive.infolist():
         if member.is_dir():continue
-        raw=member.filename;parts=PurePosixPath(raw).parts
+        # ZipInfo normalizes backslashes on Windows; validate the original ZIP
+        # name before that normalization as well as the eventual output path.
+        raw=member.orig_filename;parts=PurePosixPath(raw).parts
         if not parts or raw.startswith('/') or '\\' in raw or ':' in raw or '..' in parts or ((member.external_attr>>16)&0o170000)==0o120000:
             raise ValueError('Unsafe wheel member')
         if parts[0].endswith('.data'):
