@@ -1,3 +1,7 @@
+# Review follow-ups
+
+The external review identified additional items outside the parallel-download patch: Windows credential protection (DPAPI/keyring), explicit local-date handling for imported FIT UTC timestamps, equal wheel-path checks in the portable build helper, and pinning GitHub Actions to commit SHAs. These remain open. Removing expired local sessions without signing in is now implemented in 0.5.1-preview.
+
 ## 0.4.0-preview · implemented
 
 Full daily summary ranges, opt-in daily statistics for ten health categories with separate storage, adjustable health batch size, matching offline/preset/preview/repair behavior, and system Downloads/Garmin_Export default. Monitoring FIT-based multi-metric downloads and lossless HRV/detail range adaptation remain future work pending data/schema comparisons. Windows and live account checks remain outstanding.

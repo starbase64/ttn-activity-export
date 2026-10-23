@@ -25,7 +25,7 @@ def repair_plan(path,account,mode,selected,plan):
                 ds=next((d for d in all_definitions() if d.key==key),None)
                 if ds:
                     args=() if ds.kind=='account' else (day,day) if ds.kind=='range' else (day,)
-                    add(key,day,ds.method,args,{'aggregation':'daily'} if key=='endurance' else {})
+                    add(key,day,ds.method,args,{'aggregation':'daily'} if key=='endurance' else {},ds.binary)
                 else:
                     match=re.fullmatch(r'activity-(\d+)-(.+)',key)
                     if not match:continue
@@ -38,8 +38,8 @@ def repair_plan(path,account,mode,selected,plan):
                 for ds in selected_datasets(plan):
                     if ds.kind=='account':continue
                     args=(day,day) if ds.kind=='range' else (day,);kwargs={'aggregation':'daily'} if ds.key=='endurance' else {}
-                    if not db.get(ds.key,day,request_spec(ds.key,ds.method,args,kwargs)):
-                        add(ds.key,day,ds.method,args,kwargs)
+                    if not db.get(ds.key,day,request_spec(ds.key,ds.method,args,kwargs,ds.binary)):
+                        add(ds.key,day,ds.method,args,kwargs,ds.binary)
     return tasks
 
 class RepairSync(ArchiveSync):

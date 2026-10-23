@@ -26,7 +26,7 @@ def test_language_preserves_selection_and_dates():
     before=window.make_plan()
     window.toggle_language()
     assert window.lang=='en'
-    assert window.tabs.tabText(5)=='User guide'
+    assert window.tabs.tabText(window.tabs.count()-1)=='User guide'
     assert window.start_button.text()=='Start export'
     after=window.make_plan()
     assert after.language=='en'
@@ -250,8 +250,9 @@ def test_full_archive_button_ignores_export_filters_and_selects_supported_data(t
     window.run_worker=run
     window.start_archive_sync()
     p=captured[0]
-    assert p.datasets==[d.key for d in DATASETS] and p.activity_type=='' and not p.selectors
+    assert p.datasets==[d.key for d in DATASETS if d.full_sync] and 'wellness_fit' not in p.datasets and p.activity_type=='' and not p.selectors
     assert p.health_detail=='full'
-    assert p.source=='online' and p.retries==0 and p.delay>=2
+    # Transient network/5xx errors are retried; 4xx/429 never are (see Exporter.call).
+    assert p.source=='online' and p.retries>=1 and p.delay>=app_module.MIN_SYNC_INTERVAL and p.workers==window.workers.value()
     assert p.activity_details==list(ACTIVITY_DETAILS) and p.activity_files==['ORIGINAL','GPX']
     window.close()

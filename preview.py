@@ -115,6 +115,8 @@ class Previewer(Exporter):
 
     def sample_dataset(self,ds):
         result=[]
+        if ds.binary:
+            self.preview_notes.append('files_not_downloaded');return result
         for day in (['snapshot'] if ds.kind=='account' else itertools.islice(days(self.plan.start,self.plan.end),3)):
             self.check()
             try:

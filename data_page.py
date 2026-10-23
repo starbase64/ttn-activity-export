@@ -29,35 +29,52 @@ class DataPage(QWidget):
         self.loading=False;self.filter_initialized=False;self.presets_path=host.data_dir/'data-view-presets.json'
         self.track_worker=None;self.track_generation=0;self.pending_tracks=[]
         self.persisted_columns=[]
-        layout=QVBoxLayout(self);bar=QHBoxLayout()
+        outer=QVBoxLayout(self);outer.setContentsMargins(0,0,0,0)
+        self.browser_splitter=QSplitter(Qt.Orientation.Horizontal);outer.addWidget(self.browser_splitter)
+        self.left_panel=QWidget();layout=QVBoxLayout(self.left_panel)
+        left_scroll=QScrollArea();left_scroll.setWidgetResizable(True);left_scroll.setWidget(self.left_panel)
+        left_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        left_scroll.setMinimumWidth(360);self.browser_splitter.addWidget(left_scroll)
+        bar=QHBoxLayout()
         self.source=QLineEdit();self.source.setPlaceholderText('SQLite');bar.addWidget(self.source,1)
         bar.addWidget(host.button('Datei öffnen','Open file',self.choose_archive));bar.addWidget(host.button('Daten laden','Load data',self.reload))
         layout.addLayout(bar)
         self.source.editingFinished.connect(lambda:host.archive_path.setText(self.source.text()))
         action=QHBoxLayout()
-        for de,en,fn in [('Dateien importieren','Import files',self.import_dialog),('Sicherung erstellen','Create backup',self.backup_dialog),('Datenbank prüfen','Check database',self.check_database),('Fehlende Daten ergänzen','Fill missing data',self.repair_dialog)]:action.addWidget(host.button(de,en,fn))
-        action.addStretch();layout.addLayout(action)
-        layout.addWidget(host.button('Vorhandenen Exportcache übernehmen','Import existing export cache',self.import_cache_dialog))
+        self.tools_button=host.bind(QPushButton(),'Werkzeuge','Tools');tools=QMenu(self.tools_button)
+        for de,en,fn in [('Dateien importieren','Import files',self.import_dialog),('Sicherung erstellen','Create backup',self.backup_dialog),('Datenbank prüfen','Check database',self.check_database),('Fehlende Daten ergänzen','Fill missing data',self.repair_dialog)]:
+            item=host.bind(tools.addAction(de),de,en);item.triggered.connect(fn)
+        self.tools_button.setMenu(tools);action.addWidget(self.tools_button)
+        self.cache_button=host.button('Exportcache übernehmen','Import export cache',self.import_cache_dialog)
+        action.addWidget(self.cache_button,1);layout.addLayout(action)
         self.note=host.label('Lokale Daten öffnen. Kartenhintergründe werden nur bei eingeschalteter Onlinekarte geladen.','Open local data. Basemaps are downloaded only when online map is enabled.');layout.addWidget(self.note)
         self.views=QTabWidget();layout.addWidget(self.views,1)
         self.activities_tab=QWidget();v=QVBoxLayout(self.activities_tab)
-        filters=QHBoxLayout();self.search=QLineEdit();self.sport=QComboBox();self.sport.setMinimumWidth(140)
+        self.search=QLineEdit();self.search.setMinimumWidth(70)
+        self.sport=QComboBox();self.sport.setMinimumWidth(110);self.sport.setMinimumContentsLength(12)
+        self.sport.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        search_row=QHBoxLayout();search_row.addWidget(host.label('Suche','Search'));search_row.addWidget(self.search,2)
+        search_row.addWidget(host.label('Sport','Sport'));search_row.addWidget(self.sport,1);v.addLayout(search_row)
         self.date_from=QDateEdit(QDate(1990,1,1));self.date_to=QDateEdit(QDate.currentDate())
-        for d in (self.date_from,self.date_to):d.setCalendarPopup(True);d.setDisplayFormat('yyyy-MM-dd');d.setDateRange(QDate(1990,1,1),QDate.currentDate())
-        for widget in (host.label('Suche','Search'),self.search,host.label('Sport','Sport'),self.sport,host.label('Von','From'),self.date_from,host.label('Bis','Through'),self.date_to):filters.addWidget(widget)
-        v.addLayout(filters)
-        extra=QHBoxLayout();self.min_km=QDoubleSpinBox();self.min_km.setRange(0,100000);self.min_km.setSuffix(' km')
-        self.preset=QComboBox();self.preset.setMinimumWidth(160)
-        extra.addWidget(host.label('Mindestdistanz','Minimum distance'));extra.addWidget(self.min_km);extra.addStretch();extra.addWidget(self.preset)
-        extra.addWidget(host.button('Filter speichern','Save filter',self.save_preset));extra.addWidget(host.button('Filter laden','Load filter',self.load_preset));extra.addWidget(host.button('Spalten','Columns',self.column_menu));v.addLayout(extra)
-        selects=QHBoxLayout();selects.addWidget(host.button('Alle gefilterten auswählen','Select all filtered',lambda:self.table.selectAll()));selects.addWidget(host.button('Auswahl leeren','Clear selection',lambda:self.table.clearSelection()))
-        selects.addWidget(host.button('Auswahl exportieren','Export selection',self.export_selection));selects.addWidget(host.button('Vergleichen','Compare',self.compare));selects.addStretch();v.addLayout(selects)
-        splitter=QSplitter(Qt.Orientation.Horizontal)
+        dates=QHBoxLayout()
+        for label,d in ((host.label('Von','From'),self.date_from),(host.label('Bis','Through'),self.date_to)):
+            d.setCalendarPopup(True);d.setDisplayFormat('yyyy-MM-dd');d.setDateRange(QDate(1990,1,1),QDate.currentDate())
+            dates.addWidget(label);dates.addWidget(d,1)
+        v.addLayout(dates)
+        self.min_km=QDoubleSpinBox();self.min_km.setRange(0,100000);self.min_km.setSuffix(' km')
+        extra=QHBoxLayout();extra.addWidget(host.label('Mindestdistanz','Minimum distance'));extra.addWidget(self.min_km)
+        extra.addWidget(host.button('Spalten','Columns',self.column_menu))
+        selection_button=host.bind(QPushButton(),'Auswahl','Selection');selection_menu=QMenu(selection_button)
+        for de,en,fn in [('Alle gefilterten auswählen','Select all filtered',lambda:self.table.selectAll()),('Auswahl leeren','Clear selection',lambda:self.table.clearSelection()),('Auswahl exportieren','Export selection',self.export_selection),('Vergleichen','Compare',self.compare)]:
+            item=host.bind(selection_menu.addAction(de),de,en);item.triggered.connect(fn)
+        selection_button.setMenu(selection_menu);extra.addWidget(selection_button);v.addLayout(extra)
+        presets=QHBoxLayout();self.preset=QComboBox();presets.addWidget(self.preset,1)
+        presets.addWidget(host.button('Filter speichern','Save filter',self.save_preset));presets.addWidget(host.button('Filter laden','Load filter',self.load_preset));v.addLayout(presets)
         self.table=QTableWidget();self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers);self.table.horizontalHeader().setSectionsMovable(True)
         self.table.itemSelectionChanged.connect(self.selection_changed);self.table.itemChanged.connect(self.checkbox_changed)
-        splitter.addWidget(self.table)
-        map_box=QWidget();mv=QVBoxLayout(map_box);mv.setContentsMargins(0,0,0,0)
+        self.table.setMinimumHeight(180);v.addWidget(self.table,1)
+        self.map_panel=QWidget();mv=QVBoxLayout(self.map_panel);mv.setContentsMargins(8,8,8,8)
         controls=QHBoxLayout();self.heat=host.check('Heatmap','Heatmap');self.online=host.check('Onlinekarte (OSM)','Online map (OSM)')
         controls.addWidget(self.heat);controls.addWidget(self.online);controls.addWidget(host.button('Einpassen','Fit',self.selection_changed));mv.addLayout(controls)
         self.map=TrackMap(host.data_dir/'map-cache');mv.addWidget(self.map,1)
@@ -66,7 +83,11 @@ class DataPage(QWidget):
         share.addWidget(host.label('Start/Ende verbergen','Hide start/end'));share.addWidget(self.privacy)
         share.addWidget(host.button('Tourenbild','Tour image',self.poster));share.addWidget(host.button('KML teilen','Share KML',self.share_kml));mv.addLayout(share)
         external=QHBoxLayout();external.addWidget(host.button('Google Maps','Google Maps',self.google_map));external.addWidget(host.button('Google My Maps','Google My Maps',lambda:QDesktopServices.openUrl(QUrl('https://www.google.com/mymaps'))));external.addStretch();mv.addLayout(external)
-        splitter.addWidget(map_box);splitter.setSizes([600,500]);v.addWidget(splitter,1)
+        map_scroll=QScrollArea();map_scroll.setWidgetResizable(True);map_scroll.setWidget(self.map_panel)
+        map_scroll.setMinimumWidth(300);self.browser_splitter.addWidget(map_scroll)
+        self.browser_splitter.setChildrenCollapsible(False)
+        self.browser_splitter.setStretchFactor(0,1);self.browser_splitter.setStretchFactor(1,1)
+        self.browser_splitter.setSizes([660,760])
         self.selection_note=QLabel();self.selection_note.setWordWrap(True);v.addWidget(self.selection_note)
         self.views.addTab(self.activities_tab,'')
         self.health_table=QTableWidget();self.health_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -108,6 +129,21 @@ class DataPage(QWidget):
             self.date_from.setDate(QDate.fromString(days[0],'yyyy-MM-dd'));self.date_to.setDate(QDate.fromString(days[-1],'yyyy-MM-dd'))
             self.date_from.blockSignals(False);self.date_to.blockSignals(False);self.filter_initialized=True
         self.note.setText(self.t(f"{len(data['activities'])} lokale Aktivitäten · {len(data['health'])} Tage mit Tageswerten · GPS wird bei Auswahl lokal gelesen",f"{len(data['activities'])} local activities · {len(data['health'])} days with daily values · GPS is read locally when selected"))
+        status=data.get('activity_status',{})
+        if not data['activities']:
+            if not status.get('responses',0):
+                detail=self.t('Keine Aktivitätsübersichten in dieser Datenbank gespeichert. Ein Haken auf Export startet keinen Download. Nur „Aktivitäten – Übersicht“ wählen und unter Offline-Daten die gewählten Daten sichern; vorhandene Exporte ggf. über den Exportcache übernehmen.',
+                              'No activity summaries saved in this database. Selecting a checkbox on Export does not download data. Select only Activities – summary and sync selected data on Offline data; import an existing export cache if needed.')
+            elif status.get('empty_responses',0)==status.get('responses'):
+                detail=self.t('Aktivitätsabrufe sind gespeichert, enthalten aber nur leere Listen. Zeitraum, Konto und letzte Abruffehler unter Offline-Daten prüfen.',
+                              'Activity requests are saved but contain only empty lists. Check dates, account and recent errors on Offline data.')
+            else:
+                detail=self.t('Aktivitätsantworten sind gespeichert, konnten aber nicht als Aktivitäten gelesen werden. Datenbank und Abrufbericht prüfen.',
+                              'Activity responses are saved but could not be read as activities. Check the database and transfer report.')
+            self.note.setText(self.note.text()+'\n'+detail)
+        if status:
+            self.note.setText(self.note.text()+self.t(f"\nAktivitätsantworten: {status['responses']} · davon leer: {status['empty_responses']} · offene Abruffehler: {status['failed_requests']}",
+                                                      f"\nActivity responses: {status['responses']} · empty: {status['empty_responses']} · unresolved errors: {status['failed_requests']}"))
         self.apply_filters()
 
     def apply_filters(self,*args):
@@ -358,7 +394,7 @@ class DataPage(QWidget):
         for index,pair in enumerate([('Aktivitäten','Activities'),('Tagesdaten','Daily data'),('Auswertungen','Summaries')]):self.views.setTabText(index,self.t(*pair))
         self.period.setItemText(0,self.t('Monat','Month'));self.period.setItemText(1,self.t('Jahr','Year'))
         self.map.lang=self.host.lang
-        if self.data['activities']:
+        if self.data['activities'] or self.data.get('activity_status') or self.data['health']:
             self.loaded(self.data);model=self.table.selectionModel();self.table.blockSignals(True)
             for row in range(self.table.rowCount()):
                 if self.table.item(row,0).data(Qt.ItemDataRole.UserRole) in keys:model.select(self.table.model().index(row,0),QItemSelectionModel.SelectionFlag.Select|QItemSelectionModel.SelectionFlag.Rows)

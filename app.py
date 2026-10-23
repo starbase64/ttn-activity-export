@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QSplitter, QLayout, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView)
 from garminconnect import Garmin, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError
 from catalog import DATASETS, ACTIVITY_DETAILS, selected_datasets, all_definitions
-from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns
+from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS, atomic_json
 from help_content import HELP
 from sports import FALLBACK_SPORTS, activity_type_keys, sport_label
 from activity_table import SOURCE_PATHS
@@ -35,7 +35,9 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.0-preview'
+VERSION = '0.5.1-preview'
+# Lower bound for long archive syncs, even with a 0 s interval in the options.
+MIN_SYNC_INTERVAL = 0.25
 
 def default_output_folder():
     downloads=QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
@@ -83,6 +85,7 @@ class MainWindow(QMainWindow):
         self.api = None
         self.identity = None
         self.worker = None
+        self._closing=False
         self.last_output = ''
         self.completed = 0
         self.field_checks = []
@@ -141,12 +144,11 @@ class MainWindow(QMainWindow):
         self.cooldown_label=QLabel();self.cooldown_label.setWordWrap(True);self.cooldown_label.setStyleSheet('color:#926000');outer.addWidget(self.cooldown_label)
         self.tabs = QTabWidget(); outer.addWidget(self.tabs, 1)
         self.config_tabs = []
-        self.account_page(); self.export_page(); self.advanced_page(); self.fields_page(); self.expert_page(); self.help_page(); self.offline_page()
+        self.account_page(); self.export_page(); self.advanced_page(); self.fields_page(); self.expert_page(); self.offline_page()
         from data_page import DataPage
         self.data_page=DataPage(self)
-        data_scroll=QScrollArea();data_scroll.setWidgetResizable(True);data_scroll.setWidget(self.data_page)
-        self.data_page.setMinimumSize(1120,780)
-        self.add_tab(data_scroll,'Daten','Data')
+        self.add_tab(self.data_page,'Daten','Data')
+        self.help_page()
         self.tabs.setUsesScrollButtons(True)
         bottom = QHBoxLayout()
         self.start_button = self.button('Export starten', 'Start export', self.start_export, primary=True)
@@ -175,6 +177,35 @@ class MainWindow(QMainWindow):
             self.ensure_archive_path()
             self.connection.setText('DEMO · demo@example.invalid')
             self.tabs.setCurrentIndex(1)
+        else:
+            self.load_saved_account()
+        self.remember.toggled.connect(self.remember_changed)
+
+    @property
+    def saved_account_path(self):return self.data_dir/'remembered-account.json'
+
+    def load_saved_account(self):
+        try:
+            saved=json.loads(self.saved_account_path.read_text(encoding='utf-8'))
+            email=saved['email'];china=saved['china']
+            if saved.get('schema')!=1 or not isinstance(email,str) or not email.strip() or len(email)>320 or type(china) is not bool:return
+        except (OSError,ValueError,KeyError,TypeError):return
+        self.email.setText(email);self.china.setChecked(china);self.remember.setChecked(True)
+        self._restore_account=(email,china)
+        QTimer.singleShot(0,self.restore_saved_session)
+
+    def restore_saved_session(self):
+        if self._closing or self.api or not self.remember.isChecked():return
+        if (self.email.text().strip(),self.china.isChecked())!=getattr(self,'_restore_account',None):return
+        if self.rate_pause.remaining():
+            self.log.appendPlainText(self.tr('Gespeicherte Sitzung: Wiederherstellung wegen aktiver Abrufpause ausgesetzt.','Saved session: restore skipped during the active request pause.'));return
+        self.log.appendPlainText(self.tr('Gespeicherte Sitzung wird wiederhergestellt …','Restoring saved session …'))
+        self.login(restore=True)
+
+    def remember_changed(self,checked):
+        if not checked and not self.demo:
+            try:self.saved_account_path.unlink(missing_ok=True)
+            except OSError:self.message('Die automatische Anmeldung konnte nicht deaktiviert werden. Schreibrechte prüfen.','Could not disable automatic sign-in. Check write permissions.')
 
     def tr(self, de, en): return de if self.lang == 'de' else en
     def bind(self, widget, de, en, setter='setText'):
@@ -297,7 +328,9 @@ class MainWindow(QMainWindow):
         def option_row(de,en,widget):
             caption=self.label(de,en); caption.setWordWrap(False)
             f.addWidget(caption); f.addWidget(widget)
-        self.delay=QDoubleSpinBox(); self.delay.setRange(0,60); self.delay.setDecimals(1); self.delay.setValue(1); option_row('Abrufpause (Sekunden)','Request interval (seconds)',self.delay)
+        self.delay=QDoubleSpinBox(); self.delay.setRange(0,60); self.delay.setDecimals(2); self.delay.setSingleStep(0.1); self.delay.setValue(0.5); option_row('Abrufpause (Sekunden)','Request interval (seconds)',self.delay)
+        self.workers=QSpinBox(); self.workers.setRange(1,MAX_WORKERS); self.workers.setValue(3); option_row('Parallele Abfragen','Parallel requests',self.workers)
+        f.addWidget(self.label('Mehrere Abfragen laufen gleichzeitig; die Abrufpause gilt trotzdem für alle zusammen. Höhere Werte sind schneller, erhöhen aber das Risiko einer Garmin-Ratenbegrenzung (HTTP 429). Dann stoppt der Lauf und kann später fortgesetzt werden.','Several requests run at the same time; the request interval still applies to all of them together. Higher values are faster but increase the risk of a Garmin rate limit (HTTP 429). The run then stops and can be resumed later.'))
         self.optimize=self.check('Zeitraumabfragen bündeln (empfohlen)','Batch supported date ranges (recommended)',True);f.addWidget(self.optimize)
         self.activity_batch_days=QSpinBox();self.activity_batch_days.setRange(1,365);self.activity_batch_days.setValue(31);option_row('Aktivitäten: Tage je Zeitraumabfrage','Activities: days per range query',self.activity_batch_days)
         self.health_batch_days=QSpinBox();self.health_batch_days.setRange(1,28);self.health_batch_days.setValue(28);option_row('Gesundheit: Tage je Zeitraumabfrage','Health: days per range query',self.health_batch_days)
@@ -452,11 +485,11 @@ class MainWindow(QMainWindow):
             self.message('Bitte eine Datenbankdatei angeben.','Please select a database file.');return
         try:
             base=self.make_plan(for_sync=True)
-            plan=replace(base,source='online',account=self.identity,datasets=base.datasets if selected_only else [d.key for d in DATASETS],
+            plan=replace(base,source='online',account=self.identity,datasets=base.datasets if selected_only else [d.key for d in DATASETS if d.full_sync],
                 health_detail=base.health_detail if selected_only else 'full',
                 activity_type='',selectors=[],formats=['json'],expert_method='',expert_kwargs={},
                 activity_details=list(ACTIVITY_DETAILS) if self.archive_details.isChecked() else [],
-                activity_files=(['ORIGINAL'] if self.archive_original.isChecked() else [])+[k for k,cb in self.archive_format_checks.items() if cb.isChecked()],delay=max(2.0,base.delay),retries=0)
+                activity_files=(['ORIGINAL'] if self.archive_original.isChecked() else [])+[k for k,cb in self.archive_format_checks.items() if cb.isChecked()],delay=max(MIN_SYNC_INTERVAL,base.delay),retries=max(1,base.retries))
             if 'activities' not in plan.datasets:plan=replace(plan,activity_details=[],activity_files=[])
             plan.validate()
             if Path(plan.archive_path).exists():
@@ -474,6 +507,7 @@ class MainWindow(QMainWindow):
         s=report['stats']
         text=self.tr(f"Offline-Datenbank: {s['downloaded']} neue Antworten, {s['cached']} wiederverwendet, {s['errors']} Fehler.",
                      f"Offline database: {s['downloaded']} new responses, {s['cached']} reused, {s['errors']} errors.")
+        if s.get('skipped'):text+=self.tr(f" {s['skipped']} Tage nach abgelehnter Abfrageart übersprungen (als fehlend vermerkt).",f" {s['skipped']} days skipped after a rejected query type (recorded as missing).")
         if report['cancelled']:text+='\n'+self.tr('Abgebrochen. Bereits gespeicherte Daten bleiben erhalten.','Stopped. Responses already saved remain available.')
         elif not report['completed']:text+='\n'+self.tr('Der Bestand ist unvollständig. Übersicht und Fehlermeldungen prüfen.','The archive is incomplete. Check coverage and errors.')
         if report.get('fatal_diagnostic'):text+='\n'+self.error_description(report['fatal_diagnostic'])
@@ -644,19 +678,25 @@ class MainWindow(QMainWindow):
         code,ok=QInputDialog.getText(self,self.tr('Zwei-Faktor-Anmeldung','Two-factor authentication'),self.tr('Garmin-Bestätigungscode:','Garmin verification code:'))
         self.worker.answers.put(code.strip() if ok else None)
 
-    def login(self):
+    def login(self,restore=False):
         if self.demo:
             self.message('Demo-Modus: Für echte Konten ohne --demo starten.','Demo mode: restart without --demo for real accounts.'); return
-        email=self.email.text().strip(); password=self.password.text(); remember=self.remember.isChecked(); china=self.china.isChecked()
+        email=self.email.text().strip(); password='' if restore else self.password.text(); remember=self.remember.isChecked(); china=self.china.isChecked()
         if not email:
             self.message('Bitte E-Mail-Adresse eingeben.','Please enter your email.'); return
         ident=account_key(email,china); session=self.data_dir/'sessions'/ident
-        detect_first=self.detect_first.isChecked()
+        detect_first=self.detect_first.isChecked() and not restore
         self.password.clear()
         def op(worker):
             api=Garmin(email=email,password=password or None,is_cn=china,prompt_mfa=worker.ask_mfa,retry_attempts=0)
+            persistence={'remember':remember,'china':china,'saved':False,'error':{}}
             if remember:
                 api.login(str(session))
+                try:
+                    # The library suppresses dump errors during login. Verify the
+                    # explicit save so the UI cannot silently promise persistence.
+                    api.client.dump(str(session));persistence['saved']=True
+                except Exception as exc:persistence['error']=diagnostic(exc)
             else:
                 # Explicit temporary path avoids the library's GARMINTOKENS fallback.
                 with tempfile.TemporaryDirectory(prefix='garmin-session-') as temp_session:
@@ -682,11 +722,21 @@ class MainWindow(QMainWindow):
                         if isinstance(items,list) and items:
                             first=(items[0].get('startTimeLocal') or '')[:10]
                 except Exception as exc:first_error=diagnostic(exc)
-            return api,ident,email,sport_keys,first,first_error or optional_error
+            return api,ident,email,sport_keys,first,first_error or optional_error,persistence
         self.run_worker(op,self.login_done)
 
     def login_done(self,result):
         self.api,self.identity,self._signed_email=result[:3]
+        if len(result)>6:
+            persistence=result[6]
+            if persistence['remember'] and persistence['saved']:
+                try:atomic_json(self.saved_account_path,{'schema':1,'email':result[2],'china':persistence['china']})
+                except OSError:persistence['saved']=False
+            if persistence['remember'] and not persistence['saved']:
+                text=self.tr('Anmeldung erfolgreich, aber die Sitzung konnte nicht für den nächsten Start gespeichert werden. Schreibrechte im angezeigten Profilordner prüfen.','Signed in, but the session could not be saved for the next start. Check write permissions in the displayed profile folder.')
+                self.log.appendPlainText(text);self.message(text,text)
+            elif persistence['remember']:
+                self.log.appendPlainText(self.tr('Sitzung für automatische Anmeldung gespeichert.','Session saved for automatic sign-in.'))
         self.sport_keys=list(FALLBACK_SPORTS); self.sports_loaded=False
         if len(result)>3 and result[3]:
             self.sport_keys=result[3]; self.sports_loaded=True
@@ -703,10 +753,16 @@ class MainWindow(QMainWindow):
             self.register_rate_limit(result[5]);self.log.appendPlainText(self.tr('Optionale Kontoabfrage nicht verfügbar: ','Optional account lookup unavailable: ')+self.error_description(result[5]))
 
     def forget(self):
-        if not self.identity:
-            self.message('Zuerst das zu entfernende Konto anmelden.','First sign in to the account whose session you want to remove.'); return
-        session=self.data_dir/'sessions'/self.identity
-        if session.exists(): shutil.rmtree(session)
+        ident=self.identity or (account_key(self.email.text().strip(),self.china.isChecked()) if self.email.text().strip() else None)
+        if not ident:
+            self.message('E-Mail-Adresse des zu entfernenden Kontos eingeben.','Enter the email of the account whose session you want to remove.');return
+        session=self.data_dir/'sessions'/ident
+        try:
+            if session.exists():shutil.rmtree(session)
+            self.saved_account_path.unlink(missing_ok=True)
+        except OSError:
+            self.message('Sitzung konnte nicht vollständig entfernt werden. Schreibrechte prüfen.','Could not fully remove the session. Check write permissions.');return
+        self.remember.setChecked(False);self.password.clear()
         self.api=None; self.identity=None; self.update_connection()
         self.message('Lokale Sitzung entfernt.','Local session removed.')
 
@@ -726,7 +782,7 @@ class MainWindow(QMainWindow):
             activity_summary=self.activity_summary.isChecked(),language=self.lang,
             preview_rows=self.preview_rows.value(),preview_requests=self.preview_requests.value(),
             source='offline' if offline else 'online',archive_path=self.archive_path.text().strip(),optimize=self.optimize.isChecked(),activity_batch_days=self.activity_batch_days.value(),
-            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value())
+            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value(),workers=self.workers.value())
 
     def show_export_preview(self):
         if not self.api and not self.use_offline.isChecked():
@@ -883,6 +939,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             text=self.error_description(diagnostic(exc));self.message(text,text);return
         if not chosen: self.message('Zuerst eine Kategorie auswählen.','Select a category first.'); return
+        if chosen.binary: self.message('Diese Datenart wird als unveränderte Datei gespeichert und hat keine Tabellenfelder.','This dataset is stored as an unmodified file and has no table fields.'); return
         day=self.start_date.date().toString('yyyy-MM-dd')
         args=() if chosen.kind=='account' else (day,day) if chosen.kind=='range' else (day,)
         self.preview_activity_summary=(chosen.key=='activities' and self.activity_summary.isChecked())
@@ -943,6 +1000,7 @@ class MainWindow(QMainWindow):
             self.archive_path.setText(p.archive_path);self.use_offline.setChecked(p.source=='offline');self.activity_summary.setChecked(p.activity_summary); self.preview_rows.setValue(p.preview_rows); self.preview_requests.setValue(p.preview_requests); self.split.setChecked(p.split_year); self.delay.setValue(p.delay); self.refresh.setValue(p.refresh_days); self.retries.setValue(p.retries); self.set_sport(p.activity_type)
             self.optimize.setChecked(p.optimize);self.activity_batch_days.setValue(p.activity_batch_days)
             self.health_detail.setCurrentIndex(self.health_detail.findData(p.health_detail));self.health_batch_days.setValue(p.health_batch_days)
+            if 'workers' in settings:self.workers.setValue(p.workers)  # Older presets keep the current value.
             self.selectors.setPlainText('\n'.join(p.selectors));self.expert_enable.setChecked(bool(p.expert_method));self.method.setCurrentText(p.expert_method or 'get_naps');self.kwargs.setPlainText(json.dumps(p.expert_kwargs,indent=2));self.expert_daily.setChecked(p.expert_daily)
         except Exception: self.message('Vorlage ungültig oder nicht lesbar.','Preset is invalid or unreadable.')
 
@@ -952,6 +1010,7 @@ class MainWindow(QMainWindow):
             self.message('GPS-Lesen wird beendet. Danach bitte erneut schließen.','Stopping GPS read. Close again when finished.');return
         if self.worker and self.worker.isRunning():
             self.stop();event.ignore();self.message('Abbruch angefordert. Bitte warten, bis der laufende Vorgang beendet ist, dann schließen.','Stop requested. Please wait until the running operation finishes, then close.');return
+        self._closing=True
         self.log.appendPlainText('TTN Garmin Export · session ended');event.accept()
 
 

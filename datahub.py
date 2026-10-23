@@ -30,8 +30,15 @@ def valid_point(lat, lon):
 def local_name(tag): return tag.rsplit('}',1)[-1]
 
 def xml_root(data):
-    if b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
-        raise ValueError('XML declarations are not supported')
+    # A byte search misses UTF-16/32 encoded documents. Let expat decode the
+    # document and refuse any DTD before ElementTree could expand entities.
+    from xml.parsers import expat
+    def forbidden(*args):raise ValueError('XML declarations are not supported')
+    guard=expat.ParserCreate()
+    guard.StartDoctypeDeclHandler=forbidden;guard.EntityDeclHandler=forbidden
+    guard.ExternalEntityRefHandler=forbidden
+    try:guard.Parse(data,True)
+    except expat.ExpatError as exc:raise ET.ParseError(str(exc)) from exc
     return ET.fromstring(data)
 
 def distance_m(points):
@@ -78,7 +85,11 @@ def parse_xml_activity(data, fmt):
                 if valid_point(lat,lon):points.append((lat,lon))
     start=None
     if times:
-        dates=sorted(datetime.fromisoformat(t.replace('Z','+00:00')) for t in times)
+        dates=[datetime.fromisoformat(t.strip().replace('Z','+00:00')) for t in times]
+        if any(d.tzinfo for d in dates) and not all(d.tzinfo for d in dates):
+            # GPX/TCX times are UTC; do not fail on files mixing "…Z" and naive times.
+            dates=[d if d.tzinfo else d.replace(tzinfo=timezone.utc) for d in dates]
+        dates.sort()
         start=dates[0].isoformat()
         if duration is None:duration=max(0,(dates[-1]-dates[0]).total_seconds())
     sport={'biking':'cycling','bike':'cycling','ride':'cycling','run':'running','walk':'walking','hike':'hiking'}.get(sport,sport)
@@ -236,7 +247,10 @@ def load_archive(path,cancel=None,with_tracks=True):
         for row in db.db.execute("SELECT DISTINCT dataset FROM responses WHERE dataset LIKE 'activity-%'"):
             match=re.fullmatch(r'activity-(-?\d+)-(gpx|tcx|fit|original|details)',row[0])
             if match:candidates.add(match.group(1))
-        return {'activities':activities,'tracks':tracks,'health':daily_health(db,cancel),'account':db.account,'track_candidates':candidates}
+        row=db.db.execute("SELECT COUNT(*),COALESCE(SUM(is_empty),0) FROM responses WHERE dataset='activities' AND is_binary=0").fetchone()
+        failed=db.db.execute("SELECT COUNT(*) FROM attempts WHERE dataset='activities'").fetchone()[0]
+        status={'responses':row[0],'empty_responses':row[1],'failed_requests':failed}
+        return {'activities':activities,'tracks':tracks,'health':daily_health(db,cancel),'account':db.account,'track_candidates':candidates,'activity_status':status}
 
 def activity_members(data,depth=0,budget=None):
     """Bounded in-memory traversal; never extract untrusted paths to disk."""
