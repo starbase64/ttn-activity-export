@@ -130,7 +130,11 @@ def test_data_map_occupies_full_height_right_pane_and_guide_is_last():
     assert window.tabs.tabText(window.tabs.count()-1)=='Anleitung'
     assert view.map_panel.mapTo(view,QPoint(0,0)).y()<20
     assert view.map.height()>view.height()*.6
-    assert view.cache_button.mapTo(view,QPoint(0,0)).x()+view.cache_button.width()<view.map_panel.mapTo(view,QPoint(0,0)).x()
+    # On Windows the left content can be wider than its scroll viewport.
+    # Check the visible pane boundary, not an intentionally clipped child.
+    left_scroll=view.browser_splitter.widget(0)
+    assert view.left_panel.isAncestorOf(view.cache_button)
+    assert left_scroll.mapTo(view,QPoint(left_scroll.width(),0)).x()<=view.map_panel.mapTo(view,QPoint(0,0)).x()
     window.toggle_language()
     assert window.tabs.tabText(window.tabs.count()-1)=='User guide'
     window.close()
