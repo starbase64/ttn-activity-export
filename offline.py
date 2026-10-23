@@ -4,12 +4,16 @@ import json
 import threading
 from datetime import date,timedelta
 from pathlib import Path
-from engine import Exporter,Cancelled,request_spec,days,error_status,fingerprint
+from engine import Exporter,Cancelled,request_spec,days,error_status,fingerprint,BINARY_SUFFIX
 from catalog import DATASETS, selected_datasets
 from activity_table import type_graph
 from failures import diagnostic
 from archive import Archive,OfflineDataMissing,OfflineNetworkDisabled
 from preview import Previewer
+
+
+class SkippedAfterRejection(Exception):
+    """Placeholder attempt for days not requested after Garmin rejected a method."""
 
 
 class OfflineAPI:
@@ -21,7 +25,7 @@ class OfflineAPI:
 class ArchiveSync(Exporter):
     def __init__(self,api,plan,cancel=None,event=lambda *a:None):
         super().__init__(api,plan,cancel,event)
-        self.blocked_methods=set()
+        self.blocked_methods=set();self.stats['skipped']=0
 
     def available(self,key,day,method,args=(),kwargs=None,binary_format=''):
         from archive import entry_key
@@ -33,7 +37,13 @@ class ArchiveSync(Exporter):
     def retrieve(self,key,day,method,args=(),kwargs=None,binary_format=''):
         self.check()
         request=request_spec(key,method,args,kwargs,binary_format)
-        if method in self.blocked_methods:return None
+        if method in self.blocked_methods and not self._saving_staged:
+            # Not requested again after Garmin rejected the method, but recorded as
+            # missing so coverage and the repair queue ("retry failed") include the day.
+            with self._lock:self._staged.pop((key,day),None)
+            if not self.archive.get(key,day,request):
+                self.archive.failed(key,day,request,SkippedAfterRejection(),None);self.stats['skipped']+=1
+            return None
         found=self.archive.get(key,day,request)
         refresh=(key,day) in getattr(self,'force_requests',set()) or day=='snapshot' or (self.plan.refresh_days>0 and date.fromisoformat(day)>=date.today()-timedelta(days=self.plan.refresh_days-1))
         cached=found is not None and not refresh
@@ -41,7 +51,7 @@ class ArchiveSync(Exporter):
         fetched=None
         if not cached and not refresh:
             # Import an existing successful cache response without downloading it again.
-            suffix={'ORIGINAL':'.zip','GPX':'.gpx','TCX':'.tcx','KML':'.kml','CSV':'.csv'}.get(binary_format,'.json')
+            suffix=BINARY_SUFFIX.get(binary_format,'.json')
             old=self.cache/key/day[:4]/(day+'-'+fingerprint(request)+suffix)
             if old.is_file():
                 try:
@@ -56,8 +66,8 @@ class ArchiveSync(Exporter):
                 except (ValueError,KeyError,OSError):pass
         try:
             if not cached:
-                if (key,day) in self._staged:data=self._staged.pop((key,day))
-                else:data=self.fetch_data(key,day,method,args,kwargs)
+                staged,data=self.take_staged(key,day)
+                if not staged:data=self.fetch_data(key,day,method,args,kwargs)
                 if binary_format and (not isinstance(data,bytes) or not data):raise ValueError('Invalid binary response')
             self.check()
             ident=found['entry_key'] if found and cached and data is found['data'] else self.archive.put(key,day,request,data,bool(binary_format),fetched)
@@ -98,6 +108,8 @@ class ArchiveSync(Exporter):
                     self.retrieve('activity_types','snapshot','get_activity_types')
                 self.collect()
             except Cancelled:stopped=True
+            except Exception as exc:fatal=diagnostic(exc)
+            try:self.save_staged_successes()
             except Exception as exc:fatal=diagnostic(exc)
             report={'completed':not stopped and not fatal and not self.stats['errors'],'cancelled':stopped,
                     'fatal_diagnostic':fatal,'stats':self.stats,'errors':self.errors,'warnings':self.warnings,
@@ -148,7 +160,7 @@ class OfflineExporter(Exporter):
             self.event('error',key,day,'OfflineDataMissing');return None
         self.stats['cached']+=1
         if found['is_empty']:self.stats['empty']+=1
-        suffix={'ORIGINAL':'.zip','GPX':'.gpx','TCX':'.tcx','KML':'.kml','CSV':'.csv'}.get(binary_format,'.json')
+        suffix=BINARY_SUFFIX.get(binary_format,'.json')
         self.records.append({'dataset':key,'date':day,'path':'archive/'+found['entry_key']+suffix,
                              'binary':bool(binary_format),'archive_key':found['entry_key']})
         self.event('item',key,day,'offline')
@@ -176,6 +188,7 @@ class OfflinePreviewer(Previewer):
             try:
                 for ds in selected_datasets(self.plan):
                     self.check()
+                    if ds.binary:self.preview_notes.append('files_not_downloaded');continue
                     found=archive.samples(ds.key,self.plan.start,self.plan.end,3)
                     if not found:
                         self.preview_errors.append({'dataset':ds.key,'error_type':'OfflineDataMissing','http_status':None});continue
@@ -201,4 +214,4 @@ class OfflinePreviewer(Previewer):
         if self.plan.expert_method:notes.append('expert_not_sampled')
         if self.plan.activity_files:notes.append('files_not_downloaded')
         return {'groups':self.make_groups(),'requests':0,'budget_reached':False,'cancelled':stopped,
-                'errors':self.preview_errors,'notes':notes+self.warnings,'plan':self.plan}
+                'errors':self.preview_errors,'notes':notes+self.preview_notes+self.warnings,'plan':self.plan}

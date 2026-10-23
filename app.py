@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QSplitter, QLayout, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView)
 from garminconnect import Garmin, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError
 from catalog import DATASETS, ACTIVITY_DETAILS, selected_datasets, all_definitions
-from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns
+from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS
 from help_content import HELP
 from sports import FALLBACK_SPORTS, activity_type_keys, sport_label
 from activity_table import SOURCE_PATHS
@@ -36,6 +36,8 @@ from sessionlog import SessionLog
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
 VERSION = '0.5.0-preview'
+# Lower bound for long archive syncs, even with a 0 s interval in the options.
+MIN_SYNC_INTERVAL = 0.25
 
 def default_output_folder():
     downloads=QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
@@ -297,7 +299,9 @@ class MainWindow(QMainWindow):
         def option_row(de,en,widget):
             caption=self.label(de,en); caption.setWordWrap(False)
             f.addWidget(caption); f.addWidget(widget)
-        self.delay=QDoubleSpinBox(); self.delay.setRange(0,60); self.delay.setDecimals(1); self.delay.setValue(1); option_row('Abrufpause (Sekunden)','Request interval (seconds)',self.delay)
+        self.delay=QDoubleSpinBox(); self.delay.setRange(0,60); self.delay.setDecimals(2); self.delay.setSingleStep(0.1); self.delay.setValue(0.5); option_row('Abrufpause (Sekunden)','Request interval (seconds)',self.delay)
+        self.workers=QSpinBox(); self.workers.setRange(1,MAX_WORKERS); self.workers.setValue(3); option_row('Parallele Abfragen','Parallel requests',self.workers)
+        f.addWidget(self.label('Mehrere Abfragen laufen gleichzeitig; die Abrufpause gilt trotzdem für alle zusammen. Höhere Werte sind schneller, erhöhen aber das Risiko einer Garmin-Ratenbegrenzung (HTTP 429). Dann stoppt der Lauf und kann später fortgesetzt werden.','Several requests run at the same time; the request interval still applies to all of them together. Higher values are faster but increase the risk of a Garmin rate limit (HTTP 429). The run then stops and can be resumed later.'))
         self.optimize=self.check('Zeitraumabfragen bündeln (empfohlen)','Batch supported date ranges (recommended)',True);f.addWidget(self.optimize)
         self.activity_batch_days=QSpinBox();self.activity_batch_days.setRange(1,365);self.activity_batch_days.setValue(31);option_row('Aktivitäten: Tage je Zeitraumabfrage','Activities: days per range query',self.activity_batch_days)
         self.health_batch_days=QSpinBox();self.health_batch_days.setRange(1,28);self.health_batch_days.setValue(28);option_row('Gesundheit: Tage je Zeitraumabfrage','Health: days per range query',self.health_batch_days)
@@ -452,11 +456,11 @@ class MainWindow(QMainWindow):
             self.message('Bitte eine Datenbankdatei angeben.','Please select a database file.');return
         try:
             base=self.make_plan(for_sync=True)
-            plan=replace(base,source='online',account=self.identity,datasets=base.datasets if selected_only else [d.key for d in DATASETS],
+            plan=replace(base,source='online',account=self.identity,datasets=base.datasets if selected_only else [d.key for d in DATASETS if d.full_sync],
                 health_detail=base.health_detail if selected_only else 'full',
                 activity_type='',selectors=[],formats=['json'],expert_method='',expert_kwargs={},
                 activity_details=list(ACTIVITY_DETAILS) if self.archive_details.isChecked() else [],
-                activity_files=(['ORIGINAL'] if self.archive_original.isChecked() else [])+[k for k,cb in self.archive_format_checks.items() if cb.isChecked()],delay=max(2.0,base.delay),retries=0)
+                activity_files=(['ORIGINAL'] if self.archive_original.isChecked() else [])+[k for k,cb in self.archive_format_checks.items() if cb.isChecked()],delay=max(MIN_SYNC_INTERVAL,base.delay),retries=max(1,base.retries))
             if 'activities' not in plan.datasets:plan=replace(plan,activity_details=[],activity_files=[])
             plan.validate()
             if Path(plan.archive_path).exists():
@@ -474,6 +478,7 @@ class MainWindow(QMainWindow):
         s=report['stats']
         text=self.tr(f"Offline-Datenbank: {s['downloaded']} neue Antworten, {s['cached']} wiederverwendet, {s['errors']} Fehler.",
                      f"Offline database: {s['downloaded']} new responses, {s['cached']} reused, {s['errors']} errors.")
+        if s.get('skipped'):text+=self.tr(f" {s['skipped']} Tage nach abgelehnter Abfrageart übersprungen (als fehlend vermerkt).",f" {s['skipped']} days skipped after a rejected query type (recorded as missing).")
         if report['cancelled']:text+='\n'+self.tr('Abgebrochen. Bereits gespeicherte Daten bleiben erhalten.','Stopped. Responses already saved remain available.')
         elif not report['completed']:text+='\n'+self.tr('Der Bestand ist unvollständig. Übersicht und Fehlermeldungen prüfen.','The archive is incomplete. Check coverage and errors.')
         if report.get('fatal_diagnostic'):text+='\n'+self.error_description(report['fatal_diagnostic'])
@@ -726,7 +731,7 @@ class MainWindow(QMainWindow):
             activity_summary=self.activity_summary.isChecked(),language=self.lang,
             preview_rows=self.preview_rows.value(),preview_requests=self.preview_requests.value(),
             source='offline' if offline else 'online',archive_path=self.archive_path.text().strip(),optimize=self.optimize.isChecked(),activity_batch_days=self.activity_batch_days.value(),
-            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value())
+            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value(),workers=self.workers.value())
 
     def show_export_preview(self):
         if not self.api and not self.use_offline.isChecked():
@@ -883,6 +888,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             text=self.error_description(diagnostic(exc));self.message(text,text);return
         if not chosen: self.message('Zuerst eine Kategorie auswählen.','Select a category first.'); return
+        if chosen.binary: self.message('Diese Datenart wird als unveränderte Datei gespeichert und hat keine Tabellenfelder.','This dataset is stored as an unmodified file and has no table fields.'); return
         day=self.start_date.date().toString('yyyy-MM-dd')
         args=() if chosen.kind=='account' else (day,day) if chosen.kind=='range' else (day,)
         self.preview_activity_summary=(chosen.key=='activities' and self.activity_summary.isChecked())
@@ -943,6 +949,7 @@ class MainWindow(QMainWindow):
             self.archive_path.setText(p.archive_path);self.use_offline.setChecked(p.source=='offline');self.activity_summary.setChecked(p.activity_summary); self.preview_rows.setValue(p.preview_rows); self.preview_requests.setValue(p.preview_requests); self.split.setChecked(p.split_year); self.delay.setValue(p.delay); self.refresh.setValue(p.refresh_days); self.retries.setValue(p.retries); self.set_sport(p.activity_type)
             self.optimize.setChecked(p.optimize);self.activity_batch_days.setValue(p.activity_batch_days)
             self.health_detail.setCurrentIndex(self.health_detail.findData(p.health_detail));self.health_batch_days.setValue(p.health_batch_days)
+            if 'workers' in settings:self.workers.setValue(p.workers)  # Older presets keep the current value.
             self.selectors.setPlainText('\n'.join(p.selectors));self.expert_enable.setChecked(bool(p.expert_method));self.method.setCurrentText(p.expert_method or 'get_naps');self.kwargs.setPlainText(json.dumps(p.expert_kwargs,indent=2));self.expert_daily.setChecked(p.expert_daily)
         except Exception: self.message('Vorlage ungültig oder nicht lesbar.','Preset is invalid or unreadable.')
 

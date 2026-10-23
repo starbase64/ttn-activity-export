@@ -161,3 +161,20 @@ def test_repair_rate_limit_stops_queue_and_retains_previous_data(tmp_path):
     result=RepairSync(API(),plan).run_tasks(tasks)
     assert calls==['2020-01-01'] and result['report']['fatal_diagnostic']['reason']=='rate_limit'
     assert 'private response' not in json.dumps(result)
+
+
+def test_xml_dtd_is_refused_in_any_encoding():
+    import pytest
+    from datahub import parse_activity
+    doc='<?xml version="1.0" encoding="{enc}"?><!DOCTYPE gpx [<!ENTITY a "AAAA"><!ENTITY b "&a;&a;&a;">]><gpx><trk><name>&b;</name><trkseg><trkpt lat="1" lon="1"><time>2020-01-01T10:00:00Z</time></trkpt></trkseg></trk></gpx>'
+    for enc,codec in (('UTF-8','utf-8'),('UTF-16','utf-16'),('UTF-16','utf-16-le')):
+        data=doc.format(enc=enc).encode(codec)
+        with pytest.raises(Exception) as info:parse_activity(data,'gpx')
+        assert 'declarations' in str(info.value) or 'ParseError' in type(info.value).__name__
+
+
+def test_gpx_with_mixed_utc_and_naive_times_imports():
+    from datahub import parse_activity
+    gpx=b'<gpx><trk><trkseg><trkpt lat="1" lon="1"><time>2020-01-01T10:00:00Z</time></trkpt><trkpt lat="1.1" lon="1"><time>2020-01-01T10:10:00</time></trkpt></trkseg></trk></gpx>'
+    summary,points=parse_activity(gpx,'gpx')
+    assert summary['duration']==600 and summary['startTimeLocal'].startswith('2020-01-01T10:00:00') and len(points)==2

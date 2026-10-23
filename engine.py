@@ -17,8 +17,29 @@ from failures import diagnostic, error_status
 from activity_table import table_row, type_graph, COLUMNS, SOURCE_PATHS
 
 SCHEMA = 1
+BINARY_SUFFIX = {'ORIGINAL': '.zip', 'GPX': '.gpx', 'TCX': '.tcx', 'KML': '.kml', 'CSV': '.csv', 'WELLNESS': '.zip'}
+MAX_WORKERS = 8
+# Window of independent requests fetched concurrently before they are stored in order.
+PREFETCH_WINDOW = 6
 class Cancelled(Exception): pass
 class ActivityPaginationError(Exception): pass
+class ActivityRangeMismatch(ActivityPaginationError): pass
+
+
+class StagedFailure:
+    """A request that failed in a parallel worker; re-raised where it is stored in order."""
+    def __init__(self, exc): self.exc = exc
+
+
+def halts_transfer(exc):
+    """Errors after which no further requests may be sent (rate limit, auth, server/network)."""
+    from garminconnect import (GarminConnectAuthenticationError, GarminConnectTooManyRequestsError,
+                               GarminConnectConnectionError, GarminConnectNotFoundError)
+    if isinstance(exc, (GarminConnectAuthenticationError, GarminConnectTooManyRequestsError)):
+        return True
+    if isinstance(exc, GarminConnectConnectionError) and not isinstance(exc, GarminConnectNotFoundError):
+        return error_status(exc) not in (400, 404, 405, 422)
+    return False
 
 
 def request_spec(key,method,args=(),kwargs=None,binary_format=''):
@@ -153,6 +174,7 @@ class Plan:
     activity_batch_days: int = 31
     health_detail: str = 'full'
     health_batch_days: int = 28
+    workers: int = 1
 
     def validate(self):
         date.fromisoformat(self.start); date.fromisoformat(self.end)
@@ -168,6 +190,8 @@ class Plan:
             raise ValueError('Invalid transfer options')
         if self.health_detail not in ('full','daily') or type(self.health_batch_days) is not int or not 1<=self.health_batch_days<=28:
             raise ValueError('Invalid health transfer options')
+        if type(self.workers) is not int or not 1<=self.workers<=MAX_WORKERS:
+            raise ValueError('Invalid number of parallel requests')
         if self.source not in ('online','offline') or (self.source=='offline' and not self.archive_path):
             raise ValueError('Invalid offline source')
         if self.language not in ('de','en'):
@@ -229,11 +253,15 @@ class Exporter:
         self.type_descendants = None
         self.warnings = []
         if plan.health_detail=='daily':self.warnings.append('daily_statistics_without_timelines')
-        self._staged={};self.eta=None;self.transfer={'requests':0,'range_calls':0,'fallback_days':0}
+        self._staged={};self.eta=None;self.transfer={'requests':0,'range_calls':0,'fallback_days':0,'parallel_requests':0}
         self.range_disabled=set()
+        # One request schedule for all worker threads: `delay` is the minimum
+        # interval between two request starts, regardless of parallelism.
+        self._lock=threading.RLock();self._schedule_lock=threading.Lock();self._next_slot=0.0;self._halt=None
+        self._staged_requests={};self._saving_staged=False
 
     def cache_path(self,key,day,method,args=(),kwargs=None,binary_format=''):
-        suffix={'ORIGINAL':'.zip','GPX':'.gpx','TCX':'.tcx','KML':'.kml','CSV':'.csv'}.get(binary_format,'.json')
+        suffix=BINARY_SUFFIX.get(binary_format,'.json')
         return self.cache/key/day[:4]/(day+'-'+fingerprint(request_spec(key,method,args,kwargs,binary_format))+suffix)
 
     def refresh_day(self,day):
@@ -250,7 +278,7 @@ class Exporter:
         except (ValueError,KeyError,OSError):return False
 
     def check(self):
-        if self.cancel.is_set():
+        if self.cancel.is_set() and not self._saving_staged:
             raise Cancelled()
 
     def wait(self, seconds):
@@ -259,14 +287,24 @@ class Exporter:
 
     def call(self, fn, *args, **kwargs):
         import time
+        if self._saving_staged:raise RuntimeError('Cannot request data while saving completed responses')
         from garminconnect import (GarminConnectAuthenticationError, GarminConnectTooManyRequestsError,
                                    GarminConnectConnectionError, GarminConnectNotFoundError)
         for attempt in range(self.plan.retries + 1):
             self.check()
+            if self._halt is not None:
+                raise self._halt  # Another worker hit a rate limit or fatal error.
             request_began=time.monotonic()
-            self.wait(max(0.0, self.plan.delay - (time.monotonic() - self.last_request)))
-            self.last_request = time.monotonic()
-            self.transfer['requests']+=1;self.event('request',self.transfer['requests'])
+            # Reserve against the actual preceding start, not future slots: an
+            # oversleep must never make overdue workers start together.
+            with self._schedule_lock:
+                self.wait(max(0.0,self._next_slot-time.monotonic()))
+                if self._halt is not None:raise self._halt
+                with self._lock:
+                    self.last_request=time.monotonic()
+                    self._next_slot=self.last_request+self.plan.delay
+                    self.transfer['requests']+=1;count=self.transfer['requests']
+            self.event('request',count)
             try:
                 return fn(*args, **kwargs)
             except (GarminConnectAuthenticationError, GarminConnectTooManyRequestsError):
@@ -281,14 +319,65 @@ class Exporter:
                 pause=min(30,2**(attempt+1));self.event('retry_wait',pause)
                 self.wait(pause);self.event('retry_wait',0)
             finally:
-                if self.eta:self.eta.observe_request(time.monotonic()-request_began)
+                if self.eta:
+                    with self._lock:self.eta.observe_request(time.monotonic()-request_began)
+
+    def take_staged(self,key,day):
+        """Return (True, payload) for a prefetched response; re-raise a prefetch failure here."""
+        with self._lock:
+            if (key,day) not in self._staged:return False,None
+            payload=self._staged.pop((key,day))
+            self._staged_requests.pop((key,day),None)
+        if isinstance(payload,StagedFailure):raise payload.exc
+        return True,payload
+
+    def prefetch_parallel(self,items):
+        """Fetch independent requests concurrently; results are stored later, in order.
+
+        items: (key, day, method, args, kwargs, binary_format). Payloads and failures are
+        staged under (key, day). After a rate limit, authentication or server/network
+        failure, no worker starts another request; the sequential loop then raises it.
+        """
+        items=[i for i in items if (i[0],i[1]) not in self._staged]
+        if self.plan.workers<=1 or len(items)<2 or self._halt is not None:return
+        self._staged_requests.update({(i[0],i[1]):i for i in items})
+        from concurrent.futures import ThreadPoolExecutor
+        def task(item):
+            key,day,method,args,kwargs,fmt=item
+            if self.cancel.is_set() or self._halt is not None:return
+            try:payload=self.fetch_data(key,day,method,args,kwargs)
+            except Cancelled:return
+            except Exception as exc:
+                if halts_transfer(exc):
+                    with self._lock:
+                        if self._halt is None:self._halt=exc
+                payload=StagedFailure(exc)
+            with self._lock:
+                self._staged[(key,day)]=payload;self.transfer['parallel_requests']+=1
+        with ThreadPoolExecutor(max_workers=min(self.plan.workers,len(items)),thread_name_prefix='garmin-fetch') as pool:
+            list(pool.map(task,items))
+
+    def save_staged_successes(self):
+        """Save completed responses after Stop/error, on the SQLite owner thread.
+
+        Never issue a new request here. Other workers may have finished after the
+        failed request, or the user may have stopped while a window was loading.
+        """
+        self._saving_staged=True
+        try:
+            for token,item in list(self._staged_requests.items()):
+                if token not in self._staged or isinstance(self._staged[token],StagedFailure):continue
+                self.retrieve(*item)
+                self._staged.pop(token,None)
+        finally:
+            self._saving_staged=False
 
     def retrieve(self, key, day, method, args=(), kwargs=None, binary_format=''):
         self.check()
         kwargs = kwargs or {}
         request = request_spec(key,method,args,kwargs,binary_format)
         digest = fingerprint(request)
-        suffix = {'ORIGINAL': '.zip', 'GPX': '.gpx', 'TCX': '.tcx', 'KML': '.kml', 'CSV': '.csv'}.get(binary_format, '.json')
+        suffix = BINARY_SUFFIX.get(binary_format, '.json')
         path = self.cache / key / day[:4] / (day + '-' + digest + suffix)
         refresh = day != 'snapshot' and self.plan.refresh_days > 0 and date.fromisoformat(day) >= date.today() - timedelta(days=self.plan.refresh_days - 1)
         reuse = path.exists() and not refresh and day != 'snapshot'
@@ -306,9 +395,8 @@ class Exporter:
             self.stats['cached'] += 1
         else:
             try:
-                fn = getattr(self.api, method)
-                if (key,day) in self._staged:payload=self._staged.pop((key,day))
-                else:payload = self.fetch_data(key,day,method,args,kwargs)
+                staged,payload=self.take_staged(key,day)
+                if not staged:payload = self.fetch_data(key,day,method,args,kwargs)
                 self.check()
                 if binary_format:
                     if not isinstance(payload, bytes) or not payload:
@@ -364,6 +452,9 @@ class Exporter:
         except Exception as exc:
             fatal = type(exc).__name__
             fatal_detail = diagnostic(exc)
+        try:self.save_staged_successes()
+        except Exception as exc:
+            fatal=type(exc).__name__;fatal_detail=diagnostic(exc)
         self.event('writing')
         # Write only data actually retrieved in this run, never unrelated cache entries.
         config = {k: v for k, v in vars(p).items() if k not in ('account', 'output')}
@@ -396,16 +487,20 @@ class Exporter:
             self.eta=RemainingTime([job.family for job in jobs]+['expert']*expert_count,p.delay,self.event)
             self.eta.open_activity_days=sum(len(job.days) for job in jobs if job.dataset.key=='activities')
         self.event('phase','download' if p.source!='offline' else 'offline')
-        for job in jobs:
+        for index,job in enumerate(jobs):
             self.check();ds=job.dataset
+            if self.parallel_job(job) and (ds.key,job.days[0]) not in self._staged:
+                window=[]
+                for later in jobs[index:]:
+                    if len(window)>=p.workers*PREFETCH_WINDOW:break
+                    if self.parallel_job(later):
+                        window.append((later.dataset.key,later.days[0],later.dataset.method,*self.request_args(later.dataset,later.days[0]),later.dataset.binary))
+                self.prefetch_parallel(window)
             if self.eta:self.eta.begin(job.family)
             if job.mode=='range' and ds.key not in self.range_disabled:self.prefetch_range(ds,job.days)
             for day in job.days:
-                args = () if ds.kind == 'account' else (day, day) if ds.kind == 'range' else (day,)
-                kwargs = {}
-                if ds.key == 'endurance':
-                    kwargs['aggregation'] = 'daily'
-                result = self.retrieve(ds.key, day, ds.method, args, kwargs)
+                args,kwargs=self.request_args(ds,day)
+                result = self.retrieve(ds.key, day, ds.method, args, kwargs, ds.binary)
                 self.event('progress')
                 if ds.key == 'activities' and isinstance(result, list):
                     matched=self.match_activities(result)
@@ -426,6 +521,17 @@ class Exporter:
                 self.event('progress')
                 if self.eta:self.eta.finish()
 
+    @staticmethod
+    def request_args(ds,day):
+        args=() if ds.kind=='account' else (day,day) if ds.kind=='range' else (day,)
+        return args,({'aggregation':'daily'} if ds.key=='endurance' else {})
+
+    def parallel_job(self,job):
+        """Single-day network requests that are independent of each other."""
+        return (self.plan.workers>1 and self.plan.source!='offline' and not job.cached and job.mode=='single'
+                and job.dataset.key!='activities' and job.dataset.kind!='account'
+                and job.dataset.method not in getattr(self,'blocked_methods',()))
+
     def prefetch_range(self,ds,calendar):
         self.event('batch',ds.key,calendar[0],calendar[-1]);self.transfer['range_calls']+=1
         try:
@@ -434,7 +540,7 @@ class Exporter:
                 for a in data:
                     stamp=a.get('startTimeLocal')
                     if not isinstance(stamp,str) or stamp[:10] not in grouped:
-                        raise ActivityPaginationError('Activity range date mismatch')
+                        raise ActivityRangeMismatch('Activity range date mismatch')
                     grouped[stamp[:10]].append(a)
             elif ds.key=='body_battery':
                 from transfer import split_body_battery
@@ -455,7 +561,10 @@ class Exporter:
             status=error_status(exc)
             if isinstance(exc,(GarminConnectAuthenticationError,GarminConnectTooManyRequestsError)):raise
             if isinstance(exc,GarminConnectConnectionError) and status not in (400,404,405,422):raise
-            self.range_disabled.add(ds.key);self.transfer['fallback_days']+=len(calendar)
+            # A single activity outside its batch (e.g. time zone change around midnight)
+            # only affects this batch. Do not switch years of later batches to daily requests.
+            if not isinstance(exc,ActivityRangeMismatch):self.range_disabled.add(ds.key)
+            self.transfer['fallback_days']+=len(calendar)
             self.warnings.append('range_fallback:'+ds.key+':'+type(exc).__name__)
             self.event('batch_fallback',ds.key)
 
@@ -536,10 +645,18 @@ class Exporter:
             family='cache' if self.available(key,day,method,args,kwargs,fmt) else family
             classified.append((key,method,args,kwargs,fmt,family))
             if self.eta:self.eta.add(family,1)
-        for key,method,args,kwargs,fmt,family in classified:
-            if self.eta:self.eta.begin(family)
-            self.retrieve(key,day,method,args,kwargs,fmt);self.event('progress')
-            if self.eta:self.eta.finish()
+        # Bound raw-file memory even when a day has many activities/downloads.
+        size=self.plan.workers*PREFETCH_WINDOW
+        for offset in range(0,len(classified),size):
+            window=classified[offset:offset+size]
+            if self.plan.workers>1 and self.plan.source!='offline':
+                blocked=getattr(self,'blocked_methods',())
+                self.prefetch_parallel([(key,day,method,args,kwargs,fmt) for key,method,args,kwargs,fmt,family in window
+                                        if family!='cache' and method not in blocked])
+            for key,method,args,kwargs,fmt,family in window:
+                if self.eta:self.eta.begin(family)
+                self.retrieve(key,day,method,args,kwargs,fmt);self.event('progress')
+                if self.eta:self.eta.finish()
 
     def iter_payloads(self, records):
         for record in records:
@@ -591,7 +708,8 @@ class Exporter:
             year = record['date'][:4] if self.plan.split_year else 'all'
             key = record['dataset'] + '-' + year
             if record['binary']:
-                target = destination / 'activities' / Path(record['path']).name
+                folder = 'activities' if record['dataset'].startswith('activity-') else record['dataset']
+                target = destination / folder / Path(record['path']).name
                 # Source basename includes request hash and therefore activity identity.
                 target.parent.mkdir(parents=True, exist_ok=True)
                 self.copy_binary(record,target)

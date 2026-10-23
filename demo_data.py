@@ -40,3 +40,11 @@ class DemoGarmin:
     def get_sleep_data(self,cdate):
         return {'DEMO_SYNTHETIC':True,'dailySleepDTO':{'calendarDate':cdate,'sleepTimeSeconds':25200,'deepSleepSeconds':5400,
                 'remSleepSeconds':4800,'lightSleepSeconds':15000},'sleepLevels':[{'startGMT':cdate+'T00:00:00','endGMT':cdate+'T01:30:00','activityLevel':0}]}
+
+def _demo_wellness_zip(cdate):
+    import io,zipfile
+    buffer=io.BytesIO()
+    with zipfile.ZipFile(buffer,'w') as z:z.writestr('DEMO_SYNTHETIC_'+cdate+'.txt','Synthetic placeholder, not a Garmin FIT file')
+    return buffer.getvalue()
+
+DemoGarmin.download_health_snapshot=lambda self,requested_date:_demo_wellness_zip(requested_date)

@@ -2,6 +2,12 @@
 
 Lokale Windows-App zum Exportieren und Durchsuchen deiner Garmin-Connect-Daten. Deutsch/Englisch umschaltbar. Unabhängiges Community-Projekt; kein offizielles Garmin-Produkt.
 
+## In Entwicklung: schnellere Downloads
+
+Unveröffentlichter Entwicklungsstand: 1–8 parallele Abfragen (Standard 3), gemeinsamer Mindestabstand von 0,5 Sekunden statt der bisherigen festen 2 Sekunden bei Sicherungen, begrenzte Wiederholungen und Erhalt erfolgreich geladener Antworten bei Abbruch. Garmin kann weiterhin Tagesabfragen und Ratenlimits erfordern; eine Beschleunigung um Faktor vier ist noch nicht mit echten Konten gemessen.
+
+Optional: Tages-Wellness-ZIPs unverändert sichern. Diese Rohdateien werden derzeit nicht in CSV/Excel umgewandelt und ersetzen JSON-Abfragen nicht automatisch. Anleitung in der App erklärt die Auswahl.
+
 ## Windows starten — ohne Python-Installation
 
 1. Unter [Releases](https://github.com/starbase64/ttn-garmin-export/releases) das **Windows-Starter-ZIP** herunterladen.

@@ -8,6 +8,8 @@ class Dataset:
     en: str
     method: str
     kind: str = 'day'  # day, range, account
+    binary: str = ''   # non-empty: stored as an unmodified file (see engine.BINARY_SUFFIX)
+    full_sync: bool = True  # part of "Download / update all supported data"
 
 DATASETS = [
     Dataset('summary', 'Tagesübersicht', 'Daily summary', 'get_user_summary'),
@@ -34,6 +36,11 @@ DATASETS = [
     Dataset('endurance', 'Ausdauerwert', 'Endurance score', 'get_endurance_score', 'range'),
     Dataset('hill', 'Hill Score', 'Hill score', 'get_hill_score', 'range'),
     Dataset('activities', 'Aktivitäten – Übersicht', 'Activities – summary', 'get_activities_by_date', 'range'),
+    # One ZIP per day with the watch's monitoring FIT files (all-day heart rate, steps,
+    # stress, intensity, …) – the same download GarminDB uses. One request replaces
+    # several per-day JSON timeline requests. Kept as raw files; opt-in.
+    Dataset('wellness_fit', 'Tagesrohdaten als FIT-Datei (1 Abfrage pro Tag)', 'Daily raw data as FIT file (1 request per day)',
+            'download_health_snapshot', 'day', 'WELLNESS', False),
     Dataset('devices', 'Geräte (aktueller Stand)', 'Devices (current snapshot)', 'get_devices', 'account'),
     Dataset('records', 'Persönliche Rekorde (aktueller Stand)', 'Personal records (current snapshot)', 'get_personal_record', 'account'),
     Dataset('goals', 'Aktive Ziele (aktueller Stand)', 'Active goals (current snapshot)', 'get_goals', 'account'),

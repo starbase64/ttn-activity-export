@@ -1,3 +1,12 @@
+# Unreleased parallel-download review — 2026-10-23
+
+- Uploaded patch applies to main commit a1f7140. Its original 116 synthetic tests pass locally (Linux, Python 3.12).
+- Added regression coverage for completed responses arriving after an earlier 429, and for Stop during concurrent requests. Both ordinary exports and SQLite sync preserve those successes without new network requests. 118 tests pass after these corrections.
+- Shared scheduling now uses actual request-start times rather than reserved future slots, preventing late workers from catching up in a burst.
+- XML encoding guard, mixed timestamp import, per-batch activity fallback, skipped-day repair tracking and raw wellness ZIP resumption/export have synthetic coverage.
+- Wellness endpoint checked against the pinned Garmin library: download_health_snapshot targets /download-service/files/wellness/{date}. No live Garmin calls made. Wellness ZIPs are not converted into tables and do not automatically replace selected JSON datasets.
+- No fourfold speedup or 4–5 hour full-account duration verified. Windows validation is available through the PR workflow. This development change is not part of the existing v0.5.0-preview release.
+
 # Validation — 0.5.0-preview
 
 2026-10-23 · prepared on Linux / Python 3.12.

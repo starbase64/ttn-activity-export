@@ -33,7 +33,7 @@ def plan_jobs(exporter,selected):
             exporter.check()
             args=() if ds.kind=='account' else (day,day) if ds.kind=='range' else (day,)
             kwargs={'aggregation':'daily'} if ds.key=='endurance' else {}
-            cached=exporter.available(ds.key,day,ds.method,args,kwargs)
+            cached=exporter.available(ds.key,day,ds.method,args,kwargs,ds.binary)
             if cached:
                 flush();result.append(Job(ds,[day],True));continue
             pending.append(day)

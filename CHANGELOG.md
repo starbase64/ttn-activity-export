@@ -1,3 +1,15 @@
+# Unreleased · speed and fixes
+
+- Parallel requests (Options → "Parallele Abfragen", 1–8, default 3) for independent single-day requests and activity details/files. One shared schedule: the request interval is the minimum gap between any two request starts across all workers. Responses are stored in the original order; stored response payloads and exported data files match sequential runs in synthetic tests (timestamps and reports differ).
+- Completed parallel responses are saved even after an earlier request failed or Stop was pressed. Actual request starts use a shared schedule that handles delayed workers.
+- A rate limit, authentication or server/network failure in any worker stops new requests at once; already received responses are saved and the run stays resumable.
+- Archive sync no longer forces a 2 s interval; it uses the configured interval (minimum 0.25 s, default 0.5 s) and retries transient network/5xx errors (never 4xx/429).
+- New opt-in dataset "Tagesrohdaten als FIT-Datei": one /download-service/files/wellness/{date} ZIP per day (monitoring FIT files), stored and exported unchanged. Not part of "all supported data"; no table conversion yet.
+- Fix: days skipped after Garmin rejected a query type are now recorded as missing (coverage, "retry failed" queue) instead of silently absent.
+- Fix: one activity outside its range batch no longer switches all later activity batches to daily requests.
+- Security: XML import refused DTDs only by byte search, bypassable with UTF-16; now checked by the parser for every encoding.
+- Fix: GPX/TCX files mixing UTC ("Z") and naive timestamps no longer fail to import.
+
 # 0.5.0-preview · 2026-10-23
 
 - Renamed the application to TTN Garmin Export to distinguish it from existing garmin-data-export projects. Retained internal application profile name for existing sessions/logs.
