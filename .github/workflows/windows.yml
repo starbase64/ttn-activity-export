@@ -1,0 +1,38 @@
+name: Windows portable build
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Tests (offline synthetic data only)
+        run: python -m pytest -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Build portable Windows application
+        shell: pwsh
+        run: ./build_windows.ps1 -NoVenv
+      - name: Verify bundled application without network access
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath './dist/TTNGarminExport/TTNGarminExport.exe' -ArgumentList '--smoke-test' -Wait -PassThru
+          if ($proc.ExitCode -ne 0) { throw 'Bundled smoke test failed' }
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - name: Package EXE, libraries and notices
+        shell: pwsh
+        run: Compress-Archive -Path dist/TTNGarminExport -DestinationPath TTNGarminExport-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TTNGarminExport-Windows-x64
+          path: TTNGarminExport-Windows-x64.zip
+          retention-days: 30

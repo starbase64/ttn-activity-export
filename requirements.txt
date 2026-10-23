@@ -1,0 +1,5 @@
+garminconnect==0.3.19
+PySide6==6.12.0
+openpyxl==3.1.5
+fitdecode==0.11.0
+tzdata==2026.5

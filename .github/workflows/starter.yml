@@ -1,0 +1,57 @@
+name: Windows starter tests and package
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  windows-starter:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - name: Install development test dependencies
+        run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - name: Offline synthetic regression tests
+        run: python -m pytest -q
+      - name: Parse Windows setup script
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'bootstrap.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
+          if ($errors.Count) { throw ($errors | Out-String) }
+      - name: Build small starter
+        run: python build_starter.py dist/TTN-Garmin-Export-Windows-Starter.zip
+      - name: First setup using official pinned downloads and app smoke test
+        shell: pwsh
+        run: |
+          Expand-Archive dist/TTN-Garmin-Export-Windows-Starter.zip -DestinationPath dist/check
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Garmin-Export/bootstrap.ps1 --smoke-test
+          if ($LASTEXITCODE -ne 0) { throw 'First setup or embedded-runtime smoke test failed.' }
+      - name: Warm offline startup and missing dependency repair
+        shell: pwsh
+        env:
+          HTTP_PROXY: http://127.0.0.1:9
+          HTTPS_PROXY: http://127.0.0.1:9
+          NO_PROXY: ''
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Garmin-Export/bootstrap.ps1 --smoke-test
+          if ($LASTEXITCODE -ne 0) { throw 'Warm offline start failed.' }
+          Remove-Item ./dist/check/TTN-Garmin-Export/runtime/Lib/site-packages/fitdecode/__init__.py
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Garmin-Export/bootstrap.ps1 --smoke-test
+          if ($LASTEXITCODE -ne 0) { throw 'Cached dependency repair failed.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TTN-Garmin-Export-Windows-Starter
+          path: |
+            dist/TTN-Garmin-Export-Windows-Starter.zip
+            dist/TTN-Garmin-Export-Windows-Starter.zip.sha256
+          retention-days: 30

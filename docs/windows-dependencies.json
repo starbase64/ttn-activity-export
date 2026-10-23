@@ -1,0 +1,88 @@
+{
+  "python": "3.13.16",
+  "python_url": "https://www.python.org/ftp/python/3.13.16/python-3.13.16-embed-amd64.zip",
+  "python_sha256": "97dae5274cc54867065e8d5a3226e48c35017ed332a0fdb0e27d5b5821961297",
+  "wheels": [
+    {
+      "file": "certifi-2026.10.19-py3-none-any.whl",
+      "sha256": "42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b"
+    },
+    {
+      "file": "cffi-2.1.1-cp313-cp313-win_amd64.whl",
+      "sha256": "1aa5645c30469b09530c4ebca77ebf8f17618293c58f8549cb1a543a50236e7d"
+    },
+    {
+      "file": "charset_normalizer-3.5.2-cp313-cp313-win_amd64.whl",
+      "sha256": "78456a747de8dc58360ffa581f30a002baf5aa28cb262536545e91f113ed7639"
+    },
+    {
+      "file": "curl_cffi-0.16.3-cp310-abi3-win_amd64.whl",
+      "sha256": "fe87b66e324ed7318166698e02169f3208dbda32b872a27d2bc61a9c19b335eb"
+    },
+    {
+      "file": "et_xmlfile-2.0.0-py3-none-any.whl",
+      "sha256": "7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa"
+    },
+    {
+      "file": "fitdecode-0.11.0-py3-none-any.whl",
+      "sha256": "a1bdb9b4d1e9ebac0001fc58c22fe07a3f9967ca4e13258c6ef99cdb8d697a78"
+    },
+    {
+      "file": "garminconnect-0.3.19-py3-none-any.whl",
+      "sha256": "3479408049f39192e8e479600fbea5cae3b57b73d268075e2f8cdb82f852b6ae"
+    },
+    {
+      "file": "idna-3.20-py3-none-any.whl",
+      "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+    },
+    {
+      "file": "openpyxl-3.1.5-py2.py3-none-any.whl",
+      "sha256": "5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2"
+    },
+    {
+      "file": "pycparser-3.12-py3-none-any.whl",
+      "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+    },
+    {
+      "file": "pyside6-6.12.0-cp310-abi3-win_amd64.whl",
+      "sha256": "31a8d2893f2f28ab483b1534dde0438f27af6e234593de30425cb4729052d8f8"
+    },
+    {
+      "file": "pyside6_addons-6.12.0-cp310-abi3-win_amd64.whl",
+      "sha256": "98d8d62010da6605344cee83e5c96fb846170a1f2d924523f10f5d92078b02b0"
+    },
+    {
+      "file": "pyside6_essentials-6.12.0-cp310-abi3-win_amd64.whl",
+      "sha256": "c9a95102aa23c1f86516a30d5a9be37552d324eee7e567eb7508973f1218cb42"
+    },
+    {
+      "file": "pyside6_pdf-6.12.0.140-cp310-abi3-win_amd64.whl",
+      "sha256": "4971ba1a0ca15e7c29cfd808e9600aeb46b2305dad01456eb09fa3197166268e"
+    },
+    {
+      "file": "pyside6_webengine-6.12.0.140-cp310-abi3-win_amd64.whl",
+      "sha256": "f9b61b1d457a591ee590a6b80515f25a3e61e2576a2a0a70566380f9d9de4ab0"
+    },
+    {
+      "file": "requests-2.34.2-py3-none-any.whl",
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
+    },
+    {
+      "file": "shiboken6-6.12.0-cp310-abi3-win_amd64.whl",
+      "sha256": "a1906cb8116869178c64b6bab52623bbc8b4ceed7b30bfc3c9aa0f6e67f6438e"
+    },
+    {
+      "file": "tzdata-2026.5-py2.py3-none-any.whl",
+      "sha256": "b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac"
+    },
+    {
+      "file": "ua_generator-2.1.7-py3-none-any.whl",
+      "sha256": "8a80cca9568188fa7a63e3764b05f36c6ccff75b32f86255d67cfd28c59b4de9"
+    },
+    {
+      "file": "urllib3-2.8.0-py3-none-any.whl",
+      "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+    }
+  ],
+  "windows_execution_tested": false
+}
