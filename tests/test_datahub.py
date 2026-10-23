@@ -178,3 +178,17 @@ def test_gpx_with_mixed_utc_and_naive_times_imports():
     gpx=b'<gpx><trk><trkseg><trkpt lat="1" lon="1"><time>2020-01-01T10:00:00Z</time></trkpt><trkpt lat="1.1" lon="1"><time>2020-01-01T10:10:00</time></trkpt></trkseg></trk></gpx>'
     summary,points=parse_activity(gpx,'gpx')
     assert summary['duration']==600 and summary['startTimeLocal'].startswith('2020-01-01T10:00:00') and len(points)==2
+
+
+def test_activity_inventory_distinguishes_missing_requests_and_empty_responses(tmp_path):
+    p=tmp_path/'inventory.sqlite';account=account_key('inventory@example.invalid')
+    with Archive(p,account) as db:
+        db.put('summary','2020-01-01',request_spec('summary','get_user_summary',('2020-01-01',)),{'totalSteps':10})
+    data=load_archive(p,with_tracks=False)
+    assert data['activities']==[] and data['activity_status']=={'responses':0,'empty_responses':0,'failed_requests':0}
+    with Archive(p,account) as db:
+        req=request_spec('activities','get_activities_by_date',('2020-01-01','2020-01-01'))
+        db.put('activities','2020-01-01',req,[])
+        db.failed('activities','2020-01-02',req,ValueError(),None)
+    data=load_archive(p,with_tracks=False)
+    assert data['activities']==[] and data['activity_status']=={'responses':1,'empty_responses':1,'failed_requests':1}

@@ -342,6 +342,8 @@ class Exporter:
         if self.plan.workers<=1 or len(items)<2 or self._halt is not None:return
         self._staged_requests.update({(i[0],i[1]):i for i in items})
         from concurrent.futures import ThreadPoolExecutor
+        import time
+        began=time.monotonic()
         def task(item):
             key,day,method,args,kwargs,fmt=item
             if self.cancel.is_set() or self._halt is not None:return
@@ -356,6 +358,10 @@ class Exporter:
                 self._staged[(key,day)]=payload;self.transfer['parallel_requests']+=1
         with ThreadPoolExecutor(max_workers=min(self.plan.workers,len(items)),thread_name_prefix='garmin-fetch') as pool:
             list(pool.map(task,items))
+        if self.eta:
+            families=['files' if fmt else 'details' if key.startswith('activity-') else key
+                      for key,day,method,args,kwargs,fmt in items if (key,day) in self._staged]
+            self.eta.observe_parallel_batch(families,time.monotonic()-began)
 
     def save_staged_successes(self):
         """Save completed responses after Stop/error, on the SQLite owner thread.
@@ -484,7 +490,9 @@ class Exporter:
         self.event('phase','planning');jobs=plan_jobs(self,selected)
         expert_count=(total_days if p.expert_daily else 1)*bool(p.expert_method)
         if p.source!='offline':
-            self.eta=RemainingTime([job.family for job in jobs]+['expert']*expert_count,p.delay,self.event)
+            self.eta=RemainingTime([job.family for job in jobs]+['expert']*expert_count,p.delay,self.event,workers=p.workers)
+            self.eta.parallel_families={job.family for job in jobs if self.parallel_job(job)}
+            if p.workers>1:self.eta.parallel_families.update(('details','files'))
             self.eta.open_activity_days=sum(len(job.days) for job in jobs if job.dataset.key=='activities')
         self.event('phase','download' if p.source!='offline' else 'offline')
         for index,job in enumerate(jobs):

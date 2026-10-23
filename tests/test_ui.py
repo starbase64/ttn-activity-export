@@ -26,7 +26,7 @@ def test_language_preserves_selection_and_dates():
     before=window.make_plan()
     window.toggle_language()
     assert window.lang=='en'
-    assert window.tabs.tabText(5)=='User guide'
+    assert window.tabs.tabText(window.tabs.count()-1)=='User guide'
     assert window.start_button.text()=='Start export'
     after=window.make_plan()
     assert after.language=='en'

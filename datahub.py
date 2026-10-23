@@ -247,7 +247,10 @@ def load_archive(path,cancel=None,with_tracks=True):
         for row in db.db.execute("SELECT DISTINCT dataset FROM responses WHERE dataset LIKE 'activity-%'"):
             match=re.fullmatch(r'activity-(-?\d+)-(gpx|tcx|fit|original|details)',row[0])
             if match:candidates.add(match.group(1))
-        return {'activities':activities,'tracks':tracks,'health':daily_health(db,cancel),'account':db.account,'track_candidates':candidates}
+        row=db.db.execute("SELECT COUNT(*),COALESCE(SUM(is_empty),0) FROM responses WHERE dataset='activities' AND is_binary=0").fetchone()
+        failed=db.db.execute("SELECT COUNT(*) FROM attempts WHERE dataset='activities'").fetchone()[0]
+        status={'responses':row[0],'empty_responses':row[1],'failed_requests':failed}
+        return {'activities':activities,'tracks':tracks,'health':daily_health(db,cancel),'account':db.account,'track_candidates':candidates,'activity_status':status}
 
 def activity_members(data,depth=0,budget=None):
     """Bounded in-memory traversal; never extract untrusted paths to disk."""

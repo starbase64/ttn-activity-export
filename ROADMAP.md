@@ -1,6 +1,6 @@
 # Review follow-ups
 
-The external review identified additional items outside the parallel-download patch: Windows credential protection (DPAPI/keyring), removing expired local sessions without signing in, explicit local-date handling for imported FIT UTC timestamps, equal wheel-path checks in the portable build helper, and pinning GitHub Actions to commit SHAs. These remain open and are not claimed as fixed by this change.
+The external review identified additional items outside the parallel-download patch: Windows credential protection (DPAPI/keyring), explicit local-date handling for imported FIT UTC timestamps, equal wheel-path checks in the portable build helper, and pinning GitHub Actions to commit SHAs. These remain open. Removing expired local sessions without signing in is now implemented in 0.5.1-preview.
 
 ## 0.4.0-preview · implemented
 

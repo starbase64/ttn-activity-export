@@ -220,3 +220,13 @@ def test_stop_preserves_inflight_successes(tmp_path):
             _,report=Exporter(Stops(),p,cancel).run()
             assert len(report['records'])==3
         assert report['cancelled'] and not report['completed'] and report['stats']['downloaded']==3+int(archive)
+
+
+def test_exporter_records_parallel_wall_clock_costs_for_remaining_time(tmp_path):
+    api=Api();api.latency=.01
+    p=plan(tmp_path,'eta',workers=3,datasets=['heart_rate'],end='2020-01-06',activity_details=[],activity_files=[])
+    exporter=Exporter(api,p);_,report=exporter.run()
+    assert report['completed'] and exporter.eta.workers==3
+    assert 'heart_rate' in exporter.eta.parallel_families
+    assert exporter.eta.parallel_samples['heart_rate']
+    assert sum(exporter.eta.pending.values())==0

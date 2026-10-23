@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QSplitter, QLayout, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView)
 from garminconnect import Garmin, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError
 from catalog import DATASETS, ACTIVITY_DETAILS, selected_datasets, all_definitions
-from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS
+from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS, atomic_json
 from help_content import HELP
 from sports import FALLBACK_SPORTS, activity_type_keys, sport_label
 from activity_table import SOURCE_PATHS
@@ -35,7 +35,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.0-preview'
+VERSION = '0.5.1-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -85,6 +85,7 @@ class MainWindow(QMainWindow):
         self.api = None
         self.identity = None
         self.worker = None
+        self._closing=False
         self.last_output = ''
         self.completed = 0
         self.field_checks = []
@@ -143,12 +144,11 @@ class MainWindow(QMainWindow):
         self.cooldown_label=QLabel();self.cooldown_label.setWordWrap(True);self.cooldown_label.setStyleSheet('color:#926000');outer.addWidget(self.cooldown_label)
         self.tabs = QTabWidget(); outer.addWidget(self.tabs, 1)
         self.config_tabs = []
-        self.account_page(); self.export_page(); self.advanced_page(); self.fields_page(); self.expert_page(); self.help_page(); self.offline_page()
+        self.account_page(); self.export_page(); self.advanced_page(); self.fields_page(); self.expert_page(); self.offline_page()
         from data_page import DataPage
         self.data_page=DataPage(self)
-        data_scroll=QScrollArea();data_scroll.setWidgetResizable(True);data_scroll.setWidget(self.data_page)
-        self.data_page.setMinimumSize(1120,780)
-        self.add_tab(data_scroll,'Daten','Data')
+        self.add_tab(self.data_page,'Daten','Data')
+        self.help_page()
         self.tabs.setUsesScrollButtons(True)
         bottom = QHBoxLayout()
         self.start_button = self.button('Export starten', 'Start export', self.start_export, primary=True)
@@ -177,6 +177,35 @@ class MainWindow(QMainWindow):
             self.ensure_archive_path()
             self.connection.setText('DEMO · demo@example.invalid')
             self.tabs.setCurrentIndex(1)
+        else:
+            self.load_saved_account()
+        self.remember.toggled.connect(self.remember_changed)
+
+    @property
+    def saved_account_path(self):return self.data_dir/'remembered-account.json'
+
+    def load_saved_account(self):
+        try:
+            saved=json.loads(self.saved_account_path.read_text(encoding='utf-8'))
+            email=saved['email'];china=saved['china']
+            if saved.get('schema')!=1 or not isinstance(email,str) or not email.strip() or len(email)>320 or type(china) is not bool:return
+        except (OSError,ValueError,KeyError,TypeError):return
+        self.email.setText(email);self.china.setChecked(china);self.remember.setChecked(True)
+        self._restore_account=(email,china)
+        QTimer.singleShot(0,self.restore_saved_session)
+
+    def restore_saved_session(self):
+        if self._closing or self.api or not self.remember.isChecked():return
+        if (self.email.text().strip(),self.china.isChecked())!=getattr(self,'_restore_account',None):return
+        if self.rate_pause.remaining():
+            self.log.appendPlainText(self.tr('Gespeicherte Sitzung: Wiederherstellung wegen aktiver Abrufpause ausgesetzt.','Saved session: restore skipped during the active request pause.'));return
+        self.log.appendPlainText(self.tr('Gespeicherte Sitzung wird wiederhergestellt …','Restoring saved session …'))
+        self.login(restore=True)
+
+    def remember_changed(self,checked):
+        if not checked and not self.demo:
+            try:self.saved_account_path.unlink(missing_ok=True)
+            except OSError:self.message('Die automatische Anmeldung konnte nicht deaktiviert werden. Schreibrechte prüfen.','Could not disable automatic sign-in. Check write permissions.')
 
     def tr(self, de, en): return de if self.lang == 'de' else en
     def bind(self, widget, de, en, setter='setText'):
@@ -649,19 +678,25 @@ class MainWindow(QMainWindow):
         code,ok=QInputDialog.getText(self,self.tr('Zwei-Faktor-Anmeldung','Two-factor authentication'),self.tr('Garmin-Bestätigungscode:','Garmin verification code:'))
         self.worker.answers.put(code.strip() if ok else None)
 
-    def login(self):
+    def login(self,restore=False):
         if self.demo:
             self.message('Demo-Modus: Für echte Konten ohne --demo starten.','Demo mode: restart without --demo for real accounts.'); return
-        email=self.email.text().strip(); password=self.password.text(); remember=self.remember.isChecked(); china=self.china.isChecked()
+        email=self.email.text().strip(); password='' if restore else self.password.text(); remember=self.remember.isChecked(); china=self.china.isChecked()
         if not email:
             self.message('Bitte E-Mail-Adresse eingeben.','Please enter your email.'); return
         ident=account_key(email,china); session=self.data_dir/'sessions'/ident
-        detect_first=self.detect_first.isChecked()
+        detect_first=self.detect_first.isChecked() and not restore
         self.password.clear()
         def op(worker):
             api=Garmin(email=email,password=password or None,is_cn=china,prompt_mfa=worker.ask_mfa,retry_attempts=0)
+            persistence={'remember':remember,'china':china,'saved':False,'error':{}}
             if remember:
                 api.login(str(session))
+                try:
+                    # The library suppresses dump errors during login. Verify the
+                    # explicit save so the UI cannot silently promise persistence.
+                    api.client.dump(str(session));persistence['saved']=True
+                except Exception as exc:persistence['error']=diagnostic(exc)
             else:
                 # Explicit temporary path avoids the library's GARMINTOKENS fallback.
                 with tempfile.TemporaryDirectory(prefix='garmin-session-') as temp_session:
@@ -687,11 +722,21 @@ class MainWindow(QMainWindow):
                         if isinstance(items,list) and items:
                             first=(items[0].get('startTimeLocal') or '')[:10]
                 except Exception as exc:first_error=diagnostic(exc)
-            return api,ident,email,sport_keys,first,first_error or optional_error
+            return api,ident,email,sport_keys,first,first_error or optional_error,persistence
         self.run_worker(op,self.login_done)
 
     def login_done(self,result):
         self.api,self.identity,self._signed_email=result[:3]
+        if len(result)>6:
+            persistence=result[6]
+            if persistence['remember'] and persistence['saved']:
+                try:atomic_json(self.saved_account_path,{'schema':1,'email':result[2],'china':persistence['china']})
+                except OSError:persistence['saved']=False
+            if persistence['remember'] and not persistence['saved']:
+                text=self.tr('Anmeldung erfolgreich, aber die Sitzung konnte nicht für den nächsten Start gespeichert werden. Schreibrechte im angezeigten Profilordner prüfen.','Signed in, but the session could not be saved for the next start. Check write permissions in the displayed profile folder.')
+                self.log.appendPlainText(text);self.message(text,text)
+            elif persistence['remember']:
+                self.log.appendPlainText(self.tr('Sitzung für automatische Anmeldung gespeichert.','Session saved for automatic sign-in.'))
         self.sport_keys=list(FALLBACK_SPORTS); self.sports_loaded=False
         if len(result)>3 and result[3]:
             self.sport_keys=result[3]; self.sports_loaded=True
@@ -708,10 +753,16 @@ class MainWindow(QMainWindow):
             self.register_rate_limit(result[5]);self.log.appendPlainText(self.tr('Optionale Kontoabfrage nicht verfügbar: ','Optional account lookup unavailable: ')+self.error_description(result[5]))
 
     def forget(self):
-        if not self.identity:
-            self.message('Zuerst das zu entfernende Konto anmelden.','First sign in to the account whose session you want to remove.'); return
-        session=self.data_dir/'sessions'/self.identity
-        if session.exists(): shutil.rmtree(session)
+        ident=self.identity or (account_key(self.email.text().strip(),self.china.isChecked()) if self.email.text().strip() else None)
+        if not ident:
+            self.message('E-Mail-Adresse des zu entfernenden Kontos eingeben.','Enter the email of the account whose session you want to remove.');return
+        session=self.data_dir/'sessions'/ident
+        try:
+            if session.exists():shutil.rmtree(session)
+            self.saved_account_path.unlink(missing_ok=True)
+        except OSError:
+            self.message('Sitzung konnte nicht vollständig entfernt werden. Schreibrechte prüfen.','Could not fully remove the session. Check write permissions.');return
+        self.remember.setChecked(False);self.password.clear()
         self.api=None; self.identity=None; self.update_connection()
         self.message('Lokale Sitzung entfernt.','Local session removed.')
 
@@ -959,6 +1010,7 @@ class MainWindow(QMainWindow):
             self.message('GPS-Lesen wird beendet. Danach bitte erneut schließen.','Stopping GPS read. Close again when finished.');return
         if self.worker and self.worker.isRunning():
             self.stop();event.ignore();self.message('Abbruch angefordert. Bitte warten, bis der laufende Vorgang beendet ist, dann schließen.','Stop requested. Please wait until the running operation finishes, then close.');return
+        self._closing=True
         self.log.appendPlainText('TTN Garmin Export · session ended');event.accept()
 
 

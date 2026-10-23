@@ -114,3 +114,26 @@ def test_eta_uses_measured_requests_cache_and_new_file_work_and_retry_floor():
     eta.add('files',2);before=events[-1][1]['seconds'];eta.begin('files');now[0]+=20;eta.observe_request(20);eta.finish()
     assert events[-1][1]['seconds']>before  # The remaining file is now measured as slower.
     eta.open_activity_days=1;eta.emit();assert events[-1][1]['provisional']
+
+
+def test_parallel_eta_uses_window_throughput_instead_of_overlapping_waits():
+    now=[0.];events=[]
+    eta=RemainingTime(['heart_rate']*100,.5,lambda *e:events.append(e),clock=lambda:now[0],workers=3)
+    eta.parallel_families={'heart_rate'}
+    for _ in range(3):eta.observe_request(9)
+    eta.observe_parallel_batch(['heart_rate']*18,12)
+    assert events[-1][1]['seconds']==pytest.approx(100*12/18)
+    # Saving staged payloads takes almost no time; it must not replace the
+    # measured network throughput with the duration of the SQLite write.
+    eta.begin('heart_rate');now[0]+=.001;eta.finish()
+    assert events[-1][1]['seconds']==pytest.approx(99*12/18)
+
+
+def test_parallel_eta_keeps_serial_and_cache_work_separate_and_respects_interval():
+    events=[];eta=RemainingTime(['heart_rate']*10+['expert']*2+['cache']*1000,.5,lambda *e:events.append(e),workers=4)
+    eta.parallel_families={'heart_rate'}
+    for _ in range(3):eta.observe_request(4)
+    eta.samples['expert'].append(10)
+    eta.observe_parallel_batch(['heart_rate']*10,1)
+    # Shared .5 s interval, plus 20 s of serial expert work and 2 s local cache.
+    assert events[-1][1]['seconds']==pytest.approx(27)

@@ -26,7 +26,7 @@ def sample():
     return data
 
 def test_real_ctrl_shift_click_selection_map_sync_filters_and_language(monkeypatch):
-    window=MainWindow(demo=True);window.resize(1450,1000);window.tabs.setCurrentIndex(7);window.show();view=window.data_page
+    window=MainWindow(demo=True);window.resize(1450,1000);window.tabs.setCurrentWidget(window.data_page);window.show();view=window.data_page
     calls=[];monkeypatch.setattr(view.map.network,'get',lambda *a:calls.append(a))
     view.loaded(sample());QApplication.processEvents()
     def click(row,mod=Qt.KeyboardModifier.NoModifier):
@@ -43,7 +43,7 @@ def test_real_ctrl_shift_click_selection_map_sync_filters_and_language(monkeypat
     view.search.setText('Ride 1');assert view.table.rowCount()==1 and not view.selected() and not view.map.routes
     view.table.selectAll();assert len(view.map.routes)==1
     view.heat.setChecked(True);assert max(view.map.density[0].values())==1
-    window.toggle_language();assert view.views.tabText(1)=='Daily data' and window.tabs.tabText(7)=='Data'
+    window.toggle_language();assert view.views.tabText(1)=='Daily data' and window.tabs.tabText(window.tabs.indexOf(view))=='Data'
     assert not calls
 
 def test_session_log_retains_more_than_display_and_clear(tmp_path):
@@ -120,3 +120,28 @@ def test_selected_archive_sync_honors_export_categories_and_excludes_activity_ex
     import threading
     window.start_selected_archive_sync();p=captured[0]
     assert p.datasets==['sleep'] and not p.activity_files and not p.activity_details and not p.optimize
+
+
+def test_data_map_occupies_full_height_right_pane_and_guide_is_last():
+    from PySide6.QtCore import QPoint
+    window=MainWindow(demo=True);window.resize(1500,1100)
+    window.tabs.setCurrentWidget(window.data_page);window.show();QApplication.processEvents()
+    view=window.data_page
+    assert window.tabs.tabText(window.tabs.count()-1)=='Anleitung'
+    assert view.map_panel.mapTo(view,QPoint(0,0)).y()<20
+    assert view.map.height()>view.height()*.6
+    assert view.cache_button.mapTo(view,QPoint(0,0)).x()+view.cache_button.width()<view.map_panel.mapTo(view,QPoint(0,0)).x()
+    window.toggle_language()
+    assert window.tabs.tabText(window.tabs.count()-1)=='User guide'
+    window.close()
+
+
+def test_missing_activities_message_is_not_a_filter_warning_and_translates():
+    window=MainWindow(demo=True);view=window.data_page
+    data={'activities':[],'tracks':{},'health':[],'activity_status':{'responses':0,'empty_responses':0,'failed_requests':0}}
+    view.loaded(data)
+    assert 'Keine Aktivitätsübersichten' in view.note.text()
+    window.toggle_language();assert 'No activity summaries saved' in view.note.text()
+    data['activity_status']={'responses':5,'empty_responses':5,'failed_requests':0};view.loaded(data)
+    assert 'only empty lists' in view.note.text()
+    window.close()

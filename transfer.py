@@ -42,10 +42,21 @@ def plan_jobs(exporter,selected):
     return result
 
 class RemainingTime:
-    def __init__(self,families,delay,event,clock=time.monotonic):
+    def __init__(self,families,delay,event,clock=time.monotonic,workers=1):
         self.pending=Counter(families);self.samples=defaultdict(lambda:deque(maxlen=24))
         self.delay=delay;self.event=event;self.clock=clock;self.active=None;self.started=clock();self.measured=0
         self.network_samples=deque(maxlen=40);self.open_activity_days=0
+        self.workers=workers;self.parallel_families=set()
+        self.parallel_samples=defaultdict(lambda:deque(maxlen=12));self.parallel_costs=deque(maxlen=24)
+    def observe_parallel_batch(self,families,duration):
+        # A completed window measures actual wall-clock throughput, including
+        # shared spacing and worker waits. Summing concurrent request durations
+        # would count their overlapping time repeatedly.
+        if not families:return
+        cost=max(self.delay,duration/len(families))
+        self.parallel_costs.append(cost)
+        for family in set(families):self.parallel_samples[family].append(cost)
+        self.emit()
     def observe_request(self,duration):
         self.network_samples.append(max(.0001,duration));self.measured+=1;self.emit()
     def add(self,family,count):self.pending[family]+=count;self.emit()
@@ -63,6 +74,11 @@ class RemainingTime:
         for family,n in self.pending.items():
             if n<=0:continue
             if family=='cache':cost=statistics.median(self.samples[family]) if self.samples[family] else .002
+            elif family in self.parallel_families:
+                if self.parallel_samples[family]:cost=statistics.median(self.parallel_samples[family])
+                elif self.parallel_costs:cost=statistics.median(self.parallel_costs)
+                elif fallback is not None:cost=max(self.delay,fallback/self.workers)
+                else:unknown=True;continue
             elif self.samples[family]:cost=max(self.delay,statistics.median(self.samples[family]))
             elif fallback is not None:cost=fallback
             else:unknown=True;continue

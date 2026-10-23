@@ -1,4 +1,9 @@
-# Unreleased · speed and fixes
+# 0.5.1-preview · 2026-10-23
+
+- Restore the remembered account on startup using saved session tokens, without saving passwords. Verify token writes explicitly and report save failures. Respect request pauses. Allow removing expired local sessions without signing in. After updating, sign in once with Remember enabled.
+
+- Estimate parallel downloads from measured batch wall-clock throughput, keeping serial work and cached data separate.
+- Data browser: full-height map pane, compact tools/selection menus, guide as final tab, and activity inventory diagnostics distinguishing missing requests from empty responses.
 
 - Parallel requests (Options → "Parallele Abfragen", 1–8, default 3) for independent single-day requests and activity details/files. One shared schedule: the request interval is the minimum gap between any two request starts across all workers. Responses are stored in the original order; stored response payloads and exported data files match sequential runs in synthetic tests (timestamps and reports differ).
 - Completed parallel responses are saved even after an earlier request failed or Stop was pressed. Actual request starts use a shared schedule that handles delayed workers.

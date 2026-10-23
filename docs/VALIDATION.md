@@ -1,3 +1,12 @@
+# 0.5.1-preview — 2026-10-23
+
+- 129 synthetic tests pass locally on Linux/Python 3.12; packaged app smoke test succeeds.
+- Added remembered-account startup without saved passwords, explicit persistence failures, disabling auto sign-in, deletion of expired sessions without login and honoring request pauses.
+- Parallel ETA uses actual batch wall-clock cost, without summing overlapping worker waits or treating local database writes as network time. Serial/cache work and minimum request spacing remain distinct.
+- Activity inventory distinguishes missing activity responses from saved empty replies. Data-page map uses a full-height right pane, compact left-hand tools/filters, Ctrl/Shift selection and bilingual UI; the guide is the final main tab. Synthetic layout inspected at large and smaller window sizes.
+- Windows test/setup/repair results for this commit are recorded in Actions. The earlier parallel-only commit passed Windows CI with 118 tests; it does not validate the newer session/layout changes.
+- User reports that the patched download now takes only a few minutes on their account. This is an individual observation without a controlled before/after dataset comparison, not a universal speed guarantee.
+
 # Unreleased parallel-download review — 2026-10-23
 
 - Uploaded patch applies to main commit a1f7140. Its original 116 synthetic tests pass locally (Linux, Python 3.12).
