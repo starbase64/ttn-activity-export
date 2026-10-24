@@ -286,3 +286,18 @@ def test_online_ui_reuses_archive_and_current_folder_and_exposes_history(tmp_pat
     assert not window.make_plan().export_history
     window.export_history.setChecked(True);assert window.make_plan().export_history
     window.close()
+
+
+def test_account_switch_updates_managed_default_archive_without_changing_custom_path(tmp_path):
+    from engine import account_key,account_root
+    window=MainWindow();window.output.setText(str(tmp_path))
+    a=account_key('first@example.invalid');b=account_key('second@example.invalid')
+    window.identity=a;window.ensure_archive_path()
+    first=window.archive_path.text()
+    assert first==str(account_root(tmp_path,a)/'garmin-offline.sqlite')
+    window.identity=b;window.ensure_archive_path()
+    assert window.archive_path.text()==str(account_root(tmp_path,b)/'garmin-offline.sqlite')
+    custom=str(tmp_path/'my-custom.sqlite');window.archive_path.setText(custom)
+    window.identity=a;window.ensure_archive_path()
+    assert window.archive_path.text()==custom
+    window.close()

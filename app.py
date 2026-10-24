@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 import math
+import re
 from dataclasses import replace
 from datetime import date, timedelta
 from pathlib import Path
@@ -535,8 +536,15 @@ class MainWindow(QMainWindow):
         self.add_tab(self.offline_widget,'Offline-Daten','Offline data');self.offline_source_changed()
 
     def ensure_archive_path(self):
-        if not self.archive_path.text().strip() and self.identity:
-            self.archive_path.setText(str(account_root(self.output.text(),self.identity)/'garmin-offline.sqlite'))
+        if not self.identity:return
+        expected=account_root(self.output.text(),self.identity)/'garmin-offline.sqlite'
+        current=self.archive_path.text().strip()
+        managed=False
+        if current:
+            path=Path(current).expanduser().resolve()
+            managed=(path.name=='garmin-offline.sqlite' and re.fullmatch(r'account-[a-f0-9]{20}',path.parent.name)
+                     and path.parent.name!='account-'+self.identity and not self.use_offline.isChecked())
+        if not current or managed:self.archive_path.setText(str(expected))
 
     def choose_archive(self):
         self.ensure_archive_path()

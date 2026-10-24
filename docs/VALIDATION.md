@@ -1,6 +1,6 @@
 # 0.5.3-preview — account export consolidation
 
-2026-10-24: 152 synthetic tests pass on Linux/Python 3.12. New coverage verifies unchanged account output path across formats, zero network calls when exporting synced data, new-export data reused by sync, source-day retention after narrower exports, legacy/nested-cache import, original-file resumption, UI use of the shared archive, optional history independent of request tuning, wrong-account rejection, stale-output cleanup, manual-file preservation, failed-write preservation, publication rollback and path traversal rejection. Existing date/reset/session/rate-limit regressions remain. Native Windows result is recorded in the PR Actions run. No live Garmin calls made.
+2026-10-24: 153 synthetic tests pass on Linux/Python 3.12. New coverage verifies unchanged account output path across formats, zero network calls when exporting synced data, new-export data reused by sync, source-day retention after narrower exports, legacy/nested-cache import, original-file resumption, UI use of the shared archive, optional history independent of request tuning, wrong-account rejection, stale-output cleanup, manual-file preservation, failed-write preservation, publication rollback and path traversal rejection. Existing date/reset/session/rate-limit regressions remain. Native Windows result is recorded in the PR Actions run. No live Garmin calls made.
 
 # 0.5.2-preview — remembered first-activity dates
 
