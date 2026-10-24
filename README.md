@@ -69,3 +69,6 @@ MIT for this application's code; dependency licences remain applicable. Uses [py
 Garmin credentials, tokens, user exports, GPS data and local databases are not part of the repository or release. Setup never asks for Garmin credentials. Any session storage happens only in the actual app. Do not attach private archives or account credentials to public issues.
 
 [Changelog](CHANGELOG.md) · [Validation](docs/VALIDATION.md) · [Roadmap](ROADMAP.md)
+
+
+Version 0.5.6-preview adds Download only on the Export tab, shared CSV/XLSX/JSON conversion, verified reuse of unchanged exports, and measured file-generation progress. Initial exports and changed data still require conversion; see the bilingual guide.

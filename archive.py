@@ -99,6 +99,7 @@ class Archive:
     @staticmethod
     def decode(row):
         value=dict(row);value['data']=bytes(value.pop('payload'))
+        value['content_hash']=hashlib.sha256(value['data']).hexdigest()
         if not value['is_binary']:value['data']=json.loads(value['data'])
         return value
     def samples(self,dataset,start,end,limit=3):

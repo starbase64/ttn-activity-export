@@ -94,7 +94,8 @@ class ArchiveSync(Exporter):
             self.stats['cached' if cached else 'downloaded']+=1
             if not binary_format and data in (None,[],{}):self.stats['empty']+=1
             self.records.append({'dataset':key,'date':day,'archive_key':ident,'binary':bool(binary_format),
-                                 'path':'archive/'+ident+BINARY_SUFFIX.get(binary_format,'.json')})
+                                 'path':'archive/'+ident+BINARY_SUFFIX.get(binary_format,'.json'),
+                                 'source_hash':found['content_hash'] if found and cached and data is found['data'] else self.archive.by_key(ident)['content_hash']})
             self.event('item',key,day,'offline' if cached else 'downloaded')
             return data
         except Cancelled:raise
@@ -128,6 +129,8 @@ class ArchiveSync(Exporter):
         return super().activity_exports(day,activities)
 
     def run_sync(self):
+        import time
+        started=time.monotonic()
         stopped=False;fatal={}
         with Archive(self.plan.archive_path,self.plan.account) as archive:
             self.archive=archive
@@ -149,6 +152,8 @@ class ArchiveSync(Exporter):
                     'health_detail':self.plan.health_detail,'health_batch_days':self.plan.health_batch_days,
                     'blocked_methods':sorted(self.blocked_methods)}
             report['transfer']=self.transfer
+            report['timings']={'download_seconds':time.monotonic()-started,'write_seconds':0}
+            self.event('phase_done','download',report['timings']['download_seconds'])
             self.event('eta_end','cancelled' if stopped else 'error' if fatal or self.stats['errors'] else 'complete')
             archive.record_run(report)
             return {'path':str(archive.path),'report':report,'start':self.plan.start,'end':self.plan.end,'coverage':archive.coverage(self.plan.start,self.plan.end)}
@@ -182,7 +187,7 @@ class OfflineExporter(Exporter):
             data={str(a.get('activityId')):a for r in records for a in (r['data'] or [])}
             self.stats['cached']+=1
             self.warnings.append('local_import_partial_day:'+day)
-            self.records.append({'dataset':key,'date':day,'binary':False,'archive_keys':[r['entry_key'] for r in records]})
+            self.records.append({'dataset':key,'date':day,'binary':False,'archive_keys':[r['entry_key'] for r in records],'source_hash':fingerprint([r['content_hash'] for r in records])})
             self.event('item',key,day,'offline')
             return list(data.values())
         if not found and self.archive.inferred(key,day,request_spec(key,method,args,kwargs,binary_format)):
@@ -195,7 +200,7 @@ class OfflineExporter(Exporter):
         if found['is_empty']:self.stats['empty']+=1
         suffix=BINARY_SUFFIX.get(binary_format,'.json')
         self.records.append({'dataset':key,'date':day,'path':'archive/'+found['entry_key']+suffix,
-                             'binary':bool(binary_format),'archive_key':found['entry_key']})
+                             'binary':bool(binary_format),'archive_key':found['entry_key'],'source_hash':found['content_hash']})
         self.event('item',key,day,'offline')
         return found['data']
     def iter_payloads(self,records):

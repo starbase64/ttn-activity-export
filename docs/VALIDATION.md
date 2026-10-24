@@ -90,3 +90,10 @@ Date: 2026-10-23. Host: Linux, Python 3.12, PySide6 6.12.0.
 ## 0.3.1 output layout hotfix
 
 74 existing tests passed, followed by the app smoke test. Offscreen PySide6 layout checks at QT_SCALE_FACTOR=1.5 verified that all Output input/button/combo/checkbox heights meet their styled size hints in German and English, at 1180×870 and 900×650 logical window sizes. Export contents remain accessible by scrolling. Screenshots output-v031-*.png contain no Garmin account data. No Windows execution or live Garmin request was performed.
+
+
+## 0.5.6-preview output optimization
+
+182 synthetic regression tests pass on Linux/Python 3.12. Added coverage verifies one payload pass for JSON/CSV/XLSX, unchanged-file reuse without conversion/replacement, content changes limited to the affected year, identical refreshed responses, forced rebuild, tampered/deleted outputs, added formats, changed selectors, missing source data, wide columns, retained-file publication rollback, original-file reuse, pure archive download with no file conversion, progress/settings events, and bilingual UI. Source smoke test passes. No live Garmin data used.
+
+A small local benchmark uses four days with 5,000 synthetic measurement pairs each and all three formats. Last run: old writer 1.499 s, new initial write 1.595 s including output-integrity metadata, repeated unchanged write 0.004 s (3 files reused). CSV and JSON are byte-identical to the previous writer; Excel values are covered by regression tests. This demonstrates reuse, not a universal initial-write speedup or a prediction for a multi-year account. Source collection/reading is outside the writer-only benchmark. Initial old exports must be rebuilt once to add verification metadata.

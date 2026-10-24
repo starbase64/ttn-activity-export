@@ -184,8 +184,10 @@ class Plan:
     workers: int = 1
     export_history: bool = False
     skip_empty: bool = False
+    reuse_exports: bool = True
 
     def validate(self):
+        if type(self.reuse_exports) is not bool:raise ValueError('Invalid reuse setting')
         if type(self.skip_empty) is not bool:raise ValueError('Invalid skip setting')
         if type(self.export_history) is not bool:raise ValueError('Invalid export history setting')
         date.fromisoformat(self.start); date.fromisoformat(self.end)
@@ -445,7 +447,7 @@ class Exporter:
                 return None
         if payload in (None, [], {}) and not binary_format:
             self.stats['empty'] += 1
-        self.records.append({'dataset': key, 'date': day, 'path': str(path.relative_to(self.root)), 'binary': bool(binary_format)})
+        self.records.append({'dataset': key, 'date': day, 'path': str(path.relative_to(self.root)), 'binary': bool(binary_format), 'source_hash':hashlib.sha256(path.read_bytes()).hexdigest()})
         self.event('item', key, day, 'cached' if reuse else 'downloaded')
         return payload
 
@@ -462,6 +464,8 @@ class Exporter:
         return payload
 
     def run(self):
+        import time
+        started=time.monotonic()
         p = self.plan
         stopped = False
         fatal = ''
@@ -479,27 +483,35 @@ class Exporter:
             # rate limit would skip the local request pause.
             if not fatal:fatal=type(exc).__name__;fatal_detail=diagnostic(exc)
             else:self.warnings.append('save_after_error_failed:'+type(exc).__name__)
+        collected=time.monotonic()-started
+        self.event('phase_done','download',collected)
         self.event('writing')
+        self.output_stats={'written':0,'reused':0,'steps':[]}
         # Write only data actually retrieved in this run, never unrelated cache entries.
         config = {k: v for k, v in vars(p).items() if k not in ('account', 'output')}
         exports=self.root/'exports';exports.mkdir(parents=True,exist_ok=True)
         signature={k:config[k] for k in ('start','end','datasets','formats','layout','delimiter','split_year','activity_type',
                     'activity_details','activity_files','selectors','expert_method','expert_kwargs','expert_daily','activity_summary','language','health_detail')}
         destination=exports/(p.start+'_'+p.end+'_'+fingerprint(signature) if p.export_history else 'current')
+        self.previous_output=destination
+        self.retained_outputs=set();self.output_assets={}
+        writing_started=time.monotonic()
         with tempfile.TemporaryDirectory(prefix='.export-',dir=exports) as folder:
             stage=Path(folder);export_error=''
             try:self.write_outputs(stage)
             except Exception as exc:export_error=type(exc).__name__
-            generated=sorted(f.relative_to(stage).as_posix() for f in stage.rglob('*') if f.is_file()) if not export_error else []
+            generated=sorted({f.relative_to(stage).as_posix() for f in stage.rglob('*') if f.is_file()}|self.retained_outputs) if not export_error else []
             report = {'schema': SCHEMA, 'app':'ttn-garmin-export','generated_files':generated,
                   'completed': not stopped and not fatal and not export_error and not self.stats['errors'] and not self.stats.get('not_requested'),
                   'cancelled': stopped, 'fatal_error_type': fatal, 'fatal_diagnostic': fatal_detail, 'export_error_type': export_error,
                   'stats': self.stats, 'errors': self.errors, 'warnings': self.warnings, 'config': config,
-                  'records': self.records, 'transfer':self.transfer, 'created_utc': datetime.now(timezone.utc).isoformat()}
+                  'records': self.records, 'transfer':self.transfer, 'output_assets':self.output_assets,
+                  'output_stats':self.output_stats,'timings':{'download_seconds':collected,'write_seconds':time.monotonic()-writing_started}, 'created_utc': datetime.now(timezone.utc).isoformat()}
             if export_error:atomic_json(exports/'last-error.json',report)
             else:
                 atomic_json(stage/'report.json',report)
-                publish_export(stage,destination)
+                publish_export(stage,destination,retained=self.retained_outputs)
+        self.event('phase_done','write',time.monotonic()-writing_started)
         self.event('eta_end','cancelled' if stopped else 'error' if fatal or export_error or self.stats['errors'] else 'complete')
         return str(destination), report
 
@@ -511,6 +523,7 @@ class Exporter:
         total_days=(date.fromisoformat(p.end)-date.fromisoformat(p.start)).days+1
         self.event('total',sum(1 if d.kind=='account' else total_days for d in selected)
                    +(total_days if p.expert_daily else 1)*bool(p.expert_method))
+        self.event('settings',{'workers':p.workers,'delay':p.delay,'skip_empty':p.skip_empty,'source':p.source})
         self.event('phase','planning');jobs=plan_jobs(self,selected)
         self.event('plan',{'requests':sum(not j.cached for j in jobs),'stored':sum(j.cached for j in jobs)})
         expert_count=(total_days if p.expert_daily else 1)*bool(p.expert_method)
@@ -741,21 +754,24 @@ class Exporter:
         return fields
 
     def rows(self, records):
-        for record, payload in self.iter_payloads(records):
-            if record['dataset']=='activities' and self.plan.activity_summary:
-                for activity in payload or []:
-                    fields=self.summary_fields()
-                    yield {k:v for k,v in table_row(activity,record['date'],self.plan.language).items() if k in fields}
-            elif self.plan.layout == 'long':
-                for pointer, value, kind in leaves(payload):
-                    if field_selected(pointer, self.plan.selectors):
-                        yield {'source_date': record['date'], 'dataset': record['dataset'],
-                               'path': pointer, 'value': value, 'type': kind}
-            else:
-                for idx, item in enumerate(payload if isinstance(payload, list) else [payload]):
-                    row = {'source_date': record['date'], 'dataset': record['dataset'], 'record_index': idx}
-                    row.update({k: v for k, v in flat_record(item).items() if field_selected(k, self.plan.selectors)})
-                    yield row
+        for record,payload in self.iter_payloads(records):
+            yield from self.rows_from_payload(record,payload)
+
+    def rows_from_payload(self,record,payload):
+        if record['dataset']=='activities' and self.plan.activity_summary:
+            for activity in payload or []:
+                fields=self.summary_fields()
+                yield {k:v for k,v in table_row(activity,record['date'],self.plan.language).items() if k in fields}
+        elif self.plan.layout == 'long':
+            for pointer, value, kind in leaves(payload):
+                if field_selected(pointer, self.plan.selectors):
+                    yield {'source_date': record['date'], 'dataset': record['dataset'],
+                           'path': pointer, 'value': value, 'type': kind}
+        else:
+            for idx, item in enumerate(payload if isinstance(payload, list) else [payload]):
+                row = {'source_date': record['date'], 'dataset': record['dataset'], 'record_index': idx}
+                row.update({k: v for k, v in flat_record(item).items() if field_selected(k, self.plan.selectors)})
+                yield row
 
     def table_cells(self,row,is_activity_summary=False):
         cells={k:safe_cell(v) for k,v in row.items()}
@@ -768,63 +784,5 @@ class Exporter:
         shutil.copyfile(self.root/record['path'],target)
 
     def write_outputs(self, destination):
-        import shutil
-        groups = {}
-        for record in self.records:
-            year = record['date'][:4] if self.plan.split_year else 'all'
-            key = record['dataset'] + '-' + year
-            if record['binary']:
-                folder = 'activities' if record['dataset'].startswith('activity-') else record['dataset']
-                target = destination / folder / Path(record['path']).name
-                # Source basename includes request hash and therefore activity identity.
-                target.parent.mkdir(parents=True, exist_ok=True)
-                self.copy_binary(record,target)
-            else:
-                groups.setdefault(key, []).append(record)
-        for key, records in groups.items():
-            if 'json' in self.plan.formats:
-                # Stream daily envelopes, preserving native JSON types and nesting.
-                target = destination / (key + '.json')
-                tmp = target.with_suffix('.json.tmp')
-                with tmp.open('w', encoding='utf-8') as f:
-                    f.write('[\n')
-                    for i, (record, payload) in enumerate(self.iter_payloads(records)):
-                        if i: f.write(',\n')
-                        json.dump({'source_date': record['date'], 'dataset': record['dataset'], 'data': payload}, f, ensure_ascii=False)
-                    f.write('\n]\n')
-                os.replace(tmp, target)
-            if not set(self.plan.formats) & {'csv', 'xlsx'}:
-                continue
-            is_activity_summary=records[0]['dataset']=='activities' and self.plan.activity_summary
-            fields = self.summary_fields() if is_activity_summary else (['source_date', 'dataset', 'path', 'value', 'type'] if self.plan.layout == 'long' else ['source_date', 'dataset', 'record_index'])
-            if self.plan.layout == 'wide' and not is_activity_summary:
-                found = set(fields)
-                for row in self.rows(records):
-                    for name in row:
-                        if name not in found:
-                            fields.append(name); found.add(name)
-            if 'csv' in self.plan.formats:
-                target = destination / (key + '.csv')
-                tmp = target.with_suffix('.csv.tmp')
-                with tmp.open('w', encoding='utf-8-sig', newline='') as f:
-                    writer = csv.DictWriter(f, fieldnames=fields, delimiter=self.plan.delimiter)
-                    writer.writeheader()
-                    for row in self.rows(records):
-                        writer.writerow(self.table_cells(row,is_activity_summary))
-                os.replace(tmp, target)
-            if 'xlsx' in self.plan.formats:
-                from openpyxl import Workbook
-                if len(fields) > 16384:
-                    raise ValueError('Excel column limit; use CSV/JSON')
-                book = Workbook(write_only=True)
-                sheet = book.create_sheet('Data 1'); sheet.append(fields)
-                n, page = 1, 1
-                for row in self.rows(records):
-                    if n >= 1048576:
-                        page += 1; sheet = book.create_sheet('Data ' + str(page)); sheet.append(fields); n = 1
-                    values = [safe_cell(row.get(k)) for k in fields]
-                    if any(isinstance(v, str) and (len(v) > 32767 or re.search(r'[\x00-\x08\x0b-\x0c\x0e-\x1f]', v)) for v in values):
-                        raise ValueError('Value cannot be represented in Excel; use CSV/JSON')
-                    sheet.append(values); n += 1
-                target = destination / (key + '.xlsx')
-                tmp = target.with_suffix('.tmp.xlsx'); book.save(tmp); os.replace(tmp, target)
+        from exportwriter import write_outputs
+        write_outputs(self,destination)

@@ -315,3 +315,29 @@ def test_inferred_skip_option_and_recovery_button_are_bilingual():
     assert any(b.text()=='Retrieve skipped requests anyway' for b in window.findChildren(QPushButton))
     assert 'Experimental' in window.help.toPlainText()
     window.close()
+
+
+def test_file_export_progress_settings_and_download_only_selection(tmp_path,monkeypatch):
+    import app as module
+    from types import SimpleNamespace
+    window=MainWindow(demo=True);window.identity='a'*20;window.archive_path.setText(str(tmp_path/'a.sqlite'))
+    assert window.reuse_exports.isChecked()
+    calls=[]
+    class Sync:
+        def __init__(self,api,plan,*args):calls.append(plan)
+        def run_sync(self):return {'download_only':True}
+    monkeypatch.setattr(module,'ArchiveSync',Sync)
+    window.run_worker=lambda op,done,**kwargs:op(SimpleNamespace(cancel=None,event=SimpleNamespace(emit=lambda *a:None)))
+    window.start_download_only()
+    assert len(calls)==1 and calls[0].datasets==window.make_plan().datasets
+    assert calls[0].activity_details==window.make_plan().activity_details
+    window.on_event(('settings',{'workers':50,'delay':.1,'skip_empty':True,'source':'online'}))
+    window.on_event(('writing',))
+    window.on_event(('output_step','start','xlsx_save','summary-2020',0))
+    assert 'Excel' in window.eta_label.text()
+    window.on_event(('output_progress',{'phase':'xlsx_save','name':'summary-2020','rows':5000,'done':3,'total':10,'seconds':1}))
+    assert window.progress.maximum()==10 and window.progress.value()==3 and '5000' in window.status.text()
+    window.on_event(('phase_done','write',3.2));assert window.output_state is None
+    window.toggle_language();assert window.download_only_button.text()=='Download only'
+    assert window.make_plan().reuse_exports
+    window.close()

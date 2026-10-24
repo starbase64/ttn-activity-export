@@ -19,7 +19,7 @@ def safe_target(root,name):
     return target
 
 
-def publish_export(stage,destination):
+def publish_export(stage,destination,retained=()):
     """Replace generated files, remove stale generated files, preserve manual files.
 
     Staging completes before publication. Files being replaced are moved into
@@ -35,7 +35,11 @@ def publish_export(stage,destination):
             previous=set(report['generated_files'])
     except (OSError,ValueError,TypeError,AttributeError):pass
     incoming={p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file()}
-    touched=incoming|previous
+    retained=set(retained)
+    for name in retained:
+        if not safe_target(destination,name).is_file():raise ValueError('Reused export disappeared')
+    if incoming & retained:raise ValueError('Conflicting reused export')
+    touched=(incoming|previous)-retained
     targets={name:safe_target(destination,name) for name in touched}
     destination.mkdir(parents=True,exist_ok=True)
     backup=stage/'.previous';moved=[];installed=[]

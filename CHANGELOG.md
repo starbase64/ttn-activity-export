@@ -1,3 +1,11 @@
+# 0.5.6-preview · faster file generation and separate download
+
+- Export-tab Download only saves the selected normal resources directly to the account archive with no CSV/XLSX/JSON file generation. Uses Export/Options activity extras; sign-in required. Existing Offline-data actions remain.
+- JSON, CSV and write-only Excel share one streaming payload pass (wide layout still scans once for columns). Original files stream separately. No added dependencies.
+- Optional export reuse defaults on. Source-content hashes and output settings identify each dataset/year/format; existing output SHA-256 is checked before retaining files in place. Changed/missing outputs rebuild, added formats are generated. Initial old exports need one rebuild. Disabling reuse forces regeneration. Publication rollback and stale-file cleanup preserve unrelated files.
+- Progress and timed logs cover download/archive reads, conversion, Excel save/compression, checksums and copies. Reports include file counts and times; concurrency, request interval and inferred-skip setting are logged.
+- No promise of a fixed speedup on live Garmin accounts; initial Excel generation and integrity checks still take time. File generation remains non-cancellable. No database schema changes.
+
 # 0.5.5-preview · parallel request limit
 
 - Raise the configurable parallel request limit from 8 to 50, in both UI and plan validation. Default remains 3; the shared request interval, bounded prefetch windows and stop/rate-limit behavior are unchanged.

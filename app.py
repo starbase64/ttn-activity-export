@@ -36,7 +36,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.5-preview'
+VERSION = '0.5.6-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -158,7 +158,8 @@ class MainWindow(QMainWindow):
         self.stop_button = self.button('Abbrechen', 'Stop', self.stop); self.stop_button.setEnabled(False)
         self.open_button = self.button('Ergebnisordner öffnen', 'Open results folder', self.open_results); self.open_button.setEnabled(False)
         self.export_preview_button=self.button('Vorschau anzeigen','Show preview',self.show_export_preview)
-        bottom.addWidget(self.export_preview_button); bottom.addWidget(self.start_button); bottom.addWidget(self.stop_button); bottom.addStretch(); bottom.addWidget(self.open_button)
+        self.download_only_button=self.button('Nur herunterladen','Download only',self.start_download_only)
+        bottom.addWidget(self.download_only_button); bottom.addWidget(self.export_preview_button); bottom.addWidget(self.start_button); bottom.addWidget(self.stop_button); bottom.addStretch(); bottom.addWidget(self.open_button)
         outer.addLayout(bottom)
         self.progress = QProgressBar(); self.progress.setValue(0); outer.addWidget(self.progress)
         self.status = self.label('Bereit · Vorschauversion', 'Ready · Preview version'); outer.addWidget(self.status)
@@ -355,6 +356,7 @@ class MainWindow(QMainWindow):
         self.layout_combo=self.combo([('Langformat · Detailwerte','Long layout · leaf values','long'),('Breitformat · Datensätze','Wide layout · records','wide')]); self.row(form,'Tabellenaufbau','Table layout',self.layout_combo)
         self.activity_summary=self.check('Aktivitäten: eine Tabellenzeile pro Aktivität','Activities: one table row per activity',True); form.addRow(self.activity_summary)
         self.split=self.check('Dateien nach Jahr trennen','Split files by year',True); form.addRow(self.split)
+        self.reuse_exports=self.check('Unveränderte Exportdateien wiederverwenden','Reuse unchanged export files',True);form.addRow(self.reuse_exports)
         self.export_history=self.check('Separate Exportordner behalten','Keep separate export folders');form.addRow(self.export_history)
         form.addRow(self.label('Standard: ein aktueller Export pro Account unter exports/current. Ein neuer Export ersetzt dort die erzeugten Dateien. Heruntergeladene Daten bleiben im gemeinsamen Account-Bestand. Alte Exportordner bleiben erhalten.',
                               'Default: one current export per account in exports/current. A new export replaces the generated files there. Downloaded data stays in the shared account archive. Existing export folders are retained.'))
@@ -694,6 +696,7 @@ class MainWindow(QMainWindow):
     def set_busy(self,busy):
         for page in (self.account_widget,self.export_widget,self.advanced_widget,self.fields_widget,self.expert_widget,self.offline_widget,self.data_page): page.setEnabled(not busy)
         self.export_preview_button.setEnabled(not busy)
+        self.download_only_button.setEnabled(not busy)
         self.start_button.setEnabled(not busy); self.stop_button.setEnabled(busy or bool(self.data_page.track_worker and self.data_page.track_worker.isRunning()))
         self.status.setText(self.tr('Bitte warten …','Working …') if busy else self.tr('Bereit','Ready'))
 
@@ -703,7 +706,7 @@ class MainWindow(QMainWindow):
             self.update_cooldown_label()
             self.message('Die lokale Abrufpause ist noch aktiv. Bitte warten; es wurde keine Anfrage gesendet.','The local request pause is still active. Please wait; no request was sent.');return
         self.set_busy(True); self.progress.setRange(0,0)
-        self.eta_snapshot=None;self.eta_active=False;self.retry_until=0.;self.request_count=0;self.local_transfer=False;self.eta_label.clear()
+        self.eta_snapshot=None;self.eta_active=False;self.retry_until=0.;self.request_count=0;self.local_transfer=False;self.output_state=None;self.eta_label.clear()
         self.worker=Worker(operation)
         self.worker.event.connect(self.on_event)
         self.worker.mfa.connect(self.mfa_dialog)
@@ -713,6 +716,7 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def worker_finished(self):
+        self.output_state=None
         self._restoring=False
         self.set_busy(False)
         if self.eta_active:self.end_eta('error')
@@ -734,6 +738,11 @@ class MainWindow(QMainWindow):
         self.eta_label.setText(text+self.tr(f' · {self.request_count} Garmin-Abfragen',f' · {self.request_count} Garmin requests'))
 
     def update_eta(self):
+        state=getattr(self,'output_state',None)
+        if state:
+            seconds=int(time.monotonic()-state['clock'])
+            self.eta_label.setText(self.tr('Dateierstellung: ','File export: ')+state['name']+self.tr(f' · läuft seit {seconds} s',f' · running for {seconds} s'))
+            return
         if not self.eta_active:return
         if self.retry_until>time.monotonic():
             self.eta_label.setText(self.tr(f'Wiederholung in {math.ceil(self.retry_until-time.monotonic())} s · Restzeit wird aktualisiert',f'Retry in {math.ceil(self.retry_until-time.monotonic())} s · updating estimate'));return
@@ -906,7 +915,7 @@ class MainWindow(QMainWindow):
             activity_summary=self.activity_summary.isChecked(),language=self.lang,
             preview_rows=self.preview_rows.value(),preview_requests=self.preview_requests.value(),
             source='offline' if offline else 'online',archive_path=self.archive_path.text().strip(),optimize=self.optimize.isChecked(),activity_batch_days=self.activity_batch_days.value(),
-            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value(),workers=self.workers.value(),export_history=self.export_history.isChecked(),skip_empty=self.skip_empty.isChecked())
+            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value(),workers=self.workers.value(),export_history=self.export_history.isChecked(),skip_empty=self.skip_empty.isChecked(),reuse_exports=self.reuse_exports.isChecked())
 
     def show_export_preview(self):
         if not self.api and not self.use_offline.isChecked():
@@ -981,6 +990,20 @@ class MainWindow(QMainWindow):
         close=QPushButton(self.tr('Schließen','Close'));close.clicked.connect(dialog.close);layout.addWidget(close)
         self.export_preview_dialog=dialog;dialog.show()
 
+    def start_download_only(self):
+        if not self.api:
+            self.message('Zum Herunterladen zuerst anmelden.','Sign in before downloading.');return
+        try:
+            self.ensure_archive_path()
+            plan=replace(self.make_plan(for_sync=True),source='online',account=self.identity,formats=['json'])
+            if self.expert_enable.isChecked():raise ValueError('Use Export for expert queries')
+            plan.validate()
+            if not plan.archive_path:raise ValueError('Archive path required')
+        except Exception as exc:
+            text=self.error_description(diagnostic(exc));self.message(text,text);return
+        self.completed=0;self.log.clear()
+        self.run_worker(lambda w:ArchiveSync(self.api,plan,w.cancel,lambda *a:w.event.emit(a)).run_sync(),self.archive_sync_done)
+
     def start_export(self):
         if not self.api and not self.use_offline.isChecked():
             self.tabs.setCurrentIndex(0); self.message('Bitte zuerst anmelden.','Please sign in first.'); return
@@ -1010,6 +1033,8 @@ class MainWindow(QMainWindow):
             self.log.appendPlainText(self.tr('Aktivitäten in der Liste: ','Activities in list: ')+str(s.get('activities',0)))
         text=self.tr(f"Neu: {s['downloaded']} · Cache: {s['cached']} · Leere Antworten: {s['empty']} · Abruffehler: {s['errors']}",f"Downloaded: {s['downloaded']} · Cached: {s['cached']} · Empty responses: {s['empty']} · Retrieval errors: {s['errors']}")
         if s.get('not_requested'):text+=self.tr(f" · Ungeprüft übersprungen: {s['not_requested']}",f" · Skipped, unverified: {s['not_requested']}")
+        output=report.get('output_stats',{})
+        if output:text+=self.tr(f" · Dateien neu: {output.get('written',0)}, wiederverwendet: {output.get('reused',0)}",f" · Files written: {output.get('written',0)}, reused: {output.get('reused',0)}")
         self.log.appendPlainText(text+'\n'+self.last_output)
         if report.get('fatal_diagnostic'):
             text+='\n'+self.error_description(report['fatal_diagnostic'])
@@ -1034,6 +1059,27 @@ class MainWindow(QMainWindow):
             if values[0]=='planning':self.eta_label.setText(self.tr('Download wird geplant · vorhandene Daten werden geprüft …','Planning download · checking existing data …'))
             elif values[0]=='offline':
                 self.local_transfer=True;self.eta_label.setText(self.tr('Lokaler Export · keine Garmin-Abfragen','Local export · no Garmin requests'))
+        elif kind=='settings':
+            info=values[0]
+            self.log.appendPlainText(self.tr(f"Abrufeinstellungen: Parallelität {info['workers']} · Pause {info['delay']} s · Überspringen {info['skip_empty']} · Quelle {info['source']}",f"Request settings: concurrency {info['workers']} · interval {info['delay']} s · skip {info['skip_empty']} · source {info['source']}"))
+        elif kind=='phase_done':
+            phase,seconds=values
+            if phase=='write':self.output_state=None
+            label=self.tr('Download / Bestand lesen','Download / read archive') if phase=='download' else self.tr('Dateierstellung gesamt','Total file export')
+            self.log.appendPlainText(label+f': {seconds:.1f} s')
+        elif kind=='output_step':
+            state,phase,name,seconds=values
+            labels={'copy':self.tr('Dateien kopieren','Copy files'),'verify':self.tr('Unveränderte Datei prüfen','Verify unchanged file'),'columns':self.tr('Spalten ermitteln','Discover columns'),'xlsx_save':self.tr('Excel komprimieren / speichern','Compress / save Excel'),'checksum':self.tr('Dateiprüfsummen','File checksums')}
+            title=labels.get(phase,phase.upper())+' · '+name
+            if state=='start':
+                self.output_state={'name':title,'clock':time.monotonic()};self.update_eta()
+                self.log.appendPlainText(self.tr('Dateischritt gestartet: ','File step started: ')+title)
+            else:self.log.appendPlainText(self.tr('Dateischritt beendet: ','File step finished: ')+title+f' · {seconds:.2f} s')
+        elif kind=='output_reused':
+            self.log.appendPlainText(self.tr('Datei unverändert wiederverwendet: ','Unchanged file reused: ')+values[0])
+        elif kind=='output_progress':
+            info=values[0];self.progress.setRange(0,max(1,info['total']));self.progress.setValue(info['done'])
+            self.status.setText(self.tr(f"Dateierstellung: {info['done']}/{info['total']} Dateien · {info['name']} · {info['rows']} Zeilen",f"File export: {info['done']}/{info['total']} files · {info['name']} · {info['rows']} rows"))
         elif kind=='plan':
             info=values[0]
             self.log.appendPlainText(self.tr(f"Geplant: {info['requests']} offene Abrufe, {info['stored']} gespeicherte Jobs; Aktivitätszusätze folgen.",f"Planned: {info['requests']} open requests, {info['stored']} stored jobs; activity extras follow."))
@@ -1134,6 +1180,7 @@ class MainWindow(QMainWindow):
             self.optimize.setChecked(p.optimize);self.activity_batch_days.setValue(p.activity_batch_days)
             self.health_detail.setCurrentIndex(self.health_detail.findData(p.health_detail));self.health_batch_days.setValue(p.health_batch_days)
             self.export_history.setChecked(p.export_history)
+            self.reuse_exports.setChecked(p.reuse_exports)
             if 'workers' in settings:self.workers.setValue(p.workers)  # Older presets keep the current value.
             self.selectors.setPlainText('\n'.join(p.selectors));self.expert_enable.setChecked(bool(p.expert_method));self.method.setCurrentText(p.expert_method or 'get_naps');self.kwargs.setPlainText(json.dumps(p.expert_kwargs,indent=2));self.expert_daily.setChecked(p.expert_daily)
         except Exception: self.message('Vorlage ungültig oder nicht lesbar.','Preset is invalid or unreadable.')
