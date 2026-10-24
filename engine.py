@@ -20,7 +20,7 @@ from activity_table import table_row, type_graph, COLUMNS, SOURCE_PATHS
 
 SCHEMA = 1
 BINARY_SUFFIX = {'ORIGINAL': '.zip', 'GPX': '.gpx', 'TCX': '.tcx', 'KML': '.kml', 'CSV': '.csv', 'WELLNESS': '.zip'}
-MAX_WORKERS = 8
+MAX_WORKERS = 50
 # Window of independent requests fetched concurrently before they are stored in order.
 PREFETCH_WINDOW = 6
 class Cancelled(Exception): pass

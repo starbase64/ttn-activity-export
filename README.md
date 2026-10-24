@@ -4,7 +4,7 @@ Lokale Windows-App zum Exportieren und Durchsuchen deiner Garmin-Connect-Daten. 
 
 ## Quellstand 0.5.3-preview: schnellere Downloads
 
-Der aktuelle Quellstand bietet 1–8 parallele Abfragen (Standard 3), gemeinsamer Mindestabstand von 0,5 Sekunden statt der bisherigen festen 2 Sekunden bei Sicherungen, begrenzte Wiederholungen und Erhalt erfolgreich geladener Antworten bei Abbruch. Garmin kann weiterhin Tagesabfragen und Ratenlimits erfordern; eine allgemeingültige Beschleunigung um einen festen Faktor ist nicht belegt.
+Der aktuelle Quellstand bietet 1–50 parallele Abfragen (Standard 3), gemeinsamer Mindestabstand von 0,5 Sekunden statt der bisherigen festen 2 Sekunden bei Sicherungen, begrenzte Wiederholungen und Erhalt erfolgreich geladener Antworten bei Abbruch. Garmin kann weiterhin Tagesabfragen und Ratenlimits erfordern; eine allgemeingültige Beschleunigung um einen festen Faktor ist nicht belegt.
 
 Außerdem: automatische Wiederherstellung gemerkter Sitzungen (nach dem Update einmal mit gesetztem Haken anmelden), Restzeit für parallele Downloads und eine Datenansicht mit großer Karte rechts. „Anleitung“ ist der letzte Reiter. Das bestehende Release `v0.5.0-preview` enthält diese Änderungen noch nicht; aktuelle Windows-Starter entstehen als Artefakte der [Actions-Prüfläufe](https://github.com/starbase64/ttn-garmin-export/actions).
 

@@ -1,3 +1,8 @@
+# 0.5.5-preview · parallel request limit
+
+- Raise the configurable parallel request limit from 8 to 50, in both UI and plan validation. Default remains 3; the shared request interval, bounded prefetch windows and stop/rate-limit behavior are unchanged.
+- Update German/English documentation. All 0.5.4 features remain included.
+
 # 0.5.4-preview · optional inferred skips
 
 - Experimental skip option is off by default. Requires explicit null fields; no sport-name rules. Summaries are processed before dependent requests are scheduled.
