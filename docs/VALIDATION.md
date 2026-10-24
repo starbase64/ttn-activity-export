@@ -1,3 +1,7 @@
+# 0.5.2-preview — remembered first-activity dates
+
+2026-10-24: 140 synthetic tests pass on Linux/Python 3.12 and app smoke test succeeds. New regression coverage checks account date persistence across restart, custom Export/Data starts and reset persistence, account isolation, local archive independence, invalid-date rejection and switching between online/offline export accounts. UI reset controls inspected with synthetic data; no live Garmin access. Native Windows result is recorded on the PR Actions run.
+
 # Review follow-ups — 2026-10-24 (unreleased)
 
 - 135 synthetic tests pass on Linux/Python 3.12, plus the app smoke test.

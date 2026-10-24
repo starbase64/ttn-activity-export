@@ -35,7 +35,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.1-preview'
+VERSION = '0.5.2-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -93,6 +93,7 @@ class MainWindow(QMainWindow):
         self.sport_keys = list(FALLBACK_SPORTS)
         self.sports_loaded = False
         self.date_user_set = False
+        self.date_account=None;self.first_activity_date=None
         self.resize(1180, 870)
         self.setMinimumSize(900, 650)
         self.setWindowTitle('TTN Garmin Export · ' + VERSION)
@@ -185,6 +186,55 @@ class MainWindow(QMainWindow):
     @property
     def saved_account_path(self):return self.data_dir/'remembered-account.json'
 
+    def date_values(self,account):
+        if not account or self.demo:return {}
+        try:
+            path=self.data_dir/'date-preferences'/(account_key(str(account))+'.json')
+            values=json.loads(path.read_text(encoding='utf-8'))
+            if not isinstance(values,dict):return {}
+            result={}
+            for key in ('first_activity','export_from','data_from'):
+                value=values.get(key)
+                day=QDate.fromString(value,'yyyy-MM-dd') if isinstance(value,str) else QDate()
+                if day.isValid() and QDate(1990,1,1)<=day<=QDate.currentDate():result[key]=value
+            return result
+        except (OSError,ValueError,TypeError):return {}
+
+    def save_date_values(self,account,**changes):
+        if not account or self.demo:return
+        values=self.date_values(account);values.update(changes)
+        try:atomic_json(self.data_dir/'date-preferences'/(account_key(str(account))+'.json'),values)
+        except OSError:self.log.appendPlainText(self.tr('Datumsauswahl konnte nicht gespeichert werden. Schreibrechte prüfen.','Could not save date selection. Check write permissions.'))
+
+    def export_date_changed(self,*args):
+        self.date_user_set=True
+        self.save_date_values(self.date_account,export_from=self.start_date.date().toString('yyyy-MM-dd'))
+
+    def activate_date_account(self,account):
+        previous=self.date_account
+        if previous and previous!=account:
+            self.date_user_set=False
+            self.start_date.blockSignals(True);self.start_date.setDate(QDate.currentDate().addDays(-6));self.start_date.blockSignals(False)
+        self.date_account=account;values=self.date_values(account)
+        self.first_activity_date=values.get('first_activity')
+        self.reset_start_button.setEnabled(bool(self.first_activity_date))
+        chosen=values.get('export_from')
+        # A date changed before a manual login still takes precedence.
+        if chosen and not (previous is None and self.date_user_set):
+            self.start_date.blockSignals(True);self.start_date.setDate(QDate.fromString(chosen,'yyyy-MM-dd'));self.start_date.blockSignals(False)
+            self.date_user_set=True
+        elif self.first_activity_date and not self.date_user_set:
+            self.start_date.blockSignals(True);self.start_date.setDate(QDate.fromString(self.first_activity_date,'yyyy-MM-dd'));self.start_date.blockSignals(False)
+        if self.date_user_set:self.save_date_values(account,export_from=self.start_date.date().toString('yyyy-MM-dd'))
+        if self.data_page.date_account in (None,account):self.data_page.restore_date_filter(account)
+
+    def reset_activity_start(self):
+        if not self.first_activity_date:return
+        first=QDate.fromString(self.first_activity_date,'yyyy-MM-dd')
+        if self.end_date.date()<first:self.end_date.setDate(first)
+        self.start_date.setDate(first)
+        self.save_date_values(self.date_account,export_from=self.first_activity_date)
+
     def load_saved_account(self):
         try:
             saved=json.loads(self.saved_account_path.read_text(encoding='utf-8'))
@@ -192,6 +242,7 @@ class MainWindow(QMainWindow):
             if saved.get('schema')!=1 or not isinstance(email,str) or not email.strip() or len(email)>320 or type(china) is not bool:return
         except (OSError,ValueError,KeyError,TypeError):return
         self.email.setText(email);self.china.setChecked(china)
+        self.activate_date_account(account_key(email,china))
         auto_restore=saved.get('auto_restore',True) is True
         self.remember.setChecked(auto_restore)
         if not auto_restore:return
@@ -274,8 +325,11 @@ class MainWindow(QMainWindow):
         dates=QHBoxLayout()
         self.start_date=QDateEdit(QDate.currentDate().addDays(-6)); self.end_date=QDateEdit(QDate.currentDate())
         for d in (self.start_date,self.end_date): d.setCalendarPopup(True); d.setDisplayFormat('yyyy-MM-dd'); d.setMinimumDate(QDate(1990,1,1)); d.setMaximumDate(QDate.currentDate())
-        self.start_date.dateChanged.connect(lambda _:setattr(self,'date_user_set',True))
+        self.start_date.dateChanged.connect(self.export_date_changed)
         dates.addWidget(self.label('Von','From')); dates.addWidget(self.start_date); dates.addWidget(self.label('Bis einschließlich','Through')); dates.addWidget(self.end_date)
+        self.reset_start_button=self.button('Erste Aktivität','First activity',self.reset_activity_start)
+        self.reset_start_button.setEnabled(False);dates.addWidget(self.reset_start_button)
+        self.bind(self.reset_start_button,'Anfangsdatum auf die erste ermittelte Aktivität dieses Kontos zurücksetzen. Wird nach der Kontoabfrage verfügbar.','Reset start to the first detected activity of this account. Available after the account lookup.',setter='setToolTip')
         for count in (7,30,365):
             btn=self.button(f'{count} Tage',f'{count} days',lambda checked=False,n=count:self.quick_dates(n)); dates.addWidget(btn)
         main.addLayout(dates)
@@ -496,8 +550,12 @@ class MainWindow(QMainWindow):
             try:
                 with Archive(self.archive_path.text(),readonly=True) as db:
                     keys=activity_type_keys(db.snapshot('activity_types'))
+                    account=db.account
+                if hasattr(self,'data_page'):self.activate_date_account(account)
                 if keys:self.sport_keys=keys;self.sports_loaded=True;self.populate_sports();self.update_sports_hint()
             except Exception:pass
+        elif not offline and self.identity and self.date_account!=self.identity:
+            self.activate_date_account(self.identity)
 
     def start_selected_archive_sync(self):self.start_archive_sync(selected_only=True)
 
@@ -714,7 +772,8 @@ class MainWindow(QMainWindow):
         if not email:
             self.message('Bitte E-Mail-Adresse eingeben.','Please enter your email.'); return
         ident=account_key(email,china); session=self.data_dir/'sessions'/ident
-        detect_first=self.detect_first.isChecked() and not restore
+        known_first=self.date_values(ident).get('first_activity','')
+        detect_first=self.detect_first.isChecked() and not known_first
         self.password.clear();self._restoring=restore
         def op(worker):
             api=Garmin(email=email,password=password or None,is_cn=china,prompt_mfa=worker.ask_mfa,retry_attempts=0)
@@ -739,7 +798,7 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 sport_keys=[]  # An optional sport-list failure must not block a valid login.
                 optional_error=diagnostic(exc)
-            first='';first_error={}
+            first=known_first;first_error={}
             if detect_first and not optional_error and callable(getattr(api,'count_activities',None)):
                 try:
                     cancel=getattr(worker,'cancel',None)
@@ -757,6 +816,7 @@ class MainWindow(QMainWindow):
     def login_done(self,result):
         self._restoring=False
         self.api,self.identity,self._signed_email=result[:3]
+        self.activate_date_account(self.identity)
         if len(result)>6:
             persistence=result[6]
             if persistence['remember'] and persistence['saved']:
@@ -776,11 +836,16 @@ class MainWindow(QMainWindow):
         self.update_connection(); self.tabs.setCurrentIndex(1)
         if len(result)>4 and result[4]:
             first=QDate.fromString(result[4],'yyyy-MM-dd')
-            if first.isValid() and not self.date_user_set:
-                self.start_date.blockSignals(True);self.start_date.setDate(first);self.start_date.blockSignals(False)
+            if first.isValid() and QDate(1990,1,1)<=first<=QDate.currentDate():
+                self.first_activity_date=result[4];self.reset_start_button.setEnabled(True)
+                self.save_date_values(self.identity,first_activity=result[4])
+                if not self.date_user_set:
+                    self.start_date.blockSignals(True);self.start_date.setDate(first);self.start_date.blockSignals(False)
+                if self.data_page.date_account in (None,self.identity):self.data_page.restore_date_filter(self.identity)
             self.log.appendPlainText(self.tr('Älteste verfügbare Aktivität: ','Oldest available activity: ')+result[4])
         if len(result)>5 and result[5]:
             self.register_rate_limit(result[5]);self.log.appendPlainText(self.tr('Optionale Kontoabfrage nicht verfügbar: ','Optional account lookup unavailable: ')+self.error_description(result[5]))
+        if self.use_offline.isChecked():self.offline_source_changed()
 
     def forget(self):
         ident=self.identity or (account_key(self.email.text().strip(),self.china.isChecked()) if self.email.text().strip() else None)

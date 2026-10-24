@@ -1,4 +1,10 @@
-# Unreleased · review follow-ups
+# 0.5.2-preview · 2026-10-24
+
+- Remember the detected first activity date per account, including after session restoration. Missing dates are looked up once when the suggestion option is enabled; cached dates avoid repeated account queries.
+- Retain user-selected start dates separately for Export and Data. Add bilingual reset buttons that restore the saved account first activity date without network requests. End dates retain their existing behavior.
+- Keep accounts and local archive selections isolated; incomplete local history never replaces the detected account date.
+
+## Review follow-ups
 
 - Rate limits are signalled to the UI immediately, even if later storage/report writes fail. A storage error while saving already received responses no longer hides the original stop reason. A rate limit (429) is kept, so the local request pause still applies; the storage error is listed as a warning.
 - A rejected or expired saved session no longer shows an error dialog on every start: the email stays filled in, the automatic sign-in is turned off and a hint appears in the log. Temporary network/server errors keep the saved account for the next start.
