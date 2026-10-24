@@ -90,14 +90,30 @@ def test_interval_is_shared_by_all_workers(tmp_path):
 
 
 def test_workers_overlap_slow_requests(tmp_path):
-    def duration(workers):
-        api = Api(); api.latency = 0.05
-        p = plan(tmp_path, f'speed{workers}', workers=workers, datasets=['heart_rate', 'sleep'], end='2020-01-12',
-                 activity_details=[], activity_files=[])
-        began = time.monotonic(); report = ArchiveSync(api, p).run_sync()['report']
-        assert report['completed'] and len(api.log) == 24
-        return time.monotonic() - began
-    assert duration(4) < duration(1) * 0.6
+    class Observed(Api):
+        def __init__(self,workers):
+            super().__init__();self.workers=workers;self.active=0;self.peak=0;self.ready=threading.Event()
+        def note(self,name):
+            with self.lock:
+                self.active+=1;self.peak=max(self.peak,self.active)
+                if self.active>=self.workers:self.ready.set()
+            try:
+                # Hold the first requests until the configured workers overlap.
+                # Do not compare whole-run timing, which includes SQLite/disk IO
+                # and can fluctuate substantially on shared Windows runners.
+                opened=self.ready.wait(10)
+                self.ready.set()  # A regression fails once instead of waiting per item.
+                assert opened,'Requests did not overlap'
+                super().note(name)
+            finally:
+                with self.lock:self.active-=1
+    for workers in (1,4):
+        api=Observed(workers)
+        p=plan(tmp_path,f'overlap{workers}',workers=workers,datasets=['heart_rate','sleep'],end='2020-01-12',
+               activity_details=[],activity_files=[])
+        report=ArchiveSync(api,p).run_sync()['report']
+        assert report['completed'] and len(api.log)==24
+        assert api.peak==workers
 
 
 def test_rate_limit_in_worker_stops_new_requests_and_keeps_saved_data(tmp_path):
@@ -230,3 +246,45 @@ def test_exporter_records_parallel_wall_clock_costs_for_remaining_time(tmp_path)
     assert 'heart_rate' in exporter.eta.parallel_families
     assert exporter.eta.parallel_samples['heart_rate']
     assert sum(exporter.eta.pending.values())==0
+
+
+def test_rate_limit_is_kept_when_saving_completed_responses_also_fails(tmp_path, monkeypatch):
+    from garminconnect import GarminConnectTooManyRequestsError
+
+    class Limited(Api):
+        def get_heart_rates(self, cdate):
+            self.note('heart_rate')
+            if cdate == '2020-01-02': raise GarminConnectTooManyRequestsError('429')
+            return DemoGarmin.get_heart_rates(self, cdate)
+
+    p = plan(tmp_path, 'keep', workers=3, datasets=['heart_rate'], end='2020-01-08', activity_details=[], activity_files=[])
+    sync = ArchiveSync(Limited(), p)
+    monkeypatch.setattr(sync, 'save_staged_successes', lambda: (_ for _ in ()).throw(OSError('disk full')))
+    report = sync.run_sync()['report']
+    assert report['fatal_diagnostic']['reason'] == 'rate_limit'
+    assert 'save_after_error_failed:OSError' in report['warnings']
+    exporter = Exporter(Limited(), plan(tmp_path, 'keep-export', workers=3, datasets=['heart_rate'], end='2020-01-08',
+                                        activity_details=[], activity_files=[], formats=['json']))
+    monkeypatch.setattr(exporter, 'save_staged_successes', lambda: (_ for _ in ()).throw(OSError('disk full')))
+    _, export_report = exporter.run()
+    assert export_report['fatal_diagnostic']['reason'] == 'rate_limit'
+
+
+def test_rate_limit_event_precedes_final_report_write_failures(tmp_path,monkeypatch):
+    import pytest,engine
+    from garminconnect import GarminConnectTooManyRequestsError,GarminConnectConnectionError
+    from archive import Archive
+    for use_archive in (False,True):
+        for exception in (GarminConnectTooManyRequestsError('429'),GarminConnectConnectionError('API Error 429')):
+            events=[]
+            p=plan(tmp_path,f'failed-report-{use_archive}-{type(exception).__name__}',datasets=['heart_rate'],end='2020-01-01',activity_details=[],activity_files=[])
+            exporter=(ArchiveSync if use_archive else Exporter)(Api(),p,event=lambda *e:events.append(e))
+            def fail():raise exception
+            exporter.collect=lambda:exporter.call(fail)
+            with monkeypatch.context() as patch:
+                if use_archive:patch.setattr(Archive,'record_run',lambda *args:(_ for _ in ()).throw(OSError('full')))
+                else:patch.setattr(engine,'atomic_json',lambda *args:(_ for _ in ()).throw(OSError('full')))
+                with pytest.raises(OSError):
+                    exporter.run_sync() if use_archive else exporter.run()
+            rate_events=[e[1] for e in events if e[0]=='rate_limit']
+            assert rate_events and rate_events[0]['reason']=='rate_limit'

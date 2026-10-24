@@ -1,3 +1,11 @@
+# Review follow-ups — 2026-10-24 (unreleased)
+
+- 135 synthetic tests pass on Linux/Python 3.12, plus the app smoke test.
+- Original fatal reason survives failures while saving in-flight responses. A 429 emits its sanitized rate-limit signal before any final report writes; tests cover both export and archive reporting failures and both Garmin rate-limit exception shapes.
+- Rejected automatic sessions produce a log hint and disable further automatic restores while preserving account fields. Temporary connection/rate-limit failures retain the saved selection; 429 still sets the local pause.
+- UI explicitly distinguishes disabling automatic sign-in from deleting stored tokens. No change to the token-deletion behavior of the checkbox.
+- These changes are under review and are not part of the existing release. Windows results are available on the pull-request Actions run.
+
 # 0.5.1-preview — 2026-10-23
 
 - 129 synthetic tests pass locally on Linux/Python 3.12; packaged app smoke test succeeds.

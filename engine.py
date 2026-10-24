@@ -307,11 +307,14 @@ class Exporter:
             self.event('request',count)
             try:
                 return fn(*args, **kwargs)
-            except (GarminConnectAuthenticationError, GarminConnectTooManyRequestsError):
+            except GarminConnectTooManyRequestsError as exc:
+                self.event('rate_limit',diagnostic(exc));raise
+            except GarminConnectAuthenticationError:
                 raise  # Stop immediately; never hammer a rate-limited account.
             except GarminConnectNotFoundError:
                 raise
             except GarminConnectConnectionError as exc:
+                if error_status(exc)==429:self.event('rate_limit',diagnostic(exc))
                 if error_status(exc) in (400,401,403,404,405,422,429):
                     raise
                 if attempt == self.plan.retries:
@@ -460,7 +463,10 @@ class Exporter:
             fatal_detail = diagnostic(exc)
         try:self.save_staged_successes()
         except Exception as exc:
-            fatal=type(exc).__name__;fatal_detail=diagnostic(exc)
+            # Never let a later storage error hide the original cause: a hidden
+            # rate limit would skip the local request pause.
+            if not fatal:fatal=type(exc).__name__;fatal_detail=diagnostic(exc)
+            else:self.warnings.append('save_after_error_failed:'+type(exc).__name__)
         self.event('writing')
         # Write only data actually retrieved in this run, never unrelated cache entries.
         config = {k: v for k, v in vars(p).items() if k not in ('account', 'output')}

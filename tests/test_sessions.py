@@ -94,3 +94,49 @@ def test_startup_restore_respects_request_pause(session_ui,monkeypatch):
     second=factory();monkeypatch.setattr(second.rate_pause,'remaining',lambda:600)
     scheduled.pop()()
     assert len(calls)==1 and second.api is None
+
+
+def _restore_failure(window,op):
+    from failures import diagnostic
+    try:op(SimpleNamespace(ask_mfa=lambda:pytest.fail('MFA was requested')))
+    except Exception as exc:window.worker_failed(diagnostic(exc))
+    else:pytest.fail('login unexpectedly succeeded')
+
+
+def test_rejected_saved_session_is_quiet_keeps_email_and_disables_auto_restore(session_ui,monkeypatch):
+    from garminconnect import GarminConnectAuthenticationError
+    factory,_,scheduled,API=session_ui
+    first=save_account(factory);first.close()
+    second=factory();messages=[];second.message=lambda *args:messages.append(args)
+    monkeypatch.setattr(API,'login',lambda *args:(_ for _ in ()).throw(GarminConnectAuthenticationError('expired private detail')))
+    second.run_worker=lambda op,done:_restore_failure(second,op)
+    scheduled.pop()()
+    assert not messages and second.api is None and not second.remember.isChecked()
+    assert json.loads(second.saved_account_path.read_text())['auto_restore'] is False
+    assert 'private detail' not in second.log.toPlainText()
+    third=factory()
+    assert not scheduled and third.email.text()=='remember@example.invalid'
+    assert third.china.isChecked() and not third.remember.isChecked()
+
+
+@pytest.mark.parametrize('limited',[False,True])
+def test_temporary_restore_failure_is_quiet_and_keeps_account(session_ui,monkeypatch,limited):
+    from garminconnect import GarminConnectConnectionError,GarminConnectTooManyRequestsError
+    factory,_,scheduled,API=session_ui
+    first=save_account(factory);first.close()
+    second=factory();messages=[];second.message=lambda *args:messages.append(args)
+    exc=GarminConnectTooManyRequestsError('429') if limited else GarminConnectConnectionError('timed out')
+    monkeypatch.setattr(API,'login',lambda *args:(_ for _ in ()).throw(exc))
+    second.run_worker=lambda op,done:_restore_failure(second,op)
+    scheduled.pop()()
+    assert not messages and second.saved_account_path.exists() and second.remember.isChecked()
+    if limited:assert second.rate_pause.remaining()>0
+
+
+def test_unchecking_remember_explains_token_retention(session_ui):
+    factory,_,_,_=session_ui
+    w=save_account(factory);tokens=Path(w.api.path)/'garmin_tokens.json'
+    w.remember.setChecked(False)
+    assert tokens.exists() and not w.saved_account_path.exists()
+    assert 'Schlüssel bleiben' in w.remember_hint.text()
+    w.toggle_language();assert 'Stored tokens remain' in w.remember_hint.text()

@@ -110,7 +110,10 @@ class ArchiveSync(Exporter):
             except Cancelled:stopped=True
             except Exception as exc:fatal=diagnostic(exc)
             try:self.save_staged_successes()
-            except Exception as exc:fatal=diagnostic(exc)
+            except Exception as exc:
+                # Keep the original cause (e.g. 429) so the request pause still applies.
+                if not fatal:fatal=diagnostic(exc)
+                else:self.warnings.append('save_after_error_failed:'+type(exc).__name__)
             report={'completed':not stopped and not fatal and not self.stats['errors'],'cancelled':stopped,
                     'fatal_diagnostic':fatal,'stats':self.stats,'errors':self.errors,'warnings':self.warnings,
                     'start':self.plan.start,'end':self.plan.end,'datasets':self.plan.datasets,
