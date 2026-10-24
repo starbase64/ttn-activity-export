@@ -90,14 +90,30 @@ def test_interval_is_shared_by_all_workers(tmp_path):
 
 
 def test_workers_overlap_slow_requests(tmp_path):
-    def duration(workers):
-        api = Api(); api.latency = 0.05
-        p = plan(tmp_path, f'speed{workers}', workers=workers, datasets=['heart_rate', 'sleep'], end='2020-01-12',
-                 activity_details=[], activity_files=[])
-        began = time.monotonic(); report = ArchiveSync(api, p).run_sync()['report']
-        assert report['completed'] and len(api.log) == 24
-        return time.monotonic() - began
-    assert duration(4) < duration(1) * 0.6
+    class Observed(Api):
+        def __init__(self,workers):
+            super().__init__();self.workers=workers;self.active=0;self.peak=0;self.ready=threading.Event()
+        def note(self,name):
+            with self.lock:
+                self.active+=1;self.peak=max(self.peak,self.active)
+                if self.active>=self.workers:self.ready.set()
+            try:
+                # Hold the first requests until the configured workers overlap.
+                # Do not compare whole-run timing, which includes SQLite/disk IO
+                # and can fluctuate substantially on shared Windows runners.
+                opened=self.ready.wait(10)
+                self.ready.set()  # A regression fails once instead of waiting per item.
+                assert opened,'Requests did not overlap'
+                super().note(name)
+            finally:
+                with self.lock:self.active-=1
+    for workers in (1,4):
+        api=Observed(workers)
+        p=plan(tmp_path,f'overlap{workers}',workers=workers,datasets=['heart_rate','sleep'],end='2020-01-12',
+               activity_details=[],activity_files=[])
+        report=ArchiveSync(api,p).run_sync()['report']
+        assert report['completed'] and len(api.log)==24
+        assert api.peak==workers
 
 
 def test_rate_limit_in_worker_stops_new_requests_and_keeps_saved_data(tmp_path):
