@@ -1,3 +1,9 @@
+# 0.5.3-preview · 2026-10-24
+
+- Default to one exports/current folder per account; optional history uses output settings instead of transfer tuning for its identity. Stage output before publication, clean stale generated files, preserve unrelated files and roll back ordinary publication failures.
+- Online exports reuse the selected SQLite archive and store new responses there, sharing the same source as archive sync. Legacy cache responses are imported without network requests, including older nested account caches.
+- Normalize account-folder output selections without nesting account directories. Existing older export folders are not removed. No database schema or dependency changes.
+
 # 0.5.2-preview · 2026-10-24
 
 - Remember the detected first activity date per account, including after session restoration. Missing dates are looked up once when the suggestion option is enabled; cached dates avoid repeated account queries.

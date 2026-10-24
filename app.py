@@ -23,19 +23,19 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
     QSplitter, QLayout, QDialog, QTableWidget, QTableWidgetItem, QHeaderView, QAbstractItemView)
 from garminconnect import Garmin, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError
 from catalog import DATASETS, ACTIVITY_DETAILS, selected_datasets, all_definitions
-from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS, atomic_json
+from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS, atomic_json, account_root
 from help_content import HELP
 from sports import FALLBACK_SPORTS, activity_type_keys, sport_label
 from activity_table import SOURCE_PATHS
 from preview import Previewer
 from failures import diagnostic, RatePause
 from archive import Archive,OfflineArchiveError,OfflineDataMissing
-from offline import ArchiveSync,OfflineExporter,OfflinePreviewer
+from offline import ArchiveSync,OfflineExporter,OfflinePreviewer,ArchiveExporter
 from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.2-preview'
+VERSION = '0.5.3-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -354,6 +354,9 @@ class MainWindow(QMainWindow):
         self.layout_combo=self.combo([('Langformat · Detailwerte','Long layout · leaf values','long'),('Breitformat · Datensätze','Wide layout · records','wide')]); self.row(form,'Tabellenaufbau','Table layout',self.layout_combo)
         self.activity_summary=self.check('Aktivitäten: eine Tabellenzeile pro Aktivität','Activities: one table row per activity',True); form.addRow(self.activity_summary)
         self.split=self.check('Dateien nach Jahr trennen','Split files by year',True); form.addRow(self.split)
+        self.export_history=self.check('Separate Exportordner behalten','Keep separate export folders');form.addRow(self.export_history)
+        form.addRow(self.label('Standard: ein aktueller Export pro Account unter exports/current. Ein neuer Export ersetzt dort die erzeugten Dateien. Heruntergeladene Daten bleiben im gemeinsamen Account-Bestand. Alte Exportordner bleiben erhalten.',
+                              'Default: one current export per account in exports/current. A new export replaces the generated files there. Downloaded data stays in the shared account archive. Existing export folders are retained.'))
         self.health_detail=self.combo([('Vollständige Messverläufe','Full measurement timelines','full'),('Tageskennzahlen (schneller)','Daily statistics (faster)','daily')])
         self.health_detail.currentIndexChanged.connect(self.update_health_labels)
         self.row(form,'Gesundheitsdaten','Health data',self.health_detail)
@@ -533,7 +536,7 @@ class MainWindow(QMainWindow):
 
     def ensure_archive_path(self):
         if not self.archive_path.text().strip() and self.identity:
-            self.archive_path.setText(str(Path(self.output.text()).expanduser()/('account-'+self.identity)/'garmin-offline.sqlite'))
+            self.archive_path.setText(str(account_root(self.output.text(),self.identity)/'garmin-offline.sqlite'))
 
     def choose_archive(self):
         self.ensure_archive_path()
@@ -877,12 +880,13 @@ class MainWindow(QMainWindow):
             activity_summary=self.activity_summary.isChecked(),language=self.lang,
             preview_rows=self.preview_rows.value(),preview_requests=self.preview_requests.value(),
             source='offline' if offline else 'online',archive_path=self.archive_path.text().strip(),optimize=self.optimize.isChecked(),activity_batch_days=self.activity_batch_days.value(),
-            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value(),workers=self.workers.value())
+            health_detail=self.health_detail.currentData(),health_batch_days=self.health_batch_days.value(),workers=self.workers.value(),export_history=self.export_history.isChecked())
 
     def show_export_preview(self):
         if not self.api and not self.use_offline.isChecked():
             self.tabs.setCurrentIndex(0); self.message('Bitte zuerst anmelden.','Please sign in first.'); return
         try:
+            if not self.use_offline.isChecked():self.ensure_archive_path()
             plan=self.make_plan(); plan.validate()
         except Exception as exc:
             if isinstance(exc,OfflineArchiveError):
@@ -955,6 +959,7 @@ class MainWindow(QMainWindow):
         if not self.api and not self.use_offline.isChecked():
             self.tabs.setCurrentIndex(0); self.message('Bitte zuerst anmelden.','Please sign in first.'); return
         try:
+            if not self.use_offline.isChecked():self.ensure_archive_path()
             plan=self.make_plan(); plan.validate()
             if not self.output.text().strip(): raise ValueError()
             if plan.expert_method and plan.source=='offline':
@@ -967,7 +972,7 @@ class MainWindow(QMainWindow):
                 text=self.error_description(diagnostic(exc));self.message(text,text);return
             self.message('Bitte Zeitraum, Kategorien, Formate, Aktivitätsauswahl und Expertenparameter prüfen. Start muss vor Ende liegen; Ende darf nicht in der Zukunft liegen.','Check dates, categories, formats, activity options and expert parameters. Start must not follow end; end must not be in the future.'); return
         self.completed=0; self.log.clear()
-        self.run_worker(lambda w:(OfflineExporter(plan,w.cancel,lambda *args:w.event.emit(args)) if plan.source=='offline' else Exporter(self.api,plan,w.cancel,lambda *args:w.event.emit(args))).run(),self.export_done,network=plan.source!='offline')
+        self.run_worker(lambda w:(OfflineExporter(plan,w.cancel,lambda *args:w.event.emit(args)) if plan.source=='offline' else ArchiveExporter(self.api,plan,w.cancel,lambda *args:w.event.emit(args))).run(),self.export_done,network=plan.source!='offline')
 
     def export_done(self,result):
         self.last_output,report=result; self.open_button.setEnabled(True)
@@ -1096,6 +1101,7 @@ class MainWindow(QMainWindow):
             self.archive_path.setText(p.archive_path);self.use_offline.setChecked(p.source=='offline');self.activity_summary.setChecked(p.activity_summary); self.preview_rows.setValue(p.preview_rows); self.preview_requests.setValue(p.preview_requests); self.split.setChecked(p.split_year); self.delay.setValue(p.delay); self.refresh.setValue(p.refresh_days); self.retries.setValue(p.retries); self.set_sport(p.activity_type)
             self.optimize.setChecked(p.optimize);self.activity_batch_days.setValue(p.activity_batch_days)
             self.health_detail.setCurrentIndex(self.health_detail.findData(p.health_detail));self.health_batch_days.setValue(p.health_batch_days)
+            self.export_history.setChecked(p.export_history)
             if 'workers' in settings:self.workers.setValue(p.workers)  # Older presets keep the current value.
             self.selectors.setPlainText('\n'.join(p.selectors));self.expert_enable.setChecked(bool(p.expert_method));self.method.setCurrentText(p.expert_method or 'get_naps');self.kwargs.setPlainText(json.dumps(p.expert_kwargs,indent=2));self.expert_daily.setChecked(p.expert_daily)
         except Exception: self.message('Vorlage ungültig oder nicht lesbar.','Preset is invalid or unreadable.')
