@@ -31,7 +31,7 @@ def test_three_formats_share_single_payload_pass(tmp_path,monkeypatch):
     book=load_workbook(Path(dest)/'summary-2020.xlsx',read_only=True)
     xlsx_rows=list(book.active.values);book.close()
     assert csv_rows[0]==list(xlsx_rows[0]) and len(csv_rows)==len(xlsx_rows)
-    assert json.loads((Path(dest)/'summary-2020.json').read_text())[0]['source_date']=='2020-01-01'
+    assert json.loads((Path(dest)/'summary-2020.json').read_text(encoding='utf-8'))[0]['source_date']=='2020-01-01'
 
 
 def test_repeat_reuses_files_without_row_conversion_or_replacement(tmp_path,monkeypatch):
@@ -50,7 +50,7 @@ def test_only_changed_year_is_rewritten_and_force_rebuild_works(tmp_path):
         db.put('summary','2020-01-01',request_spec('summary','get_user_summary',('2020-01-01',)),{'totalSteps':123456})
     report=OfflineExporter(replace(p,source='offline')).run()[1]
     assert report['output_stats']['reused']==3 and report['output_stats']['written']==3
-    assert json.loads((Path(dest)/'summary-2020.json').read_text())[0]['data']['totalSteps']==123456
+    assert json.loads((Path(dest)/'summary-2020.json').read_text(encoding='utf-8'))[0]['data']['totalSteps']==123456
     report=OfflineExporter(replace(p,source='offline',reuse_exports=False)).run()[1]
     assert report['output_stats']['reused']==0 and report['output_stats']['written']==6
 
@@ -147,7 +147,7 @@ def test_new_writer_matches_previous_csv_json_and_excel_values(tmp_path):
     book=load_workbook(Path(dest)/'summary-2020.xlsx',read_only=True)
     records=[dict(zip(next(iter(book.active.values)),v)) for v in list(book.active.values)[1:]];book.close()
     assert {x['path']:x['value'] for x in records}['/value']==1.25
-    raw=json.loads((Path(dest)/'summary-2020.json').read_text())[0]['data']
+    raw=json.loads((Path(dest)/'summary-2020.json').read_text(encoding='utf-8'))[0]['data']
     assert raw['formula']=='=1+1' and raw['nested']==[None,False,{'label':'ä'}]
 
 
