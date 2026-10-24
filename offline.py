@@ -27,12 +27,30 @@ class ArchiveSync(Exporter):
         super().__init__(api,plan,cancel,event)
         self.blocked_methods=set();self.stats['skipped']=0
 
+    def nested_legacy_response(self,key,day,method,args=(),kwargs=None,binary_format=''):
+        # Older versions appended account-* even when that account folder was
+        # already selected. Reuse that nested cache after normalizing the root.
+        legacy=Path(self.plan.output).expanduser().resolve()/('account-'+self.plan.account)/'cache-v1'
+        if legacy==self.cache:return False,None,None
+        request=request_spec(key,method,args,kwargs,binary_format)
+        suffix=BINARY_SUFFIX.get(binary_format,'.json')
+        path=legacy/key/day[:4]/(day+'-'+fingerprint(request)+suffix)
+        try:
+            if binary_format:
+                payload=path.read_bytes()
+                return bool(payload),payload,None
+            envelope=json.loads(path.read_text(encoding='utf-8'))
+            if envelope['request']==json.loads(json.dumps(request)):
+                return True,envelope['data'],envelope.get('fetched_utc')
+        except (OSError,ValueError,KeyError,TypeError):pass
+        return False,None,None
+
     def available(self,key,day,method,args=(),kwargs=None,binary_format=''):
         from archive import entry_key
         if (key,day) in getattr(self,'force_requests',set()) or self.refresh_day(day):return False
         found=self.archive.db.execute('SELECT 1 FROM responses WHERE entry_key=?',
             (entry_key(key,day,request_spec(key,method,args,kwargs,binary_format)),)).fetchone()
-        return bool(found) or super().available(key,day,method,args,kwargs,binary_format)
+        return bool(found) or super().available(key,day,method,args,kwargs,binary_format) or self.nested_legacy_response(key,day,method,args,kwargs,binary_format)[0]
 
     def retrieve(self,key,day,method,args=(),kwargs=None,binary_format=''):
         self.check()
@@ -64,6 +82,8 @@ class ArchiveSync(Exporter):
                         data=envelope['data'];fetched=envelope.get('fetched_utc')
                     cached=True
                 except (ValueError,KeyError,OSError):pass
+            if not cached:
+                cached,data,fetched=self.nested_legacy_response(key,day,method,args,kwargs,binary_format)
         try:
             if not cached:
                 staged,data=self.take_staged(key,day)
@@ -73,7 +93,9 @@ class ArchiveSync(Exporter):
             ident=found['entry_key'] if found and cached and data is found['data'] else self.archive.put(key,day,request,data,bool(binary_format),fetched)
             self.stats['cached' if cached else 'downloaded']+=1
             if not binary_format and data in (None,[],{}):self.stats['empty']+=1
-            self.records.append({'dataset':key,'date':day,'archive_key':ident,'binary':bool(binary_format)})
+            self.records.append({'dataset':key,'date':day,'archive_key':ident,'binary':bool(binary_format),
+                                 'path':'archive/'+ident+BINARY_SUFFIX.get(binary_format,'.json'),
+                                 'source_hash':found['content_hash'] if found and cached and data is found['data'] else self.archive.by_key(ident)['content_hash']})
             self.event('item',key,day,'offline' if cached else 'downloaded')
             return data
         except Cancelled:raise
@@ -93,6 +115,13 @@ class ArchiveSync(Exporter):
             if isinstance(exc,(OSError,sqlite3.Error)):raise
             return None
 
+    def has_response(self,key,day,method,args=(),kwargs=None,binary_format=''):
+        return bool(self.archive.get(key,day,request_spec(key,method,args,kwargs,binary_format))) or super().has_response(key,day,method,args,kwargs,binary_format) or self.nested_legacy_response(key,day,method,args,kwargs,binary_format)[0]
+
+    def not_requested(self,key,day,method,args,kwargs,binary_format,reason):
+        self.archive.mark_inferred(key,day,request_spec(key,method,args,kwargs,binary_format),reason)
+        super().not_requested(key,day,method,args,kwargs,binary_format,reason)
+
     def collect(self):
         return super().collect()
 
@@ -100,6 +129,8 @@ class ArchiveSync(Exporter):
         return super().activity_exports(day,activities)
 
     def run_sync(self):
+        import time
+        started=time.monotonic()
         stopped=False;fatal={}
         with Archive(self.plan.archive_path,self.plan.account) as archive:
             self.archive=archive
@@ -114,13 +145,15 @@ class ArchiveSync(Exporter):
                 # Keep the original cause (e.g. 429) so the request pause still applies.
                 if not fatal:fatal=diagnostic(exc)
                 else:self.warnings.append('save_after_error_failed:'+type(exc).__name__)
-            report={'completed':not stopped and not fatal and not self.stats['errors'],'cancelled':stopped,
+            report={'completed':not stopped and not fatal and not self.stats['errors'] and not self.stats.get('not_requested'),'cancelled':stopped,
                     'fatal_diagnostic':fatal,'stats':self.stats,'errors':self.errors,'warnings':self.warnings,
                     'start':self.plan.start,'end':self.plan.end,'datasets':self.plan.datasets,
                     'activity_details':self.plan.activity_details,'activity_files':self.plan.activity_files,
                     'health_detail':self.plan.health_detail,'health_batch_days':self.plan.health_batch_days,
                     'blocked_methods':sorted(self.blocked_methods)}
             report['transfer']=self.transfer
+            report['timings']={'download_seconds':time.monotonic()-started,'write_seconds':0}
+            self.event('phase_done','download',report['timings']['download_seconds'])
             self.event('eta_end','cancelled' if stopped else 'error' if fatal or self.stats['errors'] else 'complete')
             archive.record_run(report)
             return {'path':str(archive.path),'report':report,'start':self.plan.start,'end':self.plan.end,'coverage':archive.coverage(self.plan.start,self.plan.end)}
@@ -154,9 +187,11 @@ class OfflineExporter(Exporter):
             data={str(a.get('activityId')):a for r in records for a in (r['data'] or [])}
             self.stats['cached']+=1
             self.warnings.append('local_import_partial_day:'+day)
-            self.records.append({'dataset':key,'date':day,'binary':False,'archive_keys':[r['entry_key'] for r in records]})
+            self.records.append({'dataset':key,'date':day,'binary':False,'archive_keys':[r['entry_key'] for r in records],'source_hash':fingerprint([r['content_hash'] for r in records])})
             self.event('item',key,day,'offline')
             return list(data.values())
+        if not found and self.archive.inferred(key,day,request_spec(key,method,args,kwargs,binary_format)):
+            self.warnings.append('unverified_skip:'+key+':'+day)
         if not found:
             self.stats['errors']+=1
             self.errors.append({'dataset':key,'date':day,'error_type':'OfflineDataMissing','http_status':None})
@@ -165,7 +200,7 @@ class OfflineExporter(Exporter):
         if found['is_empty']:self.stats['empty']+=1
         suffix=BINARY_SUFFIX.get(binary_format,'.json')
         self.records.append({'dataset':key,'date':day,'path':'archive/'+found['entry_key']+suffix,
-                             'binary':bool(binary_format),'archive_key':found['entry_key']})
+                             'binary':bool(binary_format),'archive_key':found['entry_key'],'source_hash':found['content_hash']})
         self.event('item',key,day,'offline')
         return found['data']
     def iter_payloads(self,records):
@@ -178,6 +213,21 @@ class OfflineExporter(Exporter):
             yield record,payload
     def copy_binary(self,record,target):
         target.write_bytes(self.archive.by_key(record['archive_key'])['data'])
+
+
+class ArchiveExporter(ArchiveSync):
+    """Online export using the same persistent account archive as archive sync."""
+    def run(self):
+        if self.plan.source!='online':raise OfflineNetworkDisabled()
+        if not self.plan.archive_path:raise ValueError('An archive path is required')
+        with Archive(self.plan.archive_path,self.plan.account) as archive:
+            self.archive=archive
+            taxonomy=type_graph(archive.snapshot('activity_types'))
+            self.type_descendants=taxonomy or None
+            return Exporter.run(self)
+
+    iter_payloads=OfflineExporter.iter_payloads
+    copy_binary=OfflineExporter.copy_binary
 
 
 class OfflinePreviewer(Previewer):

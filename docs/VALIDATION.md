@@ -1,3 +1,11 @@
+# 0.5.3-preview — account export consolidation
+
+2026-10-24: 153 synthetic tests pass on Linux/Python 3.12. New coverage verifies unchanged account output path across formats, zero network calls when exporting synced data, new-export data reused by sync, source-day retention after narrower exports, legacy/nested-cache import, original-file resumption, UI use of the shared archive, optional history independent of request tuning, wrong-account rejection, stale-output cleanup, manual-file preservation, failed-write preservation, publication rollback and path traversal rejection. Existing date/reset/session/rate-limit regressions remain. Native Windows result is recorded in the PR Actions run. No live Garmin calls made.
+
+# 0.5.2-preview — remembered first-activity dates
+
+2026-10-24: 140 synthetic tests pass on Linux/Python 3.12 and app smoke test succeeds. New regression coverage checks account date persistence across restart, custom Export/Data starts and reset persistence, account isolation, local archive independence, invalid-date rejection and switching between online/offline export accounts. UI reset controls inspected with synthetic data; no live Garmin access. Native Windows result is recorded on the PR Actions run.
+
 # Review follow-ups — 2026-10-24 (unreleased)
 
 - 135 synthetic tests pass on Linux/Python 3.12, plus the app smoke test.
@@ -82,3 +90,10 @@ Date: 2026-10-23. Host: Linux, Python 3.12, PySide6 6.12.0.
 ## 0.3.1 output layout hotfix
 
 74 existing tests passed, followed by the app smoke test. Offscreen PySide6 layout checks at QT_SCALE_FACTOR=1.5 verified that all Output input/button/combo/checkbox heights meet their styled size hints in German and English, at 1180×870 and 900×650 logical window sizes. Export contents remain accessible by scrolling. Screenshots output-v031-*.png contain no Garmin account data. No Windows execution or live Garmin request was performed.
+
+
+## 0.5.6-preview output optimization
+
+182 synthetic regression tests pass on Linux/Python 3.12. Added coverage verifies one payload pass for JSON/CSV/XLSX, unchanged-file reuse without conversion/replacement, content changes limited to the affected year, identical refreshed responses, forced rebuild, tampered/deleted outputs, added formats, changed selectors, missing source data, wide columns, retained-file publication rollback, original-file reuse, pure archive download with no file conversion, progress/settings events, and bilingual UI. Source smoke test passes. No live Garmin data used.
+
+A small local benchmark uses four days with 5,000 synthetic measurement pairs each and all three formats. Last run: old writer 1.499 s, new initial write 1.595 s including output-integrity metadata, repeated unchanged write 0.004 s (3 files reused). CSV and JSON are byte-identical to the previous writer; Excel values are covered by regression tests. This demonstrates reuse, not a universal initial-write speedup or a prediction for a multi-year account. Source collection/reading is outside the writer-only benchmark. Initial old exports must be rebuilt once to add verification metadata.

@@ -1,4 +1,36 @@
-# Unreleased · review follow-ups
+# 0.5.6-preview · faster file generation and separate download
+
+- Export-tab Download only saves the selected normal resources directly to the account archive with no CSV/XLSX/JSON file generation. Uses Export/Options activity extras; sign-in required. Existing Offline-data actions remain.
+- JSON, CSV and write-only Excel share one streaming payload pass (wide layout still scans once for columns). Original files stream separately. No added dependencies.
+- Optional export reuse defaults on. Source-content hashes and output settings identify each dataset/year/format; existing output SHA-256 is checked before retaining files in place. Changed/missing outputs rebuild, added formats are generated. Initial old exports need one rebuild. Disabling reuse forces regeneration. Publication rollback and stale-file cleanup preserve unrelated files.
+- Progress and timed logs cover download/archive reads, conversion, Excel save/compression, checksums and copies. Reports include file counts and times; concurrency, request interval and inferred-skip setting are logged.
+- No promise of a fixed speedup on live Garmin accounts; initial Excel generation and integrity checks still take time. File generation remains non-cancellable. No database schema changes.
+
+# 0.5.5-preview · parallel request limit
+
+- Raise the configurable parallel request limit from 8 to 50, in both UI and plan validation. Default remains 3; the shared request interval, bounded prefetch windows and stop/rate-limit behavior are unchanged.
+- Update German/English documentation. All 0.5.4 features remain included.
+
+# 0.5.4-preview · optional inferred skips
+
+- Experimental skip option is off by default. Requires explicit null fields; no sport-name rules. Summaries are processed before dependent requests are scheduled.
+- Skips remain unverified/missing, with request and rule evidence in an additive optional SQLite table. Existing responses take precedence; offline exports flag missing data and inferred runs are incomplete.
+- Offline-data button retries marked requests in the chosen date range without inference. Actual responses remove the marker; failures remain retryable. Rate limits remain enforced.
+- Shared account storage, export folders and saved first-activity dates from 0.5.3 are retained. No added dependencies. Savings are not validated against live Garmin accounts.
+
+# 0.5.3-preview · 2026-10-24
+
+- Default to one exports/current folder per account; optional history uses output settings instead of transfer tuning for its identity. Stage output before publication, clean stale generated files, preserve unrelated files and roll back ordinary publication failures.
+- Online exports reuse the selected SQLite archive and store new responses there, sharing the same source as archive sync. Legacy cache responses are imported without network requests, including older nested account caches.
+- Normalize account-folder output selections without nesting account directories. Existing older export folders are not removed. No database schema or dependency changes.
+
+# 0.5.2-preview · 2026-10-24
+
+- Remember the detected first activity date per account, including after session restoration. Missing dates are looked up once when the suggestion option is enabled; cached dates avoid repeated account queries.
+- Retain user-selected start dates separately for Export and Data. Add bilingual reset buttons that restore the saved account first activity date without network requests. End dates retain their existing behavior.
+- Keep accounts and local archive selections isolated; incomplete local history never replaces the detected account date.
+
+## Review follow-ups
 
 - Rate limits are signalled to the UI immediately, even if later storage/report writes fail. A storage error while saving already received responses no longer hides the original stop reason. A rate limit (429) is kept, so the local request pause still applies; the storage error is listed as a warning.
 - A rejected or expired saved session no longer shows an error dialog on every start: the email stays filled in, the automatic sign-in is turned off and a hint appears in the log. Temporary network/server errors keep the saved account for the next start.
