@@ -1,3 +1,10 @@
+# 0.5.4-preview · optional inferred skips
+
+- Experimental skip option is off by default. Requires explicit null fields; no sport-name rules. Summaries are processed before dependent requests are scheduled.
+- Skips remain unverified/missing, with request and rule evidence in an additive optional SQLite table. Existing responses take precedence; offline exports flag missing data and inferred runs are incomplete.
+- Offline-data button retries marked requests in the chosen date range without inference. Actual responses remove the marker; failures remain retryable. Rate limits remain enforced.
+- Shared account storage, export folders and saved first-activity dates from 0.5.3 are retained. No added dependencies. Savings are not validated against live Garmin accounts.
+
 # 0.5.3-preview · 2026-10-24
 
 - Default to one exports/current folder per account; optional history uses output settings instead of transfer tuning for its identity. Stage output before publication, clean stale generated files, preserve unrelated files and roll back ordinary publication failures.

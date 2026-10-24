@@ -183,8 +183,10 @@ class Plan:
     health_batch_days: int = 28
     workers: int = 1
     export_history: bool = False
+    skip_empty: bool = False
 
     def validate(self):
+        if type(self.skip_empty) is not bool:raise ValueError('Invalid skip setting')
         if type(self.export_history) is not bool:raise ValueError('Invalid export history setting')
         date.fromisoformat(self.start); date.fromisoformat(self.end)
         if self.start > self.end or self.end > date.today().isoformat():
@@ -264,6 +266,7 @@ class Exporter:
         if plan.health_detail=='daily':self.warnings.append('daily_statistics_without_timelines')
         self._staged={};self.eta=None;self.transfer={'requests':0,'range_calls':0,'fallback_days':0,'parallel_requests':0}
         self.range_disabled=set()
+        self._summary_evidence={}
         # One request schedule for all worker threads: `delay` is the minimum
         # interval between two request starts, regardless of parallelism.
         self._lock=threading.RLock();self._schedule_lock=threading.Lock();self._next_slot=0.0;self._halt=None
@@ -489,7 +492,7 @@ class Exporter:
             except Exception as exc:export_error=type(exc).__name__
             generated=sorted(f.relative_to(stage).as_posix() for f in stage.rglob('*') if f.is_file()) if not export_error else []
             report = {'schema': SCHEMA, 'app':'ttn-garmin-export','generated_files':generated,
-                  'completed': not stopped and not fatal and not export_error and not self.stats['errors'],
+                  'completed': not stopped and not fatal and not export_error and not self.stats['errors'] and not self.stats.get('not_requested'),
                   'cancelled': stopped, 'fatal_error_type': fatal, 'fatal_diagnostic': fatal_detail, 'export_error_type': export_error,
                   'stats': self.stats, 'errors': self.errors, 'warnings': self.warnings, 'config': config,
                   'records': self.records, 'transfer':self.transfer, 'created_utc': datetime.now(timezone.utc).isoformat()}
@@ -509,6 +512,7 @@ class Exporter:
         self.event('total',sum(1 if d.kind=='account' else total_days for d in selected)
                    +(total_days if p.expert_daily else 1)*bool(p.expert_method))
         self.event('phase','planning');jobs=plan_jobs(self,selected)
+        self.event('plan',{'requests':sum(not j.cached for j in jobs),'stored':sum(j.cached for j in jobs)})
         expert_count=(total_days if p.expert_daily else 1)*bool(p.expert_method)
         if p.source!='offline':
             self.eta=RemainingTime([job.family for job in jobs]+['expert']*expert_count,p.delay,self.event,workers=p.workers)
@@ -522,15 +526,22 @@ class Exporter:
                 window=[]
                 for later in jobs[index:]:
                     if len(window)>=p.workers*PREFETCH_WINDOW:break
-                    if self.parallel_job(later):
+                    if self.parallel_job(later) and not self.day_skip_reason(later.dataset,later.days[0]):
                         window.append((later.dataset.key,later.days[0],later.dataset.method,*self.request_args(later.dataset,later.days[0]),later.dataset.binary))
                 self.prefetch_parallel(window)
+            reason=self.day_skip_reason(ds,job.days[0]) if job.mode=='single' else None
+            if reason:
+                args,kwargs=self.request_args(ds,job.days[0])
+                self.not_requested(ds.key,job.days[0],ds.method,args,kwargs,ds.binary,reason)
+                if self.eta:self.eta.skip(job.family)
+                self.event('progress');continue
             if self.eta:self.eta.begin(job.family)
             if job.mode=='range' and ds.key not in self.range_disabled:self.prefetch_range(ds,job.days)
             for day in job.days:
                 args,kwargs=self.request_args(ds,day)
                 result = self.retrieve(ds.key, day, ds.method, args, kwargs, ds.binary)
                 self.event('progress')
+                if ds.key=='summary':self._summary_evidence[day]=result
                 if ds.key == 'activities' and isinstance(result, list):
                     matched=self.match_activities(result)
                     self.stats['activities']+=len(matched)
@@ -555,10 +566,31 @@ class Exporter:
         args=() if ds.kind=='account' else (day,day) if ds.kind=='range' else (day,)
         return args,({'aggregation':'daily'} if ds.key=='endurance' else {})
 
+    def day_skip_reason(self,ds,day):
+        if not self.plan.skip_empty or self.plan.source=='offline' or ds.kind!='day' or ds.binary:return None
+        if (ds.key,day) in getattr(self,'force_requests',set()):return None
+        with self._lock:
+            if (ds.key,day) in self._staged:return None
+        args,kwargs=self.request_args(ds,day)
+        # An existing response always takes precedence over an inference, even during refresh.
+        if self.available(ds.key,day,ds.method,args,kwargs,ds.binary):return None
+        if self.has_response(ds.key,day,ds.method,args,kwargs,ds.binary):return None
+        from skip_requests import summary_reason
+        return summary_reason(ds.key,self._summary_evidence.get(day))
+
+    def has_response(self,key,day,method,args=(),kwargs=None,binary_format=''):
+        return self.cache_path(key,day,method,args,kwargs,binary_format).is_file()
+
+    def not_requested(self,key,day,method,args,kwargs,binary_format,reason):
+        self.stats['not_requested']=self.stats.get('not_requested',0)+1
+        self.warnings.append('unverified_skip:'+key+':'+day+':'+reason['rule'])
+        self.event('item',key,day,'not_requested')
+
     def parallel_job(self,job):
         """Single-day network requests that are independent of each other."""
         return (self.plan.workers>1 and self.plan.source!='offline' and not job.cached and job.mode=='single'
                 and job.dataset.key!='activities' and job.dataset.kind!='account'
+                and not (self.plan.skip_empty and job.dataset.key=='summary')
                 and job.dataset.method not in getattr(self,'blocked_methods',()))
 
     def prefetch_range(self,ds,calendar):
@@ -665,6 +697,11 @@ class Exporter:
             if not isinstance(ident, (int, str)) or not str(ident).isdigit():
                 continue
             for method in self.plan.activity_details:
+                from skip_requests import activity_reason
+                key='activity-'+str(ident)+'-'+method.removeprefix('get_activity_')
+                reason=activity_reason(method,activity) if self.plan.skip_empty and self.plan.source!='offline' else None
+                if reason and not self.has_response(key,day,method,(ident,),{}):
+                    self.not_requested(key,day,method,(ident,),{},'',reason);continue
                 requests.append(('activity-'+str(ident)+'-'+method.removeprefix('get_activity_'),method,(ident,),{},'', 'details'))
             for fmt in self.plan.activity_files:
                 requests.append(('activity-'+str(ident)+'-'+fmt.lower(),'download_activity',(ident,),{'dl_fmt':Garmin.ActivityDownloadFormat[fmt]},fmt,'files'))

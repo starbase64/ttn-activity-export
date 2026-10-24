@@ -114,6 +114,13 @@ class ArchiveSync(Exporter):
             if isinstance(exc,(OSError,sqlite3.Error)):raise
             return None
 
+    def has_response(self,key,day,method,args=(),kwargs=None,binary_format=''):
+        return bool(self.archive.get(key,day,request_spec(key,method,args,kwargs,binary_format))) or super().has_response(key,day,method,args,kwargs,binary_format) or self.nested_legacy_response(key,day,method,args,kwargs,binary_format)[0]
+
+    def not_requested(self,key,day,method,args,kwargs,binary_format,reason):
+        self.archive.mark_inferred(key,day,request_spec(key,method,args,kwargs,binary_format),reason)
+        super().not_requested(key,day,method,args,kwargs,binary_format,reason)
+
     def collect(self):
         return super().collect()
 
@@ -135,7 +142,7 @@ class ArchiveSync(Exporter):
                 # Keep the original cause (e.g. 429) so the request pause still applies.
                 if not fatal:fatal=diagnostic(exc)
                 else:self.warnings.append('save_after_error_failed:'+type(exc).__name__)
-            report={'completed':not stopped and not fatal and not self.stats['errors'],'cancelled':stopped,
+            report={'completed':not stopped and not fatal and not self.stats['errors'] and not self.stats.get('not_requested'),'cancelled':stopped,
                     'fatal_diagnostic':fatal,'stats':self.stats,'errors':self.errors,'warnings':self.warnings,
                     'start':self.plan.start,'end':self.plan.end,'datasets':self.plan.datasets,
                     'activity_details':self.plan.activity_details,'activity_files':self.plan.activity_files,
@@ -178,6 +185,8 @@ class OfflineExporter(Exporter):
             self.records.append({'dataset':key,'date':day,'binary':False,'archive_keys':[r['entry_key'] for r in records]})
             self.event('item',key,day,'offline')
             return list(data.values())
+        if not found and self.archive.inferred(key,day,request_spec(key,method,args,kwargs,binary_format)):
+            self.warnings.append('unverified_skip:'+key+':'+day)
         if not found:
             self.stats['errors']+=1
             self.errors.append({'dataset':key,'date':day,'error_type':'OfflineDataMissing','http_status':None})

@@ -301,3 +301,17 @@ def test_account_switch_updates_managed_default_archive_without_changing_custom_
     window.identity=a;window.ensure_archive_path()
     assert window.archive_path.text()==custom
     window.close()
+
+
+def test_inferred_skip_option_and_recovery_button_are_bilingual():
+    from PySide6.QtWidgets import QPushButton
+    window=MainWindow(demo=True)
+    assert not window.skip_empty.isChecked() and not window.make_plan().skip_empty
+    window.skip_empty.setChecked(True)
+    assert window.make_plan().skip_empty
+    assert any(b.text()=='Übersprungene Abfragen trotzdem laden' for b in window.findChildren(QPushButton))
+    window.toggle_language()
+    assert window.make_plan().skip_empty
+    assert any(b.text()=='Retrieve skipped requests anyway' for b in window.findChildren(QPushButton))
+    assert 'Experimental' in window.help.toPlainText()
+    window.close()
