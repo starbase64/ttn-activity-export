@@ -1,3 +1,9 @@
+# Unreleased · review follow-ups
+
+- Rate limits are signalled to the UI immediately, even if later storage/report writes fail. A storage error while saving already received responses no longer hides the original stop reason. A rate limit (429) is kept, so the local request pause still applies; the storage error is listed as a warning.
+- A rejected or expired saved session no longer shows an error dialog on every start: the email stays filled in, the automatic sign-in is turned off and a hint appears in the log. Temporary network/server errors keep the saved account for the next start.
+- The UI explicitly explains that unchecking Remember disables automatic sign-in while retaining tokens. Remove local session remains the explicit deletion action.
+
 # 0.5.1-preview · 2026-10-23
 
 - Restore the remembered account on startup using saved session tokens, without saving passwords. Verify token writes explicitly and report save failures. Respect request pauses. Allow removing expired local sessions without signing in. After updating, sign in once with Remember enabled.

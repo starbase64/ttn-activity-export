@@ -86,6 +86,7 @@ class MainWindow(QMainWindow):
         self.identity = None
         self.worker = None
         self._closing=False
+        self._restoring=False
         self.last_output = ''
         self.completed = 0
         self.field_checks = []
@@ -190,17 +191,38 @@ class MainWindow(QMainWindow):
             email=saved['email'];china=saved['china']
             if saved.get('schema')!=1 or not isinstance(email,str) or not email.strip() or len(email)>320 or type(china) is not bool:return
         except (OSError,ValueError,KeyError,TypeError):return
-        self.email.setText(email);self.china.setChecked(china);self.remember.setChecked(True)
+        self.email.setText(email);self.china.setChecked(china)
+        auto_restore=saved.get('auto_restore',True) is True
+        self.remember.setChecked(auto_restore)
+        if not auto_restore:return
         self._restore_account=(email,china)
         QTimer.singleShot(0,self.restore_saved_session)
 
     def restore_saved_session(self):
         if self._closing or self.api or not self.remember.isChecked():return
+        if self.worker and self.worker.isRunning():return
         if (self.email.text().strip(),self.china.isChecked())!=getattr(self,'_restore_account',None):return
         if self.rate_pause.remaining():
             self.log.appendPlainText(self.tr('Gespeicherte Sitzung: Wiederherstellung wegen aktiver Abrufpause ausgesetzt.','Saved session: restore skipped during the active request pause.'));return
         self.log.appendPlainText(self.tr('Gespeicherte Sitzung wird wiederhergestellt …','Restoring saved session …'))
         self.login(restore=True)
+
+    def restore_failed(self,detail):
+        self.register_rate_limit(detail)
+        rejected=detail.get('reason') in ('authentication','forbidden') or detail.get('error_type')=='GarminConnectAuthenticationError'
+        if rejected:
+            # Keep account selection, but do not retry rejected tokens on every start.
+            try:atomic_json(self.saved_account_path,{'schema':1,'email':self.email.text().strip(),'china':self.china.isChecked(),'auto_restore':False})
+            except OSError:
+                self.log.appendPlainText(self.tr('Automatische Anmeldung konnte nicht dauerhaft deaktiviert werden. Schreibrechte prüfen.','Could not persist disabled automatic sign-in. Check write permissions.'))
+            self.remember.blockSignals(True);self.remember.setChecked(False);self.remember.blockSignals(False)
+            text=self.tr('Gespeicherte Sitzung wurde abgelehnt. Bitte mit Passwort neu anmelden; zum Speichern „Sitzung lokal merken“ wieder aktivieren.',
+                         'Saved session was rejected. Please sign in with your password; enable Remember session to save it again.')
+            self.tabs.setCurrentIndex(0);self.password.setFocus()
+        else:
+            text=self.tr('Sitzung konnte gerade nicht wiederhergestellt werden. Konto bleibt für den nächsten Start gemerkt. ',
+                         'Could not restore the session right now. Account remains remembered for the next start. ')+self.error_description(detail).replace('\n',' · ')
+        self.log.appendPlainText(text)
 
     def remember_changed(self,checked):
         if not checked and not self.demo:
@@ -235,6 +257,9 @@ class MainWindow(QMainWindow):
         self.row(f,'E-Mail','Email',self.email); self.row(f,'Passwort','Password',self.password)
         self.china = self.check('China-Konto (garmin.cn)', 'China account (garmin.cn)'); f.addRow(self.china)
         self.remember = self.check('Sitzung lokal merken (Anmeldeschlüssel wird gespeichert)', 'Remember session locally (stores an authentication token)'); f.addRow(self.remember)
+        self.remember_hint=self.label('Abwählen deaktiviert die automatische Anmeldung. Gespeicherte Schlüssel bleiben erhalten; mit „Lokale Sitzung entfernen“ löschen.',
+                                     'Unchecking disables automatic sign-in. Stored tokens remain; delete them with Remove local session.')
+        f.addRow(self.remember_hint)
         self.detect_first = self.check('Erste Aktivität als Anfangsdatum vorschlagen','Suggest first activity as start date',True);f.addRow(self.detect_first)
         actions = QHBoxLayout(); self.login_button = self.button('Anmelden', 'Sign in', self.login); actions.addWidget(self.login_button)
         self.forget_button = self.button('Lokale Sitzung entfernen', 'Remove local session', self.forget); actions.addWidget(self.forget_button); f.addRow(actions)
@@ -330,7 +355,7 @@ class MainWindow(QMainWindow):
             f.addWidget(caption); f.addWidget(widget)
         self.delay=QDoubleSpinBox(); self.delay.setRange(0,60); self.delay.setDecimals(2); self.delay.setSingleStep(0.1); self.delay.setValue(0.5); option_row('Abrufpause (Sekunden)','Request interval (seconds)',self.delay)
         self.workers=QSpinBox(); self.workers.setRange(1,MAX_WORKERS); self.workers.setValue(3); option_row('Parallele Abfragen','Parallel requests',self.workers)
-        f.addWidget(self.label('Mehrere Abfragen laufen gleichzeitig; die Abrufpause gilt trotzdem für alle zusammen. Höhere Werte sind schneller, erhöhen aber das Risiko einer Garmin-Ratenbegrenzung (HTTP 429). Dann stoppt der Lauf und kann später fortgesetzt werden.','Several requests run at the same time; the request interval still applies to all of them together. Higher values are faster but increase the risk of a Garmin rate limit (HTTP 429). The run then stops and can be resumed later.'))
+        f.addWidget(self.label('Mehrere Abfragen laufen gleichzeitig; die Abrufpause gilt trotzdem für alle zusammen. Höhere Werte sind schneller, erhöhen aber das Risiko einer Garmin-Ratenbegrenzung (HTTP 429). Dann stoppt der Lauf und kann später fortgesetzt werden. Bereits gestartete Anfragen können noch zu Ende laufen.','Several requests run at the same time; the request interval still applies to all of them together. Higher values are faster but increase the risk of a Garmin rate limit (HTTP 429). The run then stops and can be resumed later. Requests already in flight may still finish.'))
         self.optimize=self.check('Zeitraumabfragen bündeln (empfohlen)','Batch supported date ranges (recommended)',True);f.addWidget(self.optimize)
         self.activity_batch_days=QSpinBox();self.activity_batch_days.setRange(1,365);self.activity_batch_days.setValue(31);option_row('Aktivitäten: Tage je Zeitraumabfrage','Activities: days per range query',self.activity_batch_days)
         self.health_batch_days=QSpinBox();self.health_batch_days.setRange(1,28);self.health_batch_days.setValue(28);option_row('Gesundheit: Tage je Zeitraumabfrage','Health: days per range query',self.health_batch_days)
@@ -601,6 +626,7 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def worker_finished(self):
+        self._restoring=False
         self.set_busy(False)
         if self.eta_active:self.end_eta('error')
         if self.progress.maximum()==0: self.progress.setRange(0,1); self.progress.setValue(0)
@@ -668,6 +694,8 @@ class MainWindow(QMainWindow):
 
     def worker_failed(self,detail):
         if isinstance(detail,str):detail={'error_type':detail,'reason':'unknown'}
+        if self._restoring:
+            self._restoring=False;self.restore_failed(detail);return
         self.register_rate_limit(detail)
         if self.eta_snapshot is not None or self.local_transfer:self.end_eta('error')
         text=self.error_description(detail)
@@ -679,6 +707,7 @@ class MainWindow(QMainWindow):
         self.worker.answers.put(code.strip() if ok else None)
 
     def login(self,restore=False):
+        if self.worker and self.worker.isRunning():return
         if self.demo:
             self.message('Demo-Modus: Für echte Konten ohne --demo starten.','Demo mode: restart without --demo for real accounts.'); return
         email=self.email.text().strip(); password='' if restore else self.password.text(); remember=self.remember.isChecked(); china=self.china.isChecked()
@@ -686,7 +715,7 @@ class MainWindow(QMainWindow):
             self.message('Bitte E-Mail-Adresse eingeben.','Please enter your email.'); return
         ident=account_key(email,china); session=self.data_dir/'sessions'/ident
         detect_first=self.detect_first.isChecked() and not restore
-        self.password.clear()
+        self.password.clear();self._restoring=restore
         def op(worker):
             api=Garmin(email=email,password=password or None,is_cn=china,prompt_mfa=worker.ask_mfa,retry_attempts=0)
             persistence={'remember':remember,'china':china,'saved':False,'error':{}}
@@ -726,6 +755,7 @@ class MainWindow(QMainWindow):
         self.run_worker(op,self.login_done)
 
     def login_done(self,result):
+        self._restoring=False
         self.api,self.identity,self._signed_email=result[:3]
         if len(result)>6:
             persistence=result[6]
@@ -895,7 +925,8 @@ class MainWindow(QMainWindow):
 
     def on_event(self,args):
         kind,*values=args
-        if kind=='eta':
+        if kind=='rate_limit':self.register_rate_limit(values[0])
+        elif kind=='eta':
             if self.worker and self.worker.cancel.is_set():return
             self.eta_snapshot=values[0];self.eta_received=time.monotonic();self.eta_active=True;self.update_eta()
         elif kind=='eta_end':self.end_eta(values[0])
