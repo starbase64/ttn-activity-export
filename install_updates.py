@@ -54,6 +54,14 @@ class UpdateInstallMixin:
         if self.update_install_busy():self._offer_timer.start(1000);return
         self.confirm_update()
 
+    def _ask_install_confirmation(self,text):
+        buttons=QMessageBox.StandardButton.Ok|QMessageBox.StandardButton.Cancel
+        box=QMessageBox(QMessageBox.Icon.Question,'TTN Activity Export',text,buttons,self)
+        box.button(QMessageBox.StandardButton.Ok).setText('OK')
+        box.button(QMessageBox.StandardButton.Cancel).setText(self.tr('Abbrechen','Cancel'))
+        box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        result=box.exec();box.deleteLater();return result
+
     def confirm_update(self):
         if not self.can_install_update() or self.install_worker:return
         if self.update_install_busy():
@@ -62,7 +70,7 @@ class UpdateInstallMixin:
         asset=dict(self.update_info['installer']);self._offered_updates.add(asset['version'])
         text=self.tr(f"Update auf Version {asset['version']} jetzt installieren?\n\nDie App wird geschlossen, die neue Version geprüft und automatisch gestartet. Konten, Einstellungen und heruntergeladene Daten bleiben erhalten.",
                      f"Install update {asset['version']} now?\n\nThe app will close, check the new version and restart automatically. Accounts, settings and downloaded data are retained.")
-        if QMessageBox.question(self,'TTN Activity Export',text,QMessageBox.StandardButton.Ok|QMessageBox.StandardButton.Cancel,QMessageBox.StandardButton.Cancel)!=QMessageBox.StandardButton.Ok:return
+        if self._ask_install_confirmation(text)!=QMessageBox.StandardButton.Ok:return
         if self.update_install_busy():self._offered_updates.discard(asset['version']);self._offer_timer.start(1000);return
         self._begin_install(asset)
 

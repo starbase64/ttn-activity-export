@@ -19,14 +19,14 @@ def window(tmp_path,monkeypatch):
 
 def test_cancel_does_not_download_close_or_modify_data(window,monkeypatch):
     w=window;before=w.make_plan();calls=[]
-    monkeypatch.setattr(QMessageBox,'question',lambda *a:QMessageBox.StandardButton.Cancel)
+    monkeypatch.setattr(w,'_ask_install_confirmation',lambda *a:QMessageBox.StandardButton.Cancel)
     monkeypatch.setattr(w,'_begin_install',lambda *a:calls.append(a))
     w.confirm_update();assert not calls and not w._closing and w.make_plan()==before
 
 
 def test_ok_starts_only_the_confirmed_update_and_busy_jobs_are_not_interrupted(window,monkeypatch):
     w=window;calls=[]
-    monkeypatch.setattr(QMessageBox,'question',lambda *a:QMessageBox.StandardButton.Ok)
+    monkeypatch.setattr(w,'_ask_install_confirmation',lambda *a:QMessageBox.StandardButton.Ok)
     monkeypatch.setattr(w,'_begin_install',lambda asset:calls.append(asset))
     monkeypatch.setattr(w,'update_install_busy',lambda:True)
     w.confirm_update();assert not calls
@@ -36,7 +36,17 @@ def test_ok_starts_only_the_confirmed_update_and_busy_jobs_are_not_interrupted(w
 
 def test_available_update_prompts_once_and_translates_install_button(window,monkeypatch):
     w=window;calls=[]
-    monkeypatch.setattr(QMessageBox,'question',lambda *a:calls.append(a[2]) or QMessageBox.StandardButton.Cancel)
+    monkeypatch.setattr(w,'_ask_install_confirmation',lambda text:calls.append(text) or QMessageBox.StandardButton.Cancel)
     w.offer_update();w.offer_update();assert len(calls)==1
     w.render_update_result();assert w.update_download.text()=='Update installieren'
     w.toggle_language();assert w.update_download.text()=='Install update'
+
+
+def test_confirmation_buttons_follow_app_language(window,monkeypatch):
+    labels=[]
+    def answer(box):
+        labels.append((box.button(QMessageBox.StandardButton.Ok).text(),box.button(QMessageBox.StandardButton.Cancel).text()))
+        return QMessageBox.StandardButton.Cancel
+    monkeypatch.setattr(QMessageBox,'exec',answer)
+    window._ask_install_confirmation('Test');window.toggle_language();window._ask_install_confirmation('Test')
+    assert labels==[('OK','Abbrechen'),('OK','Cancel')]
