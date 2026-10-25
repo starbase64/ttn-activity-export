@@ -6,7 +6,7 @@ This local desktop app downloads supported Garmin Connect data, keeps a reusable
 
 ## Getting started with preview 0.6
 
-This guide covers version 0.6.9. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
+This guide covers version 0.6.10-preview. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks and OK/Cancel installation are available beside the language control; delta updates remain future work.
 
 The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
 
@@ -295,7 +295,7 @@ Recognized local failures show a translated explanation and allowlisted code suc
 
 ## Checking for updates (since 0.6.8)
 
-**Check updates** appears at the top right beside language and theme. It checks this project's published GitHub releases while sign-in, downloads and local browsing remain available. Results appear below the header. A newer matching release provides **Open download**, which opens its GitHub release notes and downloads in your default browser. Download the Windows ZIP, close the old app and extract to a separate program directory. Your existing data/profile directory remains usable.
+**Check updates** appears at the top right beside language and theme. It checks this project's published GitHub releases while sign-in, downloads and local browsing remain available. Results appear below the header. An installable newer Windows release provides **Install update** (see below). Other installations provide **Open download**, which opens its GitHub release notes and downloads in your default browser. Download the Windows ZIP, close the old app and extract to a separate program directory. Your existing data/profile directory remains usable.
 
 **Check automatically at startup** saves your preference per user profile and defaults to off. When enabled, a normal app startup checks once. Demo/smoke runs never check automatically. Manual checks remain available. The check needs internet access to GitHub; it does not transmit Garmin/Komoot credentials or activity data. Connection errors and GitHub rate limits are shown explicitly and do not establish that the installed version is current.
 
