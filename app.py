@@ -38,7 +38,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.6.5-preview'
+VERSION = '0.6.6-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -784,6 +784,8 @@ class MainWindow(QMainWindow):
             'OfflineArchiveError':('Keine gültige oder unterstützte Offline-Datenbank. Datei und Pfad prüfen.','Invalid or unsupported offline archive. Check the file and path.'),
         }
         de,en=local.get(detail.get('error_type'),reasons.get(detail.get('reason'),reasons['unknown']))
+        if detail.get('provider')=='komoot' or detail.get('error_type')=='KomootError':
+            de=de.replace('Garmin','Komoot');en=en.replace('Garmin','Komoot')
         text=detail.get('error_type','Error')
         if detail.get('http_status'):text+=f" · HTTP {detail['http_status']}"
         return text+'\n'+self.tr(de,en)

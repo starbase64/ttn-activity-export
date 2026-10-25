@@ -47,6 +47,21 @@ def test_inventory_keeps_valid_pages_and_reports_error_without_advancing(tmp_pat
     with pytest.raises(ValueError):api.inventory('2020-01-02','2020-12-31',previous=r)
 
 
+@pytest.mark.parametrize('kind',['','tour_recorded','tour_planned'])
+def test_inventory_uses_minimal_valid_query_and_local_date_filter(tmp_path,kind):
+    from urllib.parse import urlsplit,parse_qs
+    calls=[]
+    def transport(path,*args):
+        query=parse_qs(urlsplit(path).query,keep_blank_values=True);calls.append(query)
+        assert set(query)==({'page','limit','type'} if kind else {'page','limit'})
+        assert query['limit']==['50']
+        if kind:assert query['type']==[kind]
+        tours=[tour(date='1989-01-01'),tour(124,type=kind or 'tour_recorded')]
+        return json.dumps({'_embedded':{'tours':tours if len(calls)==1 else []}}).encode()
+    result=client(tmp_path,transport).inventory('2020-01-01','2020-12-31',kind=kind)
+    assert result['complete'] and not result['error'] and len(result['items'])==1 and len(calls)==2
+
+
 def test_429_persists_pause_without_spending_another_request(tmp_path):
     calls=[]
     def limited(*args):calls.append(1);raise HTTPError('redacted',429,'',{'Retry-After':'60'},None)

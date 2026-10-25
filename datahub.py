@@ -30,6 +30,11 @@ def valid_point(lat, lon):
 def local_name(tag): return tag.rsplit('}',1)[-1]
 
 def xml_root(data):
+    # Some exported TCX recordings indent the XML declaration. Normalize only
+    # ASCII whitespace before that declaration, using a parsing copy; callers
+    # retain the original recording bytes. Both parsers still see identical XML.
+    stripped=data.lstrip(b' \t\r\n')
+    if stripped.startswith(b'<?xml'):data=stripped
     # A byte search misses UTF-16/32 encoded documents. Let expat decode the
     # document and refuse any DTD before ElementTree could expand entities.
     from xml.parsers import expat

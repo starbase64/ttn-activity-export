@@ -87,7 +87,12 @@ class KomootClient:
         for _ in range(10):
             if result['complete'] or cancel.is_set():break
             try:
-                query=urlencode({'page':result['offset'],'limit':100,'start_date':start,'end_date':end,'type':kind,'sort_field':'date','sort_direction':'desc'})
+                # Keep the server query minimal; dates are filtered locally
+                # below, so endpoint-specific optional filter validation cannot
+                # reject them. An empty type is not a valid enum: omit it.
+                params={'page':result['offset'],'limit':50}
+                if kind:params['type']=kind
+                query=urlencode(params)
                 data=self.request('/v007/users/'+self.user+'/tours/?'+query,cancel=cancel)
                 batch=data.get('_embedded',{}).get('tours')
                 if not isinstance(batch,list):raise ValueError('Unknown tour list format')

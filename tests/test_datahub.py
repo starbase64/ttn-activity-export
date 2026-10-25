@@ -171,6 +171,8 @@ def test_xml_dtd_is_refused_in_any_encoding():
         data=doc.format(enc=enc).encode(codec)
         with pytest.raises(Exception) as info:parse_activity(data,'gpx')
         assert 'declarations' in str(info.value) or 'ParseError' in type(info.value).__name__
+    with pytest.raises(ValueError,match='declarations'):
+        parse_activity(b'          '+doc.format(enc='UTF-8').encode('utf-8'),'gpx')
 
 
 def test_gpx_with_mixed_utc_and_naive_times_imports():

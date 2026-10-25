@@ -398,8 +398,8 @@ class StudioMixin:
                                  'No activity files or measurement streams downloaded. This list does not establish health-data availability.'))
         note.setWordWrap(True);v.addWidget(note)
         if result.get('error'):
-            detail=result['error'];label=QLabel(self.error_description(detail));label.setWordWrap(True);label.setObjectName('warningText');v.addWidget(label)
-            self.register_rate_limit(detail)
+            detail={**result['error'],'provider':result.get('provider','garmin')};label=QLabel(self.error_description(detail));label.setWordWrap(True);label.setObjectName('warningText');v.addWidget(label)
+            if detail['provider']=='garmin':self.register_rate_limit(detail)
         if result.get('cache_error'):v.addWidget(self.label('Die Übersicht konnte nicht lokal gespeichert werden.','Could not save this inventory locally.'))
         row=QHBoxLayout();search=QLineEdit();search.setPlaceholderText(self.tr('Name oder Datum suchen','Search name or date'));sport=QComboBox();sport.addItem(self.tr('Alle Sportarten','All sports'),'')
         kinds=sorted({str((a.get('activityType') or {}).get('typeKey','')) for a in result['items'] if isinstance(a.get('activityType'),dict)})

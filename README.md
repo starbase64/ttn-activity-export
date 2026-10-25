@@ -16,7 +16,7 @@ Die App wird ausschließlich als **TTN Activity Export** ausgeliefert. Bestehend
 
 ## Aktueller Stand
 
-Der Quellstand ist **0.6.5-preview**. **Garmin Connect wird unterstützt. Die vereinfachte Oberfläche ist als Testversion enthalten. Strava wird ausschließlich als lokale Importquelle unterstützt. Komoot hat eine experimentelle Online-Anbindung.**
+Der Quellstand ist **0.6.6-preview**. **Garmin Connect wird unterstützt. Die vereinfachte Oberfläche ist als Testversion enthalten. Strava wird ausschließlich als lokale Importquelle unterstützt. Komoot hat eine experimentelle Online-Anbindung.**
 
 Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quellstand. Beachte beim Download die Versionsnummer: Eine Anleitung zum aktuellen Stand bedeutet nicht, dass ein älteres Release diese Funktionen bereits enthält. Aktuelle Windows-Starter entstehen als Artefakte erfolgreicher [GitHub-Actions-Prüfläufe](https://github.com/starbase64/ttn-activity-export/actions). Artefakte können eine GitHub-Anmeldung erfordern und ablaufen.
 
@@ -74,7 +74,7 @@ Große Erstexporte, vollständige Messverläufe und Excel-Dateien brauchen Zeit.
 
 A local Garmin Connect desktop app for downloading selected data or years of history, keeping a reusable SQLite archive, browsing activities and maps, and exporting CSV, Excel or JSON. Includes German/English UI, persistent light/dark mode, bounded previews, download ETA and session logs. The Windows starter installs a private Python runtime and pinned, hash-verified dependencies; no existing Python installation is required.
 
-**Source: 0.6.5-preview. Published release v0.5.0-preview is older. The compact UI is a test preview. Strava supports local account-ZIP/folder import only, with no API key, login or automated retrieval. Komoot has experimental sign-in, inventory and GPX export.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-activity-export/actions) for current Windows starter artifacts.
+**Source: 0.6.6-preview. Published release v0.5.0-preview is older. The compact UI is a test preview. Strava supports local account-ZIP/folder import only, with no API key, login or automated retrieval. Komoot has experimental sign-in, inventory and GPX export.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-activity-export/actions) for current Windows starter artifacts.
 
 ## Entwicklung / Development
 

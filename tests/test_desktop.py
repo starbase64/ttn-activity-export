@@ -193,6 +193,23 @@ def test_options_cancel_restores_changes_and_apply_keeps_them(window):
     w.options_dialog.close();assert w.make_plan().workers==17
 
 
+def test_komoot_inventory_error_names_provider_and_leaves_garmin_pause_alone(window,monkeypatch):
+    from PySide6.QtWidgets import QLabel
+    w=window
+    monkeypatch.setattr(w,'register_rate_limit',lambda *a:pytest.fail('Komoot must not set a Garmin pause'))
+    result={'provider':'komoot','start':'2020-01-01','end':'2020-01-02','items':[],
+            'complete':False,'error':{'error_type':'KomootError','http_status':400,'reason':'invalid_request'}}
+    w.open_inventory_dialog(result)
+    text='\n'.join(label.text() for label in w.inventory_dialog.findChildren(QLabel))
+    assert 'Komoot hat die Abfrage abgelehnt' in text and 'Garmin' not in text
+    w.inventory_dialog.close()
+    for lang in ('de','en'):
+        w.lang=lang
+        for reason in ('rate_limit','forbidden','server','invalid_request'):
+            text=w.error_description({'provider':'komoot','error_type':'KomootError','reason':reason})
+            assert 'Komoot' in text and 'Garmin' not in text
+
+
 def test_inventory_selection_applies_only_chosen_ids(window):
     w=window;r=read_inventory(DemoGarmin(),'2020-01-01','2020-01-01',interval=0,pages=1);r['account']=w.active_account['id']
     w.show();w.open_inventory_dialog(r);dialog=w.inventory_dialog;QApplication.processEvents();table=dialog.findChild(QTableWidget)

@@ -1,4 +1,6 @@
-# TTN Activity Export · 0.6.5-preview · Testversion
+# TTN Activity Export · 0.6.6-preview · Testversion
+
+Neu in 0.6.6: TCX-Dateien mit eingerückter XML-Kopfzeile werden beim Strava-Import gelesen. Bereits importierte Pakete können erneut importiert werden, um fehlende Aktivitätsdateien ohne doppelte Aktivitäten nachzutragen. Originaldateien bleiben unverändert. Die Komoot-Bestandsabfrage wurde vereinfacht; Komoot-Fehler nennen den richtigen Anbieter und setzen keine Garmin-Abrufpause. Der HTTP-400-Fall benötigt einen erneuten Kontotest.
 
 Neu in 0.6.5: Kontoordner werden beim Anlegen erstellt. Strava-Import unterstützt deutsche und englische Spalten und meldet erkennbare Importprobleme konkret. Gesamtzahl der lokalen Aktivitäten vor der Auswahlstatistik; zusätzliche Anzeige der gefilterten Anzahl. Ein Kontowechsel wechselt auch den Datenpfad, leert alte Tabelle/Karte und lädt eine passende vorhandene Datenbank automatisch lokal. Ohne Datenbank bleibt die Ansicht leer und zeigt den vorgesehenen Pfad. Benutzerdefinierte Datenbankpfade werden je Konto gemerkt.
 

@@ -1,3 +1,10 @@
+# 0.6.6-preview · Strava TCX import and Komoot inventory
+
+- Accept ASCII whitespace before an XML declaration in TCX/GPX parsing. This handles indented TCX recordings in downloaded Strava archives while preserving original file bytes and the parser-level DTD/entity protection.
+- Re-importing the same package repairs missing recording files without duplicating existing activity summaries.
+- Use provider-aware Komoot inventory errors and keep Komoot failures separate from Garmin rate pauses. Request tour lists with page, limit and an optional nonempty type; apply date filters locally to reduce endpoint filter incompatibilities. HTTP 400 on the user account still requires a live retest.
+- Add a synthetic regression test for an indented TCX file, byte-preserving storage, repeat import and unchanged XML declaration security checks. No user activity data is included in the repository or build.
+
 # 0.6.5-preview · account-specific data views
 
 - Prefix the Data selection summary with the total number of local activities, retaining selection/track counts and showing the visible count when filters narrow the list. Keep the total visible while GPS is loaded; translate both languages.

@@ -162,6 +162,21 @@ def test_missing_or_corrupt_file_preserves_activity_metadata(tmp_path):
     assert len(load_archive(target)['activities'])==2
 
 
+def test_indented_tcx_declaration_imports_and_repairs_existing_metadata(tmp_path):
+    # Synthetic reproduction of the ten spaces in a user-downloaded archive.
+    tcx=b'          <?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<TrainingCenterDatabase><Activities><Activity Sport="Biking"><Id>2020-01-01T10:00:00Z</Id><Lap><TotalTimeSeconds>600</TotalTimeSeconds><DistanceMeters>2500</DistanceMeters><Track><Trackpoint><Time>2020-01-01T10:00:00Z</Time><Position><LatitudeDegrees>51.1</LatitudeDegrees><LongitudeDegrees>8.1</LongitudeDegrees></Position></Trackpoint></Track></Lap></Activity></Activities></TrainingCenterDatabase>'
+    target=tmp_path/'db.sqlite';account=account_key('strava:mine')
+    source=package(tmp_path/'archive.zip',[row(filename='activities/123.tcx')])
+    assert import_strava_archive(target,source,account)['failed']==1
+    source=package(source,[row(filename='activities/123.tcx')],{'activities/123.tcx':tcx})
+    result=import_strava_archive(target,source,account)
+    assert result['duplicates']==1 and result['imported']==0 and result['files']==1 and result['failed']==0
+    data=load_archive(target)
+    assert len(data['activities'])==1 and len(next(iter(data['tracks'].values())))==1
+    with Archive(target,readonly=True) as db:
+        assert bytes(db.db.execute('SELECT payload FROM responses WHERE is_binary=1').fetchone()[0])==tcx
+
+
 def test_gzip_limit_is_bounded_and_path_traversal_never_extracts(tmp_path,monkeypatch):
     import strava_import as module
     monkeypatch.setattr(module,'MAX_FILE',1024)
