@@ -1,46 +1,61 @@
 # TTN Garmin Export
 
-Lokale Windows-App zum Exportieren und Durchsuchen deiner Garmin-Connect-Daten. Deutsch/Englisch umschaltbar. Unabhängiges Community-Projekt; kein offizielles Garmin-Produkt.
+**Deine Garmin-Daten herunterladen, lokal aufbewahren, durchsuchen und als CSV, Excel oder JSON exportieren.**
 
-## Quellstand 0.5.3-preview: schnellere Downloads
+TTN Garmin Export ist eine lokale Desktop-App mit deutscher und englischer Oberfläche, hellem und dunklem Farbschema und einem Windows-Starter ohne vorausgesetzte Python-Installation. Du kannst einzelne Datenarten oder mehrjährige Zeiträume sichern und aus dem lokalen Bestand weitere Exporte erstellen.
 
-Der aktuelle Quellstand bietet 1–50 parallele Abfragen (Standard 3), gemeinsamer Mindestabstand von 0,5 Sekunden statt der bisherigen festen 2 Sekunden bei Sicherungen, begrenzte Wiederholungen und Erhalt erfolgreich geladener Antworten bei Abbruch. Garmin kann weiterhin Tagesabfragen und Ratenlimits erfordern; eine allgemeingültige Beschleunigung um einen festen Faktor ist nicht belegt.
+Unabhängiges Community-Projekt; kein offizielles Garmin-Produkt.
 
-Außerdem: automatische Wiederherstellung gemerkter Sitzungen (nach dem Update einmal mit gesetztem Haken anmelden), Restzeit für parallele Downloads und eine Datenansicht mit großer Karte rechts. „Anleitung“ ist der letzte Reiter. Das bestehende Release `v0.5.0-preview` enthält diese Änderungen noch nicht; aktuelle Windows-Starter entstehen als Artefakte der [Actions-Prüfläufe](https://github.com/starbase64/ttn-garmin-export/actions).
+[Anleitung auf Deutsch](docs/ANLEITUNG.md) · [English user guide](docs/USER_GUIDE.md) · [Downloads](https://github.com/starbase64/ttn-garmin-export/releases) · [Änderungen](CHANGELOG.md) · [Planung](ROADMAP.md)
 
-Neu in 0.5.3: ein aktueller Export pro Account unter `exports/current`, optionale getrennte Ergebnisordner und ein gemeinsamer SQLite-Bestand für Online-Export und Offline-Sicherung. Neue Ordner bedeuten keine neuen Downloads. Alte Ergebnisordner bleiben erhalten.
+## Aktueller Stand
 
-Neu in 0.5.2: Das ermittelte erste Aktivitätsdatum und die gewählten Anfangsdaten auf Export und Daten werden pro Konto gespeichert. Ein Zurücksetzen-Button verwendet das gemerkte Kontodatum ohne neue Garmin-Anfrage.
+Der Quellstand ist **0.5.7-preview**. **Garmin Connect wird unterstützt. Strava und Komoot sowie die vereinfachte Oberfläche sind geplant und noch nicht eingebaut.**
 
-Optional: Tages-Wellness-ZIPs unverändert sichern. Diese Rohdateien werden derzeit nicht in CSV/Excel umgewandelt und ersetzen JSON-Abfragen nicht automatisch. Anleitung in der App erklärt die Auswahl.
+Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quellstand. Beachte beim Download die Versionsnummer: Eine Anleitung zum aktuellen Stand bedeutet nicht, dass ein älteres Release diese Funktionen bereits enthält. Aktuelle Windows-Starter entstehen als Artefakte erfolgreicher [GitHub-Actions-Prüfläufe](https://github.com/starbase64/ttn-garmin-export/actions). Artefakte können eine GitHub-Anmeldung erfordern und ablaufen.
 
-## Windows starten — ohne Python-Installation
+## Was die App kann
 
-1. Unter [Releases](https://github.com/starbase64/ttn-garmin-export/releases) das **Windows-Starter-ZIP** herunterladen.
-2. **Vollständig** in einen eigenen beschreibbaren Ordner entpacken, beispielsweise im Benutzerordner. Nicht direkt im ZIP starten.
-3. **Start-TTN-Garmin-Export.cmd** doppelklicken. Beim ersten Start werden eine eigene Python-Laufzeit und die festgelegten Abhängigkeiten eingerichtet. Internet wird für diese Einrichtung benötigt; der Fortschritt erscheint im Konsolenfenster.
-4. Danach öffnet sich die App. Die Einrichtung braucht keine Administratorrechte und ändert keine vorhandene Python-Installation, PATH oder Registry. Das Programm prüft lokale Komponenten bei jedem Start und lädt fehlende/beschädigte Pakete bei Bedarf nach.
+| Aufgabe | Möglichkeiten |
+| --- | --- |
+| Daten auswählen | Datumsbereich auch über mehrere Jahre, einzelne Kategorien, Sportart und optionale Aktivitätszusätze |
+| Aktivitätenliste erstellen | Eine lesbare Zeile pro Aktivität, etwa Datum, Name, Sportart, Distanz und Dauer |
+| Gesundheitsdaten sichern | Tageskennzahlen oder vollständige Verläufe für unterstützte Kategorien; Verfügbarkeit hängt vom Konto und Gerät ab |
+| Dateien exportieren | CSV, XLSX, JSON; optionale Originaldateien, GPX, TCX, KML und Runden-CSV, soweit Garmin sie liefert |
+| Lokal weiterarbeiten | Gemeinsamer SQLite-Bestand pro Konto; fortsetzbare Downloads und Exporte ohne erneute Anmeldung im Offline-Modus |
+| Daten ansehen | Aktivitätstabelle mit Suche und Filtern, Mehrfachauswahl mit Strg/Shift, große Karte rechts und Heatmap |
+| Eigene Dateien nutzen | Unterstützte FIT-, GPX- und TCX-Dateien sowie ZIP-Archive importieren; Datenbanksicherung erstellen und öffnen |
+| Aufwand begrenzen | Vorschau mit Abruflimit, „Nur herunterladen“, gebündelte Abfragen, 1–50 parallele Abfragen und geprüfte Wiederverwendung unveränderter Exportdateien |
+| Ablauf verfolgen | Restzeitschätzung beim Download, Fortschritt der Dateierzeugung und Sitzungslogs mit Öffnen-/Exportieren-Buttons |
+| Oberfläche anpassen | Deutsch/Englisch und Hell/Dunkel; Farbschema wird lokal gespeichert |
 
-Python kommt von **python.org**, Pakete von **PyPI / files.pythonhosted.org**. Versionen und SHA-256-Prüfsummen stehen in `windows-dependencies.lock.json`. Keine stillen Updates auf neuere Bibliotheksversionen, kein pip-Bootstrap aus beliebigen Skripten. Die komplette Erstinstallation lädt deutlich mehr Daten als das kleine Starter-ZIP. `runtime/` und `.setup-cache/` bleiben lokal im Programmordner; letzterer erlaubt Reparaturen ohne erneuten Download. Internet bleibt für Garmin-Anmeldung und Online-Datenabruf nötig. Offline-Datenbanken lassen sich anschließend ohne Garmin-Anmeldung verwenden.
+„Alle unterstützten Daten“ ist kein vollständiges Backup sämtlicher Garmin-Kontofunktionen. Die Offline-Gesamtsicherung umfasst 27 unterstützte Datenarten; Tagesrohdaten als Wellness-FIT-ZIP sind zusätzlich ausdrücklich auswählbar. Diese ZIPs werden unverändert gespeichert und ersetzen keine JSON-Verläufe automatisch.
 
-Bei Problemen die Konsolenmeldung und `setup.log` im Programmordner prüfen. Unternehmensrichtlinien können PowerShell-Skripte sperren. Nicht parallel in denselben Ordner installieren/starten. Dieses erste Release ist eine **Vorschau**; den jeweiligen Stand der Windows-Prüfung zeigen [GitHub Actions](https://github.com/starbase64/ttn-garmin-export/actions) und die Release-Hinweise.
+## Unter Windows starten
 
-**Vorhandene Nutzer:** Anmeldeschlüssel und App-Profil bleiben unter dem bisherigen internen Namen `GarminExportStudio` erhalten. Zum Fortsetzen bisheriger Downloads denselben Ausgabeordner und dieselbe SQLite-Datei auswählen. Daten werden nicht automatisch verschoben. Neuer Standardordner: **Downloads\Garmin_Export**.
+1. Ein **Windows-Starter-ZIP** für die gewünschte Version herunterladen.
+2. Vollständig in einen eigenen, beschreibbaren Ordner entpacken. Nicht im ZIP starten.
+3. `Start-TTN-Garmin-Export.cmd` doppelklicken.
+4. Beim ersten Start die Einrichtung abwarten. Anschließend unter **Konto** anmelden.
+5. Für eine einfache Aktivitätstabelle unter **Export** auf **Nur Aktivitätsliste (CSV)** klicken, Zeitraum und gegebenenfalls Sportart unter **Optionen** wählen und den Export starten.
 
-## Funktionen
+Der Starter richtet eine eigene Python-Laufzeit und festgelegte Abhängigkeiten ein. Keine Administratorrechte und keine eigene Python-Installation nötig. Der erste Start braucht Internet; Python kommt von python.org, Pakete von PyPI/files.pythonhosted.org. Versionen und SHA-256-Prüfsummen sind in `windows-dependencies.lock.json` festgelegt. Fehlende oder beschädigte Komponenten werden beim Start bei Bedarf repariert. Dabei wird kein App-Update von GitHub installiert.
 
-- Mehrjährige Zeiträume; CSV, XLSX, JSON; Datenarten und Feldpfade auswählen.
-- Aktivitätenliste mit Datum, Name, Sportart, Distanz und Dauer; optionale Originaldateien und Detaildaten.
-- Tagesübersichten in Zeiträumen; optional Tageskennzahlen statt vollständiger Gesundheitsverläufe. Fehlende Antworttage werden gezielt geprüft, Ratenlimits stoppen den Lauf.
-- Fortsetzbare Offline-Sicherung, begrenzte Exportvorschau, geschätzte Download-Restzeit, Sitzungslogs.
-- Lokale Aktivitätstabelle, Filter, Ctrl/Shift-Mehrfachauswahl, Karten und Heatmap; Import unterstützter Aktivitätsdateien und Datenbanksicherung.
-- Eingebaute [deutsche](docs/guide-de.html) und [englische](docs/guide-en.html) Anleitung.
+Bei Einrichtungsproblemen: Konsolenmeldung und `setup.log` im Programmordner prüfen. Weitere Abläufe, Beispiele und Fehlerhilfe stehen in der [ausführlichen Anleitung](docs/ANLEITUNG.md).
 
-**Vollständigkeit und Geschwindigkeit:** „Alle unterstützten Daten sichern“ verwendet weiterhin vollständige Messverläufe, weshalb viele Kategorien täglich einzeln abgefragt werden. Der schnellere Kennzahlenmodus enthält weniger Details und wird bei „Nur gewählte Daten sichern“ berücksichtigt. Es gibt kein Versprechen eines vollständigen Garmin-Kontobackups. Eine Tageszeile im Protokoll entspricht nicht zwingend einer eigenen Netzwerkanfrage.
+## Downloads, Offline-Bestand und Exportdateien
+
+**Nur herunterladen** speichert die Auswahl von Export/Optionen in der Kontodatenbank, ohne anschließend CSV/Excel/JSON-Dateien zu erzeugen. **Export starten** beschafft benötigte Daten und erstellt die ausgewählten Dateien. Mit **Nur Offline-Daten verwenden** erfolgt der Export ausschließlich aus dem lokalen Bestand.
+
+Standardziel ist derzeit **Downloads\Garmin_Export**. Darunter liegen getrennte Kontobereiche mit SQLite-Datenbank und standardmäßig `exports/current`. Neue Ergebnisordner bedeuten nicht automatisch neue Downloads. Verwende zum Fortsetzen denselben Datenbestand. Die letzten Tage können entsprechend der eingestellten Aktualisierung erneut geladen werden.
+
+Große Erstexporte, vollständige Messverläufe und Excel-Dateien brauchen Zeit. Mehr parallele Abfragen heben den gemeinsamen Mindestabstand zwischen Anfragen nicht auf. Garmin kann Anfragen begrenzen; bei HTTP 429 stoppt der Lauf und die App zeigt eine Abrufpause. Bereits geladene Antworten bleiben erhalten. Eine feste Beschleunigung oder Dauer wird nicht zugesichert.
 
 ## English
 
-A local bilingual Garmin Connect exporter with CSV/XLSX/JSON, arbitrary date ranges, resumable offline SQLite storage, bounded previews, ETA, activity maps and import/export tools. Download the Windows Starter ZIP from Releases, extract everything to a writable folder and double-click `Start-TTN-Garmin-Export.cmd`. On first launch it installs its own Python and pinned dependencies from official sources, with SHA-256 verification. No admin rights or existing Python required. Missing packages are repaired locally; subsequent offline archive use needs no Garmin login. Logs: console and `setup.log`. This is a preview; see Actions and release notes for actual Windows validation status. Full archive sync retains detailed daily retrieval; daily-statistics mode is explicitly opt-in for selected sync. Independent project, not affiliated with Garmin.
+A local Garmin Connect desktop app for downloading selected data or years of history, keeping a reusable SQLite archive, browsing activities and maps, and exporting CSV, Excel or JSON. Includes German/English UI, persistent light/dark mode, bounded previews, download ETA and session logs. The Windows starter installs a private Python runtime and pinned, hash-verified dependencies; no existing Python installation is required.
+
+**Source: 0.5.7-preview. Published release v0.5.0-preview is older. Strava and Komoot integration is planned, not available yet.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-garmin-export/actions) for current Windows starter artifacts.
 
 ## Entwicklung / Development
 
@@ -52,23 +67,24 @@ python -m pytest -q
 python app.py --demo
 ```
 
-Synthetic tests do not access Garmin accounts. Run `python app.py --smoke-test` for app/export/archive/import checks. The GUI source also runs on Linux with its dependencies; the small automatic starter targets **Windows 10/11 x64** only.
+Synthetic tests do not access Garmin accounts. `python app.py --smoke-test` checks app/export/archive/import integration. The GUI source also runs on Linux with its dependencies; the automatic starter targets **Windows 10/11 x64**.
 
-### Starter neu bauen / Rebuild starter
+Build a starter:
 
 ```sh
 python build_starter.py dist/TTN-Garmin-Export-Windows-Starter.zip
 ```
 
-Regenerate the lock only after reviewing dependency updates. Resolve Windows wheels with `pip download --only-binary=:all: --platform win_amd64 --python-version 3.13 --implementation cp --abi cp313 -r requirements.txt -d windows-wheels`, then run `python generate_windows_lock.py windows-wheels`. The generator validates every wheel against PyPI's published SHA-256. Do not commit downloaded wheels or runtimes. `.github/workflows/starter.yml` checks the actual Windows embedded-runtime setup, warm offline startup and cached missing-package repair. The separate manually started Windows workflow can build the full PyInstaller package.
+Regenerate dependency locks only after reviewing updates. Download Windows wheels with `pip download --only-binary=:all: --platform win_amd64 --python-version 3.13 --implementation cp --abi cp313 -r requirements.txt -d windows-wheels`, then run `python generate_windows_lock.py windows-wheels`. The generator checks PyPI SHA-256 values. Do not commit downloaded wheels or runtimes. `.github/workflows/starter.yml` checks native Windows setup, offline startup and cached dependency repair. A separate manual Windows workflow can build the full PyInstaller package.
 
-## Credits, privacy and licence
+The GitHub-readable manuals describe the current application. The built-in help and its HTML versions remain in [German](docs/guide-de.html) and [English](docs/guide-en.html). Update both forms when application behavior changes.
 
-MIT for this application's code; dependency licences remain applicable. Uses [python-garminconnect](https://github.com/cyberjunky/python-garminconnect), PySide6, openpyxl and fitdecode. **GarminDB is not a code dependency of this app**; its approach was considered during research. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Garmin is a trademark of its owner; this app is neither made nor endorsed by Garmin. GitHub name search found existing `garmin-data-export` projects, so this project uses the distinct TTN name; this is not a trademark clearance.
+## Datenschutz, Herkunft und Lizenz / Privacy and credits
 
-Garmin credentials, tokens, user exports, GPS data and local databases are not part of the repository or release. Setup never asks for Garmin credentials. Any session storage happens only in the actual app. Do not attach private archives or account credentials to public issues.
+Das Passwort wird nicht gespeichert. Gemerkte Anmeldeschlüssel liegen lokal im App-Profil und sind derzeit nicht zusätzlich verschlüsselt. **Sitzung merken** abwählen deaktiviert die automatische Anmeldung; **Lokale Sitzung entfernen** löscht die gespeicherten Schlüssel. Der interne Profilname `GarminExportStudio` bleibt für bestehende Installationen erhalten.
 
-[Changelog](CHANGELOG.md) · [Validation](docs/VALIDATION.md) · [Roadmap](ROADMAP.md)
+Zugangsdaten, GPS-Tracks, Datenbanken und Nutzerexporte gehören nicht in öffentliche Issues oder ins Repository. Onlinekarten und externe Kartenansichten nutzen Drittanbieter; Details stehen in der Anleitung.
 
+MIT for this application's code; dependency licences remain applicable. Uses [python-garminconnect](https://github.com/cyberjunky/python-garminconnect), PySide6, openpyxl and fitdecode. **GarminDB is not a code dependency**; its approach informed research. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSE](LICENSE). Garmin and other provider names are trademarks of their respective owners. This app is neither made nor endorsed by them.
 
-Version 0.5.6-preview adds Download only on the Export tab, shared CSV/XLSX/JSON conversion, verified reuse of unchanged exports, and measured file-generation progress. Initial exports and changed data still require conversion; see the bilingual guide.
+[Validation notes](docs/VALIDATION.md) · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
