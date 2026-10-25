@@ -19,10 +19,11 @@ class Workspace:
             self.data.update(saved)
             if not isinstance(self.accounts,list) or not isinstance(self.jobs,list):raise ValueError('Invalid workspace')
             for a in self.accounts:
-                if not isinstance(a,dict) or a.get('provider') not in PROVIDERS or not isinstance(a.get('email'),str):raise ValueError('Invalid account')
+                if not isinstance(a,dict) or a.get('provider') not in PROVIDERS or not isinstance(a.get('email'),str) or not a['email'].strip() or not isinstance(a.get('output'),str) or not a['output'].strip() or type(a.get('china',False)) is not bool:raise ValueError('Invalid account')
                 if a.get('id')!=self.key(a['provider'],a['email'],a.get('china',False)):raise ValueError('Invalid account identity')
             for j in self.jobs:
-                if not isinstance(j,dict) or j.get('action') not in ('download','export'):raise ValueError('Invalid job')
+                if not isinstance(j,dict) or j.get('action') not in ('download','export') or j.get('provider')!='garmin' or not isinstance(j.get('id'),str) or not isinstance(j.get('email'),str) or j.get('status') not in ('queued','running','complete','failed','interrupted','cancelled','waiting'):raise ValueError('Invalid job')
+                if j.get('account')!=j.get('plan',{}).get('account'):raise ValueError('Invalid job account')
                 Plan(**j['plan']).validate()
                 if j.get('status')=='running':j['status']='interrupted'
     @property
@@ -40,11 +41,17 @@ class Workspace:
         found=next((a for a in self.accounts if a['id']==ident),None)
         if found:return found
         found={'id':ident,'provider':provider,'email':email,'china':bool(china),'output':str(output),'created':now()}
-        self.accounts.append(found);self.save();return found
+        self.accounts.append(found)
+        try:self.save()
+        except OSError:self.accounts.remove(found);raise
+        return found
     def enqueue(self,account,plan,action):
         import uuid
         snapshot=deepcopy(vars(plan));Plan(**snapshot).validate()
         if plan.account!=account['id'] or account['provider']!='garmin':raise ValueError('Unavailable provider')
         job={'id':uuid.uuid4().hex,'account':account['id'],'provider':account['provider'],'email':account['email'],
              'plan':snapshot,'action':action,'status':'queued','created':now()}
-        self.jobs.append(job);self.save();return job
+        self.jobs.append(job)
+        try:self.save()
+        except OSError:self.jobs.remove(job);raise
+        return job

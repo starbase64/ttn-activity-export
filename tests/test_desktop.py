@@ -218,3 +218,14 @@ def test_archive_actions_also_require_review(window,monkeypatch):
     j=w.workspace.jobs[0]
     assert j['status']=='queued' and j['action']=='download' and len(j['plan']['datasets'])==27
     assert j['plan']['activity_ids']==[] and j['plan']['delay']>=.25 and not w._queue_active
+
+
+def test_failed_workspace_save_never_leaves_an_unconfirmed_job(tmp_path,monkeypatch):
+    state=Workspace(tmp_path/'workspace.json');a=state.add_account('garmin','a@example.invalid',tmp_path)
+    p=Plan('2020-01-01','2020-01-01',['activities'],str(tmp_path),a['id'])
+    def full_disk():raise OSError('disk full')
+    monkeypatch.setattr(state,'save',full_disk)
+    with pytest.raises(OSError):state.enqueue(a,p,'download')
+    assert not state.jobs
+    with pytest.raises(OSError):state.add_account('garmin','other@example.invalid',tmp_path)
+    assert len(state.accounts)==1 and not Workspace(state.path).jobs
