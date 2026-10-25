@@ -12,7 +12,7 @@ from archive import Archive
 from activity_table import table_row,headers,type_graph
 from sports import sport_label
 from datahub import load_archive,import_files,aggregate,daily_health,write_csv,write_kml,backup_archive,validate_archive,trim_track,HEALTH_COLUMNS
-from mapview import TrackMap,COLORS
+from mapview import route_color, TrackMap,COLORS
 
 class TrackLoader(QThread):
     result=Signal(object)
@@ -211,11 +211,18 @@ class DataPage(QWidget):
         self.pending_tracks=unknown
         self.selection_note.setText(self.t(f'{len(selected)} ausgewählt · {len(routes)} Strecken · {missing} ohne sichtbare GPS-Strecke',f'{len(selected)} selected · {len(routes)} tracks · {missing} without visible GPS track') if not unknown else self.t(f'{len(unknown)} GPS-Strecken werden lokal gelesen …',f'Reading {len(unknown)} GPS tracks locally …'))
         if unknown:self.start_track_loader()
-        # Names remain visible in the table; colors identify tracks in multi-selection.
+        self.update_route_colors(selected)
+
+    def update_route_colors(self,selected):
+        # Repaint existing rows only; changing theme never starts GPS or network work.
+        from PySide6.QtGui import QBrush
+        for row in range(self.table.rowCount()):
+            item=self.table.item(row,3)
+            if item:item.setForeground(QBrush())
         for i,a in enumerate(selected):
             for row in self.table.selectionModel().selectedRows():
                 if self.table.item(row.row(),0).data(Qt.ItemDataRole.UserRole)==a['_key']:
-                    self.table.item(row.row(),3).setForeground(QColor(COLORS[i%len(COLORS)]));break
+                    self.table.item(row.row(),3).setForeground(route_color(i,self.palette()));break
 
     def start_track_loader(self):
         if self.track_worker is not None:return

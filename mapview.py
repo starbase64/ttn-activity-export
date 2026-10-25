@@ -4,12 +4,18 @@ import time
 from collections import Counter
 from pathlib import Path
 from PySide6.QtCore import Qt, QTimer, QUrl, QPointF, QRectF
-from PySide6.QtGui import QColor, QPainter, QPen, QPixmap, QPainterPath, QImage
+from PySide6.QtGui import QColor, QPainter, QPen, QPixmap, QPainterPath, QImage, QPalette
 from PySide6.QtWidgets import QWidget
 from PySide6.QtNetwork import QNetworkAccessManager,QNetworkRequest
 from datahub import trim_track
 
 COLORS=['#087eaa','#e16b25','#8c4db0','#18845c','#c33b60','#a87906','#4070cd','#564c40']
+
+DARK_COLORS=['#7dd3fc','#ffb477','#d8b4fe','#79deb0','#ff9cbc','#f7d47a','#9bbcff','#d5c4b4']
+
+def route_color(index,palette):
+    values=DARK_COLORS if palette.color(QPalette.ColorRole.Window).lightness()<128 else COLORS
+    return QColor(values[index%len(values)])
 
 def project(lat,lon):
     lat=max(-85.05112878,min(85.05112878,lat))
@@ -130,8 +136,8 @@ class TrackMap(QWidget):
         self.update();self.timer.start(100)
 
     def paintEvent(self,event):
-        p=QPainter(self);p.setClipRect(self.rect());p.setRenderHint(QPainter.RenderHint.Antialiasing);p.fillRect(self.rect(),QColor('#eaf1f5'))
-        p.setPen(QPen(QColor('#d3e0e6'),1))
+        p=QPainter(self);p.setClipRect(self.rect());p.setRenderHint(QPainter.RenderHint.Antialiasing);p.fillRect(self.rect(),self.palette().color(QPalette.ColorRole.Base))
+        p.setPen(QPen(self.palette().color(QPalette.ColorRole.Mid),1))
         for x in range(0,self.width(),50):p.drawLine(x,0,x,self.height())
         for y in range(0,self.height(),50):p.drawLine(0,y,self.width(),y)
         if self.online:
@@ -158,18 +164,18 @@ class TrackMap(QWidget):
                     if active:path.lineTo(screen)
                     else:path.moveTo(screen);active=True
                     last=screen
-                pen=QPen(QColor(COLORS[i%len(COLORS)]),3);pen.setCapStyle(Qt.PenCapStyle.RoundCap);p.setPen(pen);p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(path)
-        p.fillRect(0,0,self.width(),28,QColor(255,255,255,225));p.setPen(QColor('#192b43'))
+                pen=QPen(route_color(i,self.palette()),3);pen.setCapStyle(Qt.PenCapStyle.RoundCap);p.setPen(pen);p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(path)
+        p.fillRect(0,0,self.width(),28,self.palette().color(QPalette.ColorRole.Base));p.setPen(self.palette().color(QPalette.ColorRole.Text))
         title=('Heatmap · Fahrthäufigkeit' if self.lang=='de' else 'Heatmap · trip frequency') if self.heat else ('GPS-Strecken' if self.lang=='de' else 'GPS tracks')
         p.drawText(9,19,title+f' · {len(self.routes)}')
         if not self.heat and self.routes:
             for i,(name,_) in enumerate(self.routes[:5]):
-                p.fillRect(5,32+i*19,min(290,self.width()-10),19,QColor(255,255,255,220));p.setPen(QColor(COLORS[i%len(COLORS)]))
+                p.fillRect(5,32+i*19,min(290,self.width()-10),19,self.palette().color(QPalette.ColorRole.Base));p.setPen(route_color(i,self.palette()))
                 p.drawText(10,46+i*19,p.fontMetrics().elidedText(name,Qt.TextElideMode.ElideRight,min(275,self.width()-20)))
         if not self.routes:p.drawText(self.rect(),Qt.AlignmentFlag.AlignCenter,'Aktivität mit GPS auswählen' if self.lang=='de' else 'Select an activity with GPS')
         bottom='© OpenStreetMap contributors · openstreetmap.org/copyright' if self.online else ('Offline · GPS ohne Kartenhintergrund' if self.lang=='de' else 'Offline · GPS without basemap')
         if self.online and self.tile_errors:bottom+=' · '+('Kartenabruf teilweise fehlgeschlagen' if self.lang=='de' else 'Some tiles unavailable')
-        p.fillRect(0,self.height()-26,self.width(),26,QColor(255,255,255,235));p.setPen(QColor('#192b43'));p.drawText(7,self.height()-9,bottom)
+        p.fillRect(0,self.height()-26,self.width(),26,self.palette().color(QPalette.ColorRole.Base));p.setPen(self.palette().color(QPalette.ColorRole.Text));p.drawText(7,self.height()-9,bottom)
         p.end()
 
     def wheelEvent(self,event):
