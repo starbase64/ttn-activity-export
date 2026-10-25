@@ -82,7 +82,9 @@ class KomootClient:
         batch=data.get('_embedded',{}).get('tours',[])
         if not isinstance(batch,list):raise ValueError('Unknown tour list format')
         if not batch:return None
-        return min(tour_summary(t)['startTimeLocal'][:10] for t in batch)
+        items=[tour_summary(t) for t in batch]
+        if any(t.get('sourceTourType')!='tour_recorded' for t in items):raise ValueError('Unknown recorded tour list')
+        return min(t['startTimeLocal'][:10] for t in items)
     def inventory(self,start,end,kind='tour_recorded',previous=None,cancel=None,event=lambda *a:None):
         date.fromisoformat(start);date.fromisoformat(end)
         if start>end or kind not in ('','tour_recorded','tour_planned'):raise ValueError('Invalid filters')
@@ -108,9 +110,16 @@ class KomootClient:
                 numbered=isinstance(page,dict) and page.get('number',result['offset'])==result['offset']
                 last=numbered and type(total) is int and total>=0 and result['offset']+1>=total
                 # HAL permits an empty final page to omit _embedded entirely.
-                batch=data.get('_embedded',{}).get('tours',[] if last or (isinstance(links,dict) and 'self' in links and 'next' not in links) else None)
+                embedded=data.get('_embedded',{})
+                empty_embed='_embedded' in data and embedded=={}
+                batch=embedded.get('tours',[] if empty_embed or last or (isinstance(links,dict) and 'self' in links and 'next' not in links) else None)
+                if batch is None and last:batch=[]
                 if not isinstance(batch,list):raise ValueError('Unknown tour list format')
-                if not batch:result['complete']=True;break
+                if not batch:
+                    more=(isinstance(links,dict) and bool(links.get('next'))) or (numbered and type(total) is int and total>result['offset']+1)
+                    if more:
+                        result['offset']+=1;continue
+                    result['complete']=True;break
                 normalized=[tour_summary(t) for t in batch]
                 if not any(str(t['activityId']) not in seen for t in normalized):
                     # A repeated page proves no progress, not that all tours

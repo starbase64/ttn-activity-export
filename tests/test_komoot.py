@@ -107,7 +107,7 @@ def test_cancel_and_malformed_responses_never_claim_complete(tmp_path):
     with pytest.raises(ValueError):api.request('https://attacker.invalid')
 
 
-@pytest.mark.parametrize('ending',['page','hal','empty'])
+@pytest.mark.parametrize('ending',['page','hal','empty','empty_embed','null_final'])
 def test_final_inventory_page_stops_without_requesting_past_end(tmp_path,ending):
     calls=[]
     def transport(path,*args):
@@ -115,7 +115,10 @@ def test_final_inventory_page_stops_without_requesting_past_end(tmp_path,ending)
         data={'_embedded':{'tours':[tour()]}}
         if ending=='page':data['page']={'number':0,'totalPages':1}
         elif ending=='hal':data['_links']={'self':{'href':'unused'}}
-        elif len(calls)>1:data={'page':{'number':1,'totalPages':1}}
+        elif len(calls)>1:
+            if ending=='empty_embed':data={'_embedded':{}}
+            elif ending=='null_final':data={'_embedded':{'tours':None},'page':{'number':1,'totalPages':1}}
+            else:data={'page':{'number':1,'totalPages':1}}
         return json.dumps(data).encode()
     api=client(tmp_path,transport);r=api.inventory('2020-01-01','2020-12-31')
     assert r['complete'] and not r['error'] and len(r['items'])==1
@@ -127,6 +130,16 @@ def test_repeated_pages_keep_partial_inventory_with_specific_stop_reason(tmp_pat
     api=client(tmp_path,lambda *a:json.dumps({'_embedded':{'tours':[tour()]}}).encode())
     r=api.inventory('2020-01-01','2020-12-31')
     assert not r['complete'] and not r['error'] and r['stop_reason']=='repeated_page' and len(r['items'])==1
+
+
+def test_empty_intermediate_page_does_not_hide_following_tours(tmp_path):
+    calls=[]
+    def transport(path,*args):
+        calls.append(path)
+        if len(calls)==1:return b'{"_embedded":{},"_links":{"next":{"href":"unused"}},"page":{"number":0,"totalPages":2}}'
+        return json.dumps({'_embedded':{'tours':[tour()]},'page':{'number':1,'totalPages':2}}).encode()
+    r=client(tmp_path,transport).inventory('2020-01-01','2020-12-31')
+    assert r['complete'] and not r['error'] and len(r['items'])==1 and len(calls)==2
 
 
 def test_seen_ids_survive_loading_more_when_previous_pages_are_outside_date_filter(tmp_path):
