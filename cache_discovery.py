@@ -7,6 +7,17 @@ from pathlib import Path
 from archive import Archive
 
 
+def open_discovered_cache(match,account,target,cancel):
+    from datahub import import_cache,load_archive
+    path=match['path'] if match['kind']=='sqlite' else str(target)
+    report=None
+    if match['kind']=='cache':report=import_cache(path,match['path'],account,cancel)
+    else:
+        with Archive(path,account,readonly=True):pass
+    data=load_archive(path,cancel,with_tracks=False)
+    return {'path':path,'data':data,'report':report,'account':account}
+
+
 def has_cached_files(folder,cancel):
     queue=deque([(folder,0)]);visited=0
     while queue and visited<100 and not cancel.is_set():

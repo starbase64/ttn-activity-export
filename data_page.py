@@ -368,14 +368,23 @@ class DataPage(QWidget):
         workspace=getattr(self.host,'workspace',None)
         if workspace:
             roots.extend(j['plan']['output'] for j in workspace.jobs if j.get('account')==account)
-        from cache_discovery import discover_cache
+        from cache_discovery import discover_cache,open_discovered_cache
+        target=self.cache_import_target(account) if account else None
         self.host.log.appendPlainText(self.t('Suche vorhandene Garmin-Daten in den bekannten Speicherorten …','Searching known storage locations for Garmin data …'))
-        self.host.run_worker(lambda w:discover_cache(account,roots,archives,w.cancel),lambda matches:self.cache_search_done(matches,account),network=False)
+        def operation(w):
+            matches=discover_cache(account,roots,archives,w.cancel)
+            opened=open_discovered_cache(matches[0],account,target,w.cancel) if len(matches)==1 and not w.cancel.is_set() else None
+            return {'matches':matches,'opened':opened}
+        self.host.run_worker(operation,lambda result:self.cache_search_done(result,account),network=False)
 
-    def cache_search_done(self,matches,account):
+    def cache_search_done(self,result,account):
         if self.host.worker and self.host.worker.cancel.is_set():return
+        if isinstance(result,dict):
+            if result.get('opened'):self.cache_opened(result['opened']);return
+            matches=result['matches']
+        else:matches=result
         if not matches:
-            QTimer.singleShot(150,lambda:self.manual_cache_search(account));return
+            QTimer.singleShot(0,lambda:self.after_cache_worker(lambda:self.manual_cache_search(account)));return
         selected=matches[0]
         if len(matches)>1:
             labels=[self.t('Datenbank','Database') if m['kind']=='sqlite' else self.t('Export-Cache','Export cache') for m in matches]
@@ -383,7 +392,13 @@ class DataPage(QWidget):
             label,ok=QInputDialog.getItem(self,self.t('Mehrere Datenbestände gefunden','Multiple archives found'),self.t('Welchen Bestand öffnen/übernehmen?','Which archive should be opened/imported?'),labels,0,False)
             if not ok:return
             selected=matches[labels.index(label)]
-        QTimer.singleShot(150,lambda:self.use_discovered_cache(selected,account))
+        QTimer.singleShot(0,lambda:self.after_cache_worker(lambda:self.use_discovered_cache(selected,account)))
+
+    def after_cache_worker(self,callback):
+        if self.host._closing:return
+        if self.host.worker and self.host.worker.isRunning():
+            QTimer.singleShot(25,lambda:self.after_cache_worker(callback));return
+        callback()
 
     def manual_cache_search(self,account):
         folder=QFileDialog.getExistingDirectory(self,self.t('Kein passender Bestand gefunden: Cache- oder Kontoordner auswählen','No matching archive found: select cache or account folder'),self.host.output.text())
@@ -394,39 +409,48 @@ class DataPage(QWidget):
                 import re
                 if not re.fullmatch('account-[a-f0-9]{20}',parent):raise ValueError('Select an account cache')
                 account=parent.removeprefix('account-')
-            from cache_discovery import discover_cache
-            self.host.run_worker(lambda w:discover_cache(account,[folder],cancel=w.cancel),lambda matches:self.manual_cache_done(matches,account),network=False)
+            from cache_discovery import discover_cache,open_discovered_cache
+            target=self.cache_import_target(account)
+            def operation(w):
+                matches=discover_cache(account,[folder],cancel=w.cancel)
+                opened=open_discovered_cache(matches[0],account,target,w.cancel) if len(matches)==1 and not w.cancel.is_set() else None
+                return {'matches':matches,'opened':opened}
+            self.host.run_worker(operation,lambda result:self.manual_cache_done(result,account),network=False)
         except Exception as exc:self.error(exc)
 
-    def manual_cache_done(self,matches,account):
+    def manual_cache_done(self,result,account):
         if self.host.worker and self.host.worker.cancel.is_set():return
-        if not matches:self.host.message('Kein passender lesbarer Bestand für dieses Konto gefunden.','No matching readable archive found for this account.');return
-        self.cache_search_done(matches,account)
+        if not result['matches']:self.host.message('Kein passender lesbarer Bestand für dieses Konto gefunden.','No matching readable archive found for this account.');return
+        self.cache_search_done(result,account)
+
+    def cache_import_target(self,account):
+        from engine import account_root
+        path=account_root(self.host.output.text(),account)/'garmin-offline.sqlite'
+        active=getattr(self.host,'active_account',None)
+        candidate=(active or {}).get('archive_path') or self.host.archive_path.text()
+        if candidate and Path(candidate).is_file():
+            try:
+                with Archive(candidate,account,readonly=True):path=Path(candidate)
+            except Exception:pass
+        return str(path)
 
     def use_discovered_cache(self,match,account):
-        from datahub import import_cache
+        from cache_discovery import open_discovered_cache
         try:
             active=getattr(self.host,'active_account',None)
             if active and active['id']!=account:raise ValueError('Account changed; search again')
-            if match['kind']=='sqlite':
-                with Archive(match['path'],account,readonly=True):pass
-                self.host.archive_path.setText(match['path']);self.source.setText(match['path']);self.filter_initialized=False
-                self.host.log.appendPlainText(self.t('Vorhandene Datenbank gefunden: ','Existing archive found: ')+match['path'])
-                self.reload();return
-            from engine import account_root
-            path=account_root(self.host.output.text(),account)/'garmin-offline.sqlite'
-            candidate=(active or {}).get('archive_path') or self.host.archive_path.text()
-            if candidate and Path(candidate).is_file():
-                try:
-                    with Archive(candidate,account,readonly=True):path=Path(candidate)
-                except Exception:pass
-            self.host.archive_path.setText(str(path));self.source.setText(str(path))
-            self.host.run_worker(lambda w:import_cache(path,match['path'],account,w.cancel),self.cache_done,network=False)
+            target=self.cache_import_target(account)
+            self.host.run_worker(lambda w:open_discovered_cache(match,account,target,w.cancel),self.cache_opened,network=False)
         except Exception as exc:self.error(exc)
-    def cache_done(self,result):
-        self.host.message(f"Cache übernommen: {result['responses']} · Bereits gespeichert: {result.get('skipped',0)} · Fehler: {result['errors']}",f"Cache imported: {result['responses']} · Already stored: {result.get('skipped',0)} · Errors: {result['errors']}")
-        QTimer.singleShot(150,self.reload)
 
+    def cache_opened(self,result):
+        active=getattr(self.host,'active_account',None)
+        if active and active['id']!=result['account']:return
+        self.host.archive_path.setText(result['path']);self.source.setText(result['path']);self.filter_initialized=False
+        self.loaded(result['data'])
+        self.host.log.appendPlainText(self.t('Vorhandener Bestand geöffnet: ','Existing data opened: ')+result['path'])
+        report=result.get('report')
+        if report:self.host.message(f"Cache übernommen: {report['responses']} · Bereits gespeichert: {report.get('skipped',0)} · Fehler: {report['errors']}",f"Cache imported: {report['responses']} · Already stored: {report.get('skipped',0)} · Errors: {report['errors']}")
     def backup_dialog(self):
         try:source=self.path()
         except Exception as exc:self.error(exc);return
