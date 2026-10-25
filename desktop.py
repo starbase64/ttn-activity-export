@@ -760,7 +760,7 @@ class StudioMixin:
 
     def open_komoot_account(self):
         if self.worker and self.worker.isRunning():return
-        a=self.active_account;dialog=QDialog(self);dialog.setWindowTitle('Komoot · '+self.tr('Anmeldung','Sign-in'));v=QVBoxLayout(dialog)
+        a=self.active_account;dialog=QDialog(self);dialog.setWindowTitle('Komoot · '+self.tr('Anmeldung','Sign-in'));dialog.resize(660,600);dialog.setMinimumSize(600,560);v=QVBoxLayout(dialog)
         note=QLabel(self.provider_note('komoot'));note.setWordWrap(True);v.addWidget(note)
         password=QLineEdit();password.setEchoMode(QLineEdit.EchoMode.Password)
         password.setPlaceholderText(self.tr('Komoot-Passwort','Komoot password'));v.addWidget(QLabel(a['email']));v.addWidget(password)
