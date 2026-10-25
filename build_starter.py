@@ -41,7 +41,11 @@ def build(output):
         from updater import manifest_bytes
         tree=ast.parse((source/'app.py').read_text(encoding='utf-8'))
         version=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='VERSION' for t in n.targets))
+    # Reopen before reading: on Windows ZipInfo.orig_filename can retain
+    # backslashes from Path conversion while the written header uses '/'.
+    with zipfile.ZipFile(output) as archive:
         files={name[len(prefix):]:archive.read(name) for name in archive.namelist()}
+    with zipfile.ZipFile(output,'a',zipfile.ZIP_DEFLATED) as archive:
         archive.writestr(prefix+'app-manifest.json',manifest_bytes(files,version))
     with zipfile.ZipFile(output) as archive:
         if archive.testzip():raise ValueError('Invalid starter archive')
