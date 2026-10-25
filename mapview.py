@@ -114,7 +114,7 @@ class TrackMap(QWidget):
                 if not pix.isNull():self.pixmaps[key]=pix;continue
             if len(self.pending)>=2:break
             z,x,y=key;request=QNetworkRequest(QUrl(self.tile_url.format(z=z,x=x,y=y)))
-            request.setRawHeader(b'User-Agent',b'GarminExportStudio/0.2.0 (local desktop map)')
+            request.setRawHeader(b'User-Agent',b'TTNActivityExport/0.5.8 (local desktop map)')
             request.setTransferTimeout(15000)
             reply=self.network.get(request);self.pending[key]=reply
             reply.finished.connect(lambda key=key,reply=reply:self.tile_done(key,reply))
@@ -196,6 +196,6 @@ class TrackMap(QWidget):
         painter=QPainter(image);painter.setPen(QColor('#192b43'));font=painter.font();font.setPixelSize(28);font.setBold(True);painter.setFont(font)
         painter.drawText(35,50,title);font.setPixelSize(19);font.setBold(False);painter.setFont(font);painter.drawText(35,86,stats)
         pix=self.grab();painter.drawPixmap(QRectF(30,115,image.width()-60,730),pix,QRectF(pix.rect()))
-        font.setPixelSize(14);painter.setFont(font);painter.drawText(35,880,'TTN Garmin Export · '+('Heatmap' if self.heat else 'GPS'))
+        font.setPixelSize(14);painter.setFont(font);painter.drawText(35,880,'TTN Activity Export · '+('Heatmap' if self.heat else 'GPS'))
         painter.end()
         if not image.save(path,'PNG'):raise OSError('Image could not be saved')

@@ -1,4 +1,5 @@
 """Publish one current export without discarding unrelated files or failed-write backups."""
+from branding import REPORT_APP_IDS
 import json
 import os
 from pathlib import Path,PurePosixPath
@@ -31,7 +32,7 @@ def publish_export(stage,destination,retained=()):
     previous=set()
     try:
         report=json.loads((destination/'report.json').read_text(encoding='utf-8'))
-        if report.get('app')=='ttn-garmin-export' and isinstance(report.get('generated_files'),list):
+        if report.get('app') in REPORT_APP_IDS and isinstance(report.get('generated_files'),list):
             previous=set(report['generated_files'])
     except (OSError,ValueError,TypeError,AttributeError):pass
     incoming={p.relative_to(stage).as_posix() for p in stage.rglob('*') if p.is_file()}

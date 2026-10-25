@@ -39,7 +39,7 @@ Konten beginnt weitgehend leer mit **Konto hinzufügen** und der Auswahl Garmin,
 
 Im Download zunächst nur Konto, Zeitraum, einfache Datenauswahl und Ziel anzeigen. Zusätzliche Einstellungen über **Downloadoptionen**, **Exportoptionen** und **Kontoeinstellungen** öffnen. Übernehmen/Abbrechen und ausdrücklich gespeicherte Kontovorgaben verhindern überraschende dauerhafte Änderungen.
 
-Geplanter neuer Standard: `Downloads\TTN Garmin Export\Garmin`, `Komoot` und `Strava`, jeweils mit getrennten Kontobereichen. Bestehende Garmin-Verzeichnisse beibehalten oder kontrolliert migrieren; kein automatisches Verschieben oder erneutes Herunterladen.
+Geplanter neuer Standard: `Downloads\TTN Activity Export\Garmin`, `Komoot` und `Strava`, jeweils mit getrennten Kontobereichen. Bestehende Garmin-Verzeichnisse beibehalten oder kontrolliert migrieren; kein automatisches Verschieben oder erneutes Herunterladen.
 
 ## 3. Anbieterzugriff klären
 

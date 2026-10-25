@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
 from garminconnect import Garmin, GarminConnectTooManyRequestsError, GarminConnectAuthenticationError
 from catalog import DATASETS, ACTIVITY_DETAILS, selected_datasets, all_definitions
 from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS, atomic_json, account_root
+from branding import APP_NAME, STORAGE_PROFILE
 from help_content import HELP
 from themes import load_theme,apply_theme
 from sports import FALLBACK_SPORTS, activity_type_keys, sport_label
@@ -37,7 +38,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.7-preview'
+VERSION = '0.5.8-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -98,7 +99,7 @@ class MainWindow(QMainWindow):
         self.date_account=None;self.first_activity_date=None
         self.resize(1180, 870)
         self.setMinimumSize(900, 650)
-        self.setWindowTitle('TTN Garmin Export · ' + VERSION)
+        self.setWindowTitle(APP_NAME + ' · ' + VERSION)
         self.data_dir = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation))
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.theme=load_theme(self.data_dir/'ui-preferences.json')
@@ -112,8 +113,8 @@ class MainWindow(QMainWindow):
         apply_theme(QApplication.instance(),self.theme,self.tick_style)
         central = QWidget(); outer = QVBoxLayout(central); outer.setContentsMargins(24,18,24,18)
         top = QHBoxLayout(); heading = QVBoxLayout()
-        title = QLabel('TTN Garmin Export'); title.setObjectName('title'); heading.addWidget(title)
-        self.subtitle = self.label('Deine Daten. Dein Zeitraum. Lokal auf deinem Rechner.', 'Your data. Your date range. On your computer.')
+        title = QLabel(APP_NAME); title.setObjectName('title'); heading.addWidget(title)
+        self.subtitle = self.label('Deine Aktivitäten. Deine Daten. Alles lokal.', 'Your activities. Your data. All local.')
         self.subtitle.setObjectName('subtitle'); heading.addWidget(self.subtitle); top.addLayout(heading); top.addStretch()
         self.language = QPushButton('English'); self.language.clicked.connect(self.toggle_language); top.addWidget(self.language)
         self.theme_button=QPushButton();self.theme_button.clicked.connect(self.toggle_theme);top.addWidget(self.theme_button)
@@ -688,7 +689,7 @@ class MainWindow(QMainWindow):
     def choose_folder(self):
         path=QFileDialog.getExistingDirectory(self,self.tr('Zielordner','Output folder'),self.output.text())
         if path: self.output.setText(path)
-    def message(self,de,en): QMessageBox.information(self,'TTN Garmin Export',self.tr(de,en))
+    def message(self,de,en): QMessageBox.information(self,APP_NAME,self.tr(de,en))
 
     def set_busy(self,busy):
         for page in (self.account_widget,self.export_widget,self.advanced_widget,self.fields_widget,self.expert_widget,self.offline_widget,self.data_page): page.setEnabled(not busy)
@@ -1189,11 +1190,11 @@ class MainWindow(QMainWindow):
         if self.worker and self.worker.isRunning():
             self.stop();event.ignore();self.message('Abbruch angefordert. Bitte warten, bis der laufende Vorgang beendet ist, dann schließen.','Stop requested. Please wait until the running operation finishes, then close.');return
         self._closing=True
-        self.log.appendPlainText('TTN Garmin Export · session ended');event.accept()
+        self.log.appendPlainText('TTN Activity Export · session ended');event.accept()
 
 
 def main():
-    app=QApplication(sys.argv);app.setOrganizationName('TTNTools');app.setApplicationName('GarminExportStudio')
+    app=QApplication(sys.argv);app.setOrganizationName('TTNTools');app.setApplicationName(STORAGE_PROFILE);app.setApplicationDisplayName(APP_NAME)
     if '--smoke-test' in sys.argv:
         from demo_data import DemoGarmin
         with tempfile.TemporaryDirectory(prefix='garmin-smoke-') as folder:

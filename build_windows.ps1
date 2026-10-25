@@ -12,12 +12,12 @@ if (-not $NoVenv) {
 }
 & $PythonExe -m pytest -q
 if ($LASTEXITCODE -ne 0) { throw 'Tests failed.' }
-& $PythonExe -m PyInstaller --noconfirm --clean --onedir --windowed --name TTNGarminExport --collect-all curl_cffi --collect-all ua_generator --collect-data tzdata app.py
+& $PythonExe -m PyInstaller --noconfirm --clean --onedir --windowed --name TTNActivityExport --collect-all curl_cffi --collect-all ua_generator --collect-data tzdata app.py
 if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
-& $PythonExe -m piplicenses --with-license-file --no-license-path --format=plain-vertical --output-file dist/TTNGarminExport/THIRD_PARTY_LICENSES.txt
+& $PythonExe -m piplicenses --with-license-file --no-license-path --format=plain-vertical --output-file dist/TTNActivityExport/THIRD_PARTY_LICENSES.txt
 if ($LASTEXITCODE -ne 0) { throw 'License collection failed.' }
-Copy-Item LICENSE, README.md, THIRD_PARTY_NOTICES.md -Destination dist/TTNGarminExport/
-Copy-Item docs -Destination dist/TTNGarminExport/docs -Recurse -Force
-& $PythonExe -c "import sys, pathlib, shutil; p=pathlib.Path(sys.base_prefix)/'LICENSE.txt'; shutil.copyfile(p, 'dist/TTNGarminExport/PYTHON_LICENSE.txt') if p.exists() else sys.exit('Python license missing')"
+Copy-Item LICENSE, README.md, THIRD_PARTY_NOTICES.md -Destination dist/TTNActivityExport/
+Copy-Item docs -Destination dist/TTNActivityExport/docs -Recurse -Force
+& $PythonExe -c "import sys, pathlib, shutil; p=pathlib.Path(sys.base_prefix)/'LICENSE.txt'; shutil.copyfile(p, 'dist/TTNActivityExport/PYTHON_LICENSE.txt') if p.exists() else sys.exit('Python license missing')"
 if ($LASTEXITCODE -ne 0) { throw 'Python license collection failed.' }
-Write-Output 'Ready: dist/TTNGarminExport/TTNGarminExport.exe (keep the entire folder together).'
+Write-Output 'Ready: dist/TTNActivityExport/TTNActivityExport.exe (keep the entire folder together).'

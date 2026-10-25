@@ -8,9 +8,9 @@ class SessionLog(QPlainTextEdit):
     def __init__(self,directory,parent=None):
         super().__init__(parent);self.setReadOnly(True);self.setMaximumBlockCount(500)
         directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
-        self.path=directory/('garmin-'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'-'+uuid.uuid4().hex[:6]+'.log')
+        self.path=directory/('activity-'+datetime.now().strftime('%Y-%m-%d_%H-%M-%S')+'-'+uuid.uuid4().hex[:6]+'.log')
         self.write_error=False
-        self.appendPlainText('TTN Garmin Export · session started')
+        self.appendPlainText('TTN Activity Export · session started')
     def appendPlainText(self,text):
         stamp=datetime.now().astimezone().isoformat(timespec='seconds')
         line=stamp+' · '+str(text)

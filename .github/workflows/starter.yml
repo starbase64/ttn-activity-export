@@ -31,12 +31,12 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'bootstrap.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
           if ($errors.Count) { throw ($errors | Out-String) }
       - name: Build small starter
-        run: python build_starter.py dist/TTN-Garmin-Export-Windows-Starter.zip
+        run: python build_starter.py dist/TTN-Activity-Export-Windows-Starter.zip
       - name: First setup using official pinned downloads and app smoke test
         shell: pwsh
         run: |
-          Expand-Archive dist/TTN-Garmin-Export-Windows-Starter.zip -DestinationPath dist/check
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Garmin-Export/bootstrap.ps1 --smoke-test
+          Expand-Archive dist/TTN-Activity-Export-Windows-Starter.zip -DestinationPath dist/check
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Activity-Export/bootstrap.ps1 --smoke-test
           if ($LASTEXITCODE -ne 0) { throw 'First setup or embedded-runtime smoke test failed.' }
       - name: Warm offline startup and missing dependency repair
         shell: pwsh
@@ -45,15 +45,15 @@ jobs:
           HTTPS_PROXY: http://127.0.0.1:9
           NO_PROXY: ''
         run: |
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Garmin-Export/bootstrap.ps1 --smoke-test
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Activity-Export/bootstrap.ps1 --smoke-test
           if ($LASTEXITCODE -ne 0) { throw 'Warm offline start failed.' }
-          Remove-Item ./dist/check/TTN-Garmin-Export/runtime/Lib/site-packages/fitdecode/__init__.py
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Garmin-Export/bootstrap.ps1 --smoke-test
+          Remove-Item ./dist/check/TTN-Activity-Export/runtime/Lib/site-packages/fitdecode/__init__.py
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Activity-Export/bootstrap.ps1 --smoke-test
           if ($LASTEXITCODE -ne 0) { throw 'Cached dependency repair failed.' }
       - uses: actions/upload-artifact@v4
         with:
-          name: TTN-Garmin-Export-Windows-Starter
+          name: TTN-Activity-Export-Windows-Starter
           path: |
-            dist/TTN-Garmin-Export-Windows-Starter.zip
-            dist/TTN-Garmin-Export-Windows-Starter.zip.sha256
+            dist/TTN-Activity-Export-Windows-Starter.zip
+            dist/TTN-Activity-Export-Windows-Starter.zip.sha256
           retention-days: 30

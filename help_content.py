@@ -1,6 +1,6 @@
 """Offline bilingual user manual embedded in the packaged application."""
 HELP = {
-'de': '''<h1>TTN Garmin Export · Anleitung</h1>
+'de': '''<h1>TTN Activity Export · Anleitung</h1>
 <p>Lokales, unabhängiges Werkzeug zum Lesen deiner Garmin-Connect-Daten. Es verändert keine Aktivitäten oder Einstellungen. Kein Garmin-Produkt.</p>
 <h2>Vorschau vor dem Export</h2>
 <p>Nach der Anmeldung die gewünschten Export-Einstellungen setzen und unten <b>„Vorschau anzeigen“</b> anklicken. Ein eigenes Fenster zeigt standardmäßig bis zu zehn Beispielzeilen pro Tabelle, mit denselben Spalten, Einheiten, Sportart- und Feldfiltern wie beim Export. Bei JSON erscheint ein begrenzter Ausschnitt der Originalstruktur. Weitere Spalten oder Werte können später im vollständigen Export hinzukommen.</p>
@@ -49,7 +49,7 @@ HELP = {
 <p>Fehlende Werte können an Uhrmodell, Sensoren, Synchronisation, Alter der Daten oder Garmin liegen. null ist nicht null Watt oder null Puls. Eine Antwort mit Metadaten beweist keine vollständige Messreihe. Netzwerkfehler werden begrenzt wiederholt. Bei Anmeldefehler oder Ratenlimit stoppt der Export; später erneut versuchen. report.json enthält Fehlerklassen, keine Zugangsdaten. completed=true bedeutet „ohne gemeldete Fehler beendet“, nicht „alle Daten vorhanden“: stats.errors immer prüfen. Rohdaten, Berichte und Screenshots können persönliche Angaben enthalten; nicht öffentlich auf GitHub hochladen.</p>
 <p>Windows: Die EXE enthält Python und Abhängigkeiten. Keine Python-Installation nötig. Unsigned Builds können eine Windows-Sicherheitsabfrage auslösen. Quellcode, Tests und Build-Workflow sind für GitHub vorbereitet. Ein Windows-Build und ein Live-Test mit Garmin sind vor einer öffentlichen Freigabe erforderlich.</p>
 ''',
-'en': '''<h1>TTN Garmin Export · User guide</h1>
+'en': '''<h1>TTN Activity Export · User guide</h1>
 <p>A local, independent tool for reading Garmin Connect data. It does not edit activities or settings. Not a Garmin product.</p>
 <h2>Preview before exporting</h2>
 <p>After signing in, configure your export and click <b>“Show preview”</b> at the bottom. A separate window shows up to ten example rows per table by default, using the same columns, units, sport and field filters as the export. JSON shows a bounded sample of the original structure. A full export may include additional columns or values.</p>
@@ -184,8 +184,8 @@ HEALTH_EN="""<h2>0.4 · Faster health downloads and Downloads folder</h2>
 HELP['de']=HELP['de'].replace('<h2>0.3 ·',HEALTH_DE+'<h2>0.3 ·',1)
 HELP['en']=HELP['en'].replace('<h2>0.3 ·',HEALTH_EN+'<h2>0.3 ·',1)
 
-STARTER_DE='<h2>Windows-Starter · TTN Garmin Export</h2><p>Das Starter-ZIP vollständig in einen beschreibbaren Ordner entpacken und Start-TTN-Garmin-Export.cmd doppelklicken. Der erste Start lädt eine private Python-Laufzeit und fehlende Pakete von python.org und PyPI, mit festen Prüfsummen. Keine Administratorrechte oder vorhandene Python-Installation nötig. Spätere Starts prüfen lokale Dateien; fehlende Pakete werden bei Bedarf repariert. Einrichtung und Downloads benötigen Internet, lokale Offline-Exporte danach nicht. Bei Fehlern Konsole und setup.log im Programmordner prüfen. Interner Profilname GarminExportStudio bleibt für bisherige Sitzungen erhalten.</p>'
-STARTER_EN='<h2>Windows starter · TTN Garmin Export</h2><p>Extract the complete ZIP to a writable folder and double-click Start-TTN-Garmin-Export.cmd. The first launch downloads private Python and pinned dependencies from official sources, verifying checksums. No admin rights or existing Python required. Missing packages are repaired on subsequent starts. Setup requires Internet; later offline exports do not. Check the console and setup.log for setup errors. The internal GarminExportStudio profile name is retained for existing sessions.</p>'
+STARTER_DE='<h2>Windows-Starter · TTN Activity Export</h2><p>Das Starter-ZIP vollständig in einen beschreibbaren Ordner entpacken und Start-TTN-Activity-Export.cmd doppelklicken. Der erste Start lädt eine private Python-Laufzeit und fehlende Pakete von python.org und PyPI, mit festen Prüfsummen. Keine Administratorrechte oder vorhandene Python-Installation nötig. Spätere Starts prüfen lokale Dateien; fehlende Pakete werden bei Bedarf repariert. Einrichtung und Downloads benötigen Internet, lokale Offline-Exporte danach nicht. Bei Fehlern Konsole und setup.log im Programmordner prüfen. Interner Profilname GarminExportStudio bleibt für bisherige Sitzungen erhalten.</p>'
+STARTER_EN='<h2>Windows starter · TTN Activity Export</h2><p>Extract the complete ZIP to a writable folder and double-click Start-TTN-Activity-Export.cmd. The first launch downloads private Python and pinned dependencies from official sources, verifying checksums. No admin rights or existing Python required. Missing packages are repaired on subsequent starts. Setup requires Internet; later offline exports do not. Check the console and setup.log for setup errors. The internal GarminExportStudio profile name is retained for existing sessions.</p>'
 HELP['de']=HELP['de'].replace('<h2>0.4 ·',STARTER_DE+'<h2>0.4 ·',1)
 HELP['en']=HELP['en'].replace('<h2>0.4 ·',STARTER_EN+'<h2>0.4 ·',1)
 

@@ -1,16 +1,22 @@
-# TTN Garmin Export
+# TTN Activity Export
+
+**Deine Aktivitäten. Deine Daten. Alles lokal.**
 
 **Deine Garmin-Daten herunterladen, lokal aufbewahren, durchsuchen und als CSV, Excel oder JSON exportieren.**
 
-TTN Garmin Export ist eine lokale Desktop-App mit deutscher und englischer Oberfläche, hellem und dunklem Farbschema und einem Windows-Starter ohne vorausgesetzte Python-Installation. Du kannst einzelne Datenarten oder mehrjährige Zeiträume sichern und aus dem lokalen Bestand weitere Exporte erstellen.
+TTN Activity Export ist eine lokale Desktop-App mit deutscher und englischer Oberfläche, hellem und dunklem Farbschema und einem Windows-Starter ohne vorausgesetzte Python-Installation. Du kannst einzelne Datenarten oder mehrjährige Zeiträume sichern und aus dem lokalen Bestand weitere Exporte erstellen.
 
 Unabhängiges Community-Projekt; kein offizielles Garmin-Produkt.
 
 [Anleitung auf Deutsch](docs/ANLEITUNG.md) · [English user guide](docs/USER_GUIDE.md) · [Downloads](https://github.com/starbase64/ttn-garmin-export/releases) · [Änderungen](CHANGELOG.md) · [Planung](ROADMAP.md)
 
+## Namensänderung
+
+Bisher hieß die App **TTN Garmin Export**. Die Umbenennung auf **TTN Activity Export** bereitet die anbieterübergreifende Ausrichtung vor. Bestehende Profile, Downloads und Datenbanken bleiben kompatibel. Der alte Startername bleibt als Weiterleitung erhalten.
+
 ## Aktueller Stand
 
-Der Quellstand ist **0.5.7-preview**. **Garmin Connect wird unterstützt. Strava und Komoot sowie die vereinfachte Oberfläche sind geplant und noch nicht eingebaut.**
+Der Quellstand ist **0.5.8-preview**. **Garmin Connect wird unterstützt. Strava und Komoot sowie die vereinfachte Oberfläche sind geplant und noch nicht eingebaut.**
 
 Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quellstand. Beachte beim Download die Versionsnummer: Eine Anleitung zum aktuellen Stand bedeutet nicht, dass ein älteres Release diese Funktionen bereits enthält. Aktuelle Windows-Starter entstehen als Artefakte erfolgreicher [GitHub-Actions-Prüfläufe](https://github.com/starbase64/ttn-garmin-export/actions). Artefakte können eine GitHub-Anmeldung erfordern und ablaufen.
 
@@ -35,7 +41,7 @@ Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quells
 
 1. Ein **Windows-Starter-ZIP** für die gewünschte Version herunterladen.
 2. Vollständig in einen eigenen, beschreibbaren Ordner entpacken. Nicht im ZIP starten.
-3. `Start-TTN-Garmin-Export.cmd` doppelklicken.
+3. `Start-TTN-Activity-Export.cmd` doppelklicken.
 4. Beim ersten Start die Einrichtung abwarten. Anschließend unter **Konto** anmelden.
 5. Für eine einfache Aktivitätstabelle unter **Export** auf **Nur Aktivitätsliste (CSV)** klicken, Zeitraum und gegebenenfalls Sportart unter **Optionen** wählen und den Export starten.
 
@@ -55,7 +61,7 @@ Große Erstexporte, vollständige Messverläufe und Excel-Dateien brauchen Zeit.
 
 A local Garmin Connect desktop app for downloading selected data or years of history, keeping a reusable SQLite archive, browsing activities and maps, and exporting CSV, Excel or JSON. Includes German/English UI, persistent light/dark mode, bounded previews, download ETA and session logs. The Windows starter installs a private Python runtime and pinned, hash-verified dependencies; no existing Python installation is required.
 
-**Source: 0.5.7-preview. Published release v0.5.0-preview is older. Strava and Komoot integration is planned, not available yet.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-garmin-export/actions) for current Windows starter artifacts.
+**Source: 0.5.8-preview. Published release v0.5.0-preview is older. Strava and Komoot integration is planned, not available yet.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-garmin-export/actions) for current Windows starter artifacts.
 
 ## Entwicklung / Development
 
@@ -72,7 +78,7 @@ Synthetic tests do not access Garmin accounts. `python app.py --smoke-test` chec
 Build a starter:
 
 ```sh
-python build_starter.py dist/TTN-Garmin-Export-Windows-Starter.zip
+python build_starter.py dist/TTN-Activity-Export-Windows-Starter.zip
 ```
 
 Regenerate dependency locks only after reviewing updates. Download Windows wheels with `pip download --only-binary=:all: --platform win_amd64 --python-version 3.13 --implementation cp --abi cp313 -r requirements.txt -d windows-wheels`, then run `python generate_windows_lock.py windows-wheels`. The generator checks PyPI SHA-256 values. Do not commit downloaded wheels or runtimes. `.github/workflows/starter.yml` checks native Windows setup, offline startup and cached dependency repair. A separate manual Windows workflow can build the full PyInstaller package.

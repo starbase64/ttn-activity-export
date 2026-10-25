@@ -1,3 +1,10 @@
+# 0.5.8-preview · TTN Activity Export
+
+- Rename the application from TTN Garmin Export to **TTN Activity Export**. German subtitle: “Deine Aktivitäten. Deine Daten. Alles lokal.” English: “Your activities. Your data. All local.”
+- Update window/dialog titles, session log branding, map export attribution, help, documentation, Windows launcher, package names and build workflows. Retain the previous starter filename as a forwarding launcher. Include GitHub-readable manuals in the starter.
+- Preserve the internal GarminExportStudio profile and current output directory so existing sessions, preferences, remembered dates, request pauses and account archives stay accessible. New export reports use the new identity; both old and new reports remain accepted for verified reuse and managed-file cleanup.
+- This is a rename of the existing Garmin app, not the planned multi-provider release. Strava and Komoot remain planned. Historical changelog entries retain their original names.
+
 # 0.5.7-preview · light and dark mode
 
 - Add a bilingual theme button next to the language switch. Dark mode uses a dark blue-gray background and soft light foreground, with theme-aware inputs, visible checkboxes, disabled states, tables, selections, headers, menus, tooltips, app dialogs and logs.

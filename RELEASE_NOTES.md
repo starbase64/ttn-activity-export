@@ -1,9 +1,11 @@
-TTN Garmin Export — erste öffentliche Vorschau
+# TTN Activity Export · 0.5.8-preview
 
-Windows 10/11 x64: das Windows-Starter-ZIP herunterladen, vollständig in einen beschreibbaren Ordner entpacken und Start-TTN-Garmin-Export.cmd doppelklicken. Beim ersten Start werden Python und Abhängigkeiten von offiziellen Quellen nachgeladen; alle Downloads werden mit festgelegten SHA-256-Prüfsummen geprüft. Keine Administratorrechte oder eigene Python-Installation nötig.
+Deine Aktivitäten. Deine Daten. Alles lokal.
 
-Enthalten: Deutsch/Englisch, CSV/XLSX/JSON, mehrjährige Zeiträume, fortsetzbare Offline-Datenbank, Vorschau, Download-Restzeit, Aktivitätstabelle, Karten und Heatmap. Standard-Ausgabe: Downloads\Garmin_Export. Vorhandene Nutzer wählen ihren bisherigen Ausgabeordner und dieselbe Datenbank zum Fortsetzen.
+Die App hieß bisher TTN Garmin Export. Dieser Stand ändert Namen, Untertitel, Starter, Paketnamen und Dokumentation. Garmin wird weiterhin unterstützt; Strava und Komoot sind geplant und noch nicht enthalten.
 
-Grenzen: Komplettsicherungen laden viele vollständige Gesundheitsverläufe weiterhin täglich. Der Kennzahlenmodus ist schneller, enthält aber keine vollständigen Verläufe. Kein garantiert vollständiges Garmin-Kontobackup. Keine privaten Garmin-Daten oder Anmeldeschlüssel enthalten. Unabhängiges Community-Projekt, kein Garmin-Produkt. Windows-Prüfergebnis: siehe Actions für den Release-Commit; lokale Tests wurden unter Linux durchgeführt. Echte Garmin-Zeitraumabrufe bleiben accountabhängig zu prüfen.
+Start: Windows-Starter-ZIP vollständig entpacken und `Start-TTN-Activity-Export.cmd` doppelklicken. Python und geprüfte Abhängigkeiten werden beim ersten Start automatisch eingerichtet.
 
-English: extract the Windows Starter ZIP and double-click Start-TTN-Garmin-Export.cmd. First-time setup downloads private Python and locked dependencies from official sources. No admin or preinstalled Python required. This is a preview; see Actions for native Windows validation and README for limitations. No live Garmin account testing claimed.
+Bestehende Sitzungen, Einstellungen, Datumswerte und Abrufpausen verwenden weiterhin das interne Profil `GarminExportStudio`. Der bisherige Ausgabeordner `Downloads\Garmin_Export` und Kontodatenbanken werden nicht automatisch verschoben. Zum Fortsetzen denselben Ordner und dieselbe Datenbank auswählen. Ältere Exportberichte bleiben für Dateiwiederverwendung und Veröffentlichung lesbar. Der alte Startername bleibt als Weiterleitung für bestehende Verknüpfungen enthalten.
+
+English: renamed from TTN Garmin Export. Your activities. Your data. All local. Start `Start-TTN-Activity-Export.cmd`. Existing profile paths, account archives and old export reports remain compatible. Garmin support is unchanged; Strava and Komoot are planned.
