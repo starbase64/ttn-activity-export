@@ -32,7 +32,7 @@ def build(output):
             'Neue Konten: Downloads\\TTN Activity Export\\Garmin. Alte Daten werden nicht verschoben.\n'
             'Vier Reiter: Konten, Download, Daten, Anleitung. Standardaktion: Nur herunterladen.\n'
             'Fuer CSV/Excel Download und Dateien exportieren waehlen, Auftrag hinzufuegen und pruefen/starten.\n'
-            'Garmin ist nutzbar. Strava und Komoot haben noch keinen Online-Zugriff.\n\n'
+            'Garmin ist nutzbar. Strava: nur lokaler ZIP-Import. Komoot hat noch keinen Online-Zugriff.\n\n'
             'English: extract everything to a writable folder and double-click the CMD file.\n'
             'First-time setup downloads a private Python runtime and pinned dependencies.\n'
             'No admin rights, system Python changes or Garmin login during setup.\n'

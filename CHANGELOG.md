@@ -1,3 +1,11 @@
+# 0.6.1-preview · Strava is a local import source
+
+- Keep Strava account entries, but replace the connection placeholder with a local-only account-ZIP workflow. No Strava online sign-in, API keys, budgets, scraping or automatic website/API retrieval are offered or planned.
+- Stream a user-selected Strava ZIP: parse activities.csv with duplicate-column preservation, import referenced FIT/GPX/TCX recordings including bounded gzip decoding, keep metadata-only activities, and report missing/corrupt/unsupported records. Never extract archive paths to disk. Ignore non-activity account content.
+- Store source activity IDs/provider and update repeated imports idempotently in an account-isolated SQLite database. Keep the original ZIP untouched. Local import works during a Garmin request pause and opens the existing local filter/map/CSV/XLSX/JSON-selection export tools.
+- Use a provider-neutral Activity link column with the correct Strava source URL; invalidate readable activity-table output signatures once so old Garmin-link headers are rebuilt. Other dataset signatures remain unchanged.
+- Document manual download/import steps, timezone and unit uncertainty, limits and the distinction from a full account backup. Synthetic coverage is not a real-account/package validation.
+
 # 0.6.0-preview · compact desktop and explicit jobs
 
 - Introduce four primary tabs: Accounts, Download, Data, User guide. Move detailed export/retrieval settings, fields, Expert and offline management into an Apply/Cancel dialog; move the full session log into a separate window. Add a persistent global tooltip toggle.

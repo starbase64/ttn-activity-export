@@ -1,12 +1,12 @@
 # TTN Activity Export — user guide
 
-For source version **0.6.0-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For source version **0.6.1-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
-This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava and Komoot are not integrated yet. Older application downloads may not include every feature described here.
+This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava is a local-only import source; Komoot is not connected online yet. Older application downloads may not include every feature described here.
 
 ## Getting started with preview 0.6
 
-This guide covers the new desktop. **Garmin is operational. Strava and Komoot have prepared account entries and destinations but no live online connector yet.** This build cannot sign in to all three providers. Strava API budget displays and automatic application updates remain future work.
+This guide covers the new desktop. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has no online connector yet.** Strava sign-in and automated Strava retrieval are not planned. Automatic application updates remain future work.
 
 The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
 
@@ -237,3 +237,21 @@ For a useful issue report, include version, action, dates, selected datasets/for
 The skip option remains off by default. Empty daily statistics do not prove that detailed data is absent. Omitted requests remain unverified, and the Offline archive controls can explicitly retrieve them later.
 
 Presets store dataset/output options, not account-specific inventory ID selections. Select the desired activities again after loading a preset.
+
+## Strava as a local import source
+
+The app does not sign in to Strava, request API keys, track API budgets or automatically retrieve website data.
+
+1. Download your account ZIP yourself on Strava's website: Settings → My Account → Download your account. Wait for the email link. The app does not request the package for you.
+2. Under **Accounts → Add account → Strava**, enter a local label/email and destination. This label separates local data; it is not a Strava login.
+3. Choose **Import / settings → Import Strava data package …**, or use the corresponding button under Download with Strava selected.
+4. Select the complete ZIP without extracting it first. Supported: `activities.csv` using the usual English export headers and its referenced FIT, GPX or TCX recordings, including gzip wrappers. Import makes no network requests.
+5. **Data** opens after import. Filter sports/dates/text, select rows using Ctrl/Shift and use **Selection → Export selection** for CSV, Excel or JSON. Maps require supported GPS recordings.
+
+A separate `strava-offline.sqlite` is stored in the local Strava account directory. **Open local Strava data** reopens it later. Repeated package imports update known Strava IDs instead of adding duplicate rows. Activities without referenced files remain in the table. Missing/corrupt recordings are reported; no GPS route is invented.
+
+The importer reads activity history, not every Strava account feature: photos, comments, contacts and other account content are not imported. Keep your original ZIP backup. It is not changed or deleted. Only data present in the package can be imported.
+
+Duplicate CSV columns are retained in raw metadata. Full-export metric distance columns are used; ambiguous columns without an established unit are not guessed. CSV timestamps without a timezone are retained as unspecified export time, not automatically converted to your local timezone; dates around midnight may therefore need attention.
+
+Initial limits: one matching activities.csv, up to 30,000 ZIP entries, 32 MiB CSV, 128 MiB per expanded recording and 8 GiB total processed activity data. Limits, malformed rows and missing files are reported. Cancellation keeps completed records. Synthetic fixtures have been tested; a real user package still needs validation.

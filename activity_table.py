@@ -10,7 +10,7 @@ COLUMNS = [
  ('ascent','Anstieg (m)','Ascent (m)'),('descent','Abstieg (m)','Descent (m)'),
  ('power','Ø Leistung (W)','Avg power (W)'),('heart_rate','Ø Herzfrequenz (bpm)','Avg heart rate (bpm)'),
  ('calories','Kalorien (kcal)','Calories (kcal)'),('id','Aktivitäts-ID','Activity ID'),
- ('url','Garmin-Link','Garmin link'),
+ ('url','Aktivitäts-Link','Activity link'),
 ]
 
 
@@ -44,6 +44,7 @@ def table_row(activity,source_date,language='de'):
     sport=pair[0 if language=='de' else 1] if pair else key.replace('_',' ').capitalize()
     ident=activity.get('activityId')
     url=f'https://connect.garmin.com/modern/activity/{ident}' if str(ident).isdigit() else ''
+    if activity.get('sourceProvider')=='strava' and str(activity.get('sourceActivityId','')).isdigit():url='https://www.strava.com/activities/'+str(activity['sourceActivityId'])
     values={
         'date':day,'time':clock,'name':activity.get('activityName') or '',
         'sport':sport,'location':activity.get('locationName') or '',

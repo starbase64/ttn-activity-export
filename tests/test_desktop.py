@@ -229,3 +229,20 @@ def test_failed_workspace_save_never_leaves_an_unconfirmed_job(tmp_path,monkeypa
     assert not state.jobs
     with pytest.raises(OSError):state.add_account('garmin','other@example.invalid',tmp_path)
     assert len(state.accounts)==1 and not Workspace(state.path).jobs
+
+
+def test_strava_is_import_only_and_local_import_works_during_garmin_pause(window,tmp_path):
+    from tests.test_strava_import import package,row
+    w=window;account=w.workspace.add_account('strava','local-strava',tmp_path/'Strava');w.refresh_accounts(account['id'])
+    assert not w.strava_panel.isHidden() and w.garmin_controls.isHidden()
+    assert w.account_settings_button.text()=='Import / Einstellungen'
+    assert 'keine Anmeldung' in w.connection.text() and w.api is None
+    assert 'strava' not in w.workspace.data['order']
+    source=package(tmp_path/'strava.zip',[row(filename='')]);messages=[];w.message=lambda *a:messages.append(a)
+    w.rate_pause.record({'reason':'rate_limit','retry_after_seconds':60})
+    w.start_strava_import(account,str(source),w.strava_database(account))
+    deadline=time.monotonic()+5
+    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    assert len(w.data_page.data['activities'])==1 and w.data_page.data['account']==account['id']
+    assert w.tabs.currentIndex()==2 and w.request_count==0 and messages
+    w.toggle_language();assert 'local import source' in w.connection.text()

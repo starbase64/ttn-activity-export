@@ -1,12 +1,12 @@
 # TTN Activity Export – Anleitung
 
-Für den Quellstand **0.6.0-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
+Für den Quellstand **0.6.1-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
 
-Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava und Komoot sind noch nicht integriert. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
+Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava ist ausschließlich eine lokale Importquelle; Komoot ist noch nicht online integriert. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
 
 ## Einstieg in die Testversion 0.6
 
-Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava und Komoot haben vorbereitete Kontoeinträge und Zielordner, aber noch keinen Onlinezugriff.** Eine Anmeldung bei allen drei Anbietern ist mit dieser Testversion deshalb noch nicht möglich. Strava-API-Budgetanzeige und automatische App-Updates folgen separat.
+Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat noch keinen Onlinezugriff.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Automatische App-Updates folgen separat.
 
 Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
 
@@ -239,3 +239,21 @@ Die **Online-Bestandsübersicht vor dem Download** ist für Garmin-Aktivitäten 
 Die Überspringen-Option bleibt standardmäßig aus. Leere Tageskennzahlen beweisen nicht, dass detaillierte Daten fehlen. Ausgelassene Abfragen bleiben ungeprüft und lassen sich über die Offline-Verwaltung ausdrücklich nachladen.
 
 Vorlagen speichern die Daten-/Ausgabeoptionen, keine kontoabhängige ID-Auswahl aus der Bestandsliste. Nach dem Laden einer Vorlage die gewünschten Aktivitäten erneut auswählen.
+
+## Strava als lokale Importquelle
+
+Für Strava gibt es in der App keine Anmeldung, API-Schlüssel, API-Budgetanzeige und keinen automatischen Website-Abruf.
+
+1. Lade dein Konto-ZIP selbst auf der Strava-Website unter Einstellungen → Mein Konto → Konto herunterladen herunter. Warte auf die E-Mail mit dem Downloadlink. Die App fordert das Paket nicht automatisch an.
+2. Unter **Konten → Konto hinzufügen → Strava** einen lokalen Namen oder deine E-Mail-Adresse und einen Zielordner festlegen. Diese Bezeichnung dient nur der lokalen Trennung, nicht der Anmeldung bei Strava.
+3. **Import / Einstellungen → Strava-Datenpaket importieren …** wählen. Alternativ findest du den Importbutton im Reiter Download, sobald Strava ausgewählt ist.
+4. Das vollständige ZIP auswählen; nicht vorher entpacken. Unterstützt werden die Aktivitätenliste `activities.csv` mit den üblichen englischen Exportspalten und darin referenzierte FIT-, GPX- oder TCX-Dateien, auch gzip-komprimiert. Die App liest das Paket ohne Netzverbindung.
+5. Nach dem Import öffnet sich **Daten**. Nach Sportart, Datum oder Suchtext filtern und Zeilen mit Strg/Shift markieren. Unter **Auswahl → Auswahl exportieren** die gewünschte Tabelle als CSV, Excel oder JSON speichern. Karten funktionieren nur, wenn eine unterstützte Aufzeichnung GPS enthält.
+
+Die Daten liegen in einer getrennten `strava-offline.sqlite` im lokalen Strava-Kontobereich. **Lokale Strava-Daten öffnen** lädt diesen Bestand später erneut. Bereits importierte Strava-IDs werden beim erneuten Paketimport aktualisiert, statt zusätzliche Zeilen anzulegen. Eine Aktivität ohne referenzierte Datei bleibt als Tabellenzeile erhalten. Defekte oder fehlende Aufzeichnungen werden gemeldet; sie erzeugen keine erfundene GPS-Strecke.
+
+Es wird die Aktivitätshistorie importiert, nicht das gesamte Strava-Konto: Fotos, Kommentare, Kontakte und andere Kontoinhalte bleiben außen vor. Bewahre das Original-ZIP selbst als Sicherung auf. Die App verändert oder löscht es nicht. Sie kann nur Daten lesen, die im Paket vorhanden sind.
+
+Doppelte CSV-Spalten werden in den Rohmetadaten erhalten. Beim vollständigen Strava-CSV wird die metrische Distanzspalte genutzt; bei abweichenden/eindeutigen Spalten ohne belegte Einheit wird keine Distanz geraten. CSV-Zeitstempel ohne Zeitzonenangabe werden als nicht näher spezifizierte Exportzeit übernommen, nicht automatisch als deutsche Ortszeit umgerechnet. Das kann für Aktivitäten um Mitternacht relevant sein.
+
+Grenzen dieses ersten Importers: eine passende `activities.csv`, höchstens 30.000 ZIP-Einträge, 32 MiB CSV, 128 MiB je entpackter Aufzeichnung und 8 GiB insgesamt verarbeitete Aktivitätsdaten. Größenfehler, ungültige Zeilen und fehlende Dateien erscheinen im Importbericht. Bei Abbruch bleiben bereits importierte Einträge erhalten. Das Format wurde mit synthetischen Beispielen geprüft; ein echtes Nutzerpaket muss im Praxistest bestätigt werden.

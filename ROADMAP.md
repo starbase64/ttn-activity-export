@@ -1,12 +1,12 @@
 # Roadmap
 
-Planungsstand zur Testversion **0.6.0-preview**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
+Planungsstand zur Testversion **0.6.1-preview**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
 
 ## In der Testversion 0.6 umgesetzt
 
 Vier Hauptreiter und Optionen-Fenster mit Übernehmen/Abbrechen, eigenes Logfenster, Kontoeinträge mit getrennten Zielordnern und ausdrücklich gespeicherten Vorgaben, begrenzte Garmin-Bestandsliste mit Teilstatus/Weiterladen und ID-Auswahl sowie gespeicherte/sortierbare Aufträge mit manueller Startprüfung. Tooltips sind global abschaltbar. Vor dem Start gibt es eine lokale Planung offener Grundabfragen; eine verlässliche Gesamtdauer bleibt ohne Messgrundlage unbekannt.
 
-**Noch offen:** Online-Anbindung für Komoot/Strava, Strava-Zulassung und API-Budgetverwaltung, Anbieterreihenfolge über tatsächlich ausführbare Mehranbieteraufträge und automatische App-Updates. Vorbereitete Komoot-/Strava-Kontoeinträge bieten noch keinen Onlinezugriff. Die folgende Zielbeschreibung bleibt für diese offenen Teile gültig.
+**Noch offen:** Online-Anbindung für Komoot, Anbieterreihenfolge über tatsächlich ausführbare Mehranbieteraufträge und automatische App-Updates. Strava bleibt ausdrücklich eine lokale Importquelle; keine Online-Anmeldung, kein automatischer Website-/API-Abruf und keine API-Budgetverwaltung sind vorgesehen. Die folgende Zielbeschreibung bleibt für diese offenen Teile gültig.
 
 ## Bereits vorhanden
 
@@ -16,7 +16,7 @@ Die experimentelle Erkennung vermutlich leerer Abfragen ist standardmäßig aus.
 
 ## 1. Bestandsübersicht vor dem Download — neu aufgenommen
 
-Ziel: Erst sehen, welche Aktivitäten vorhanden sind, dann gezielt auswählen. **Für Garmin in 0.6 enthalten; für Komoot und Strava noch offen.**
+Ziel: Erst sehen, welche Aktivitäten vorhanden sind, dann gezielt auswählen. **Für Garmin in 0.6 enthalten; für Komoot noch offen; Strava zeigt ausschließlich lokal importierte Daten.**
 
 - Button **Online-Bestand anzeigen**, anschließend **Übersicht aktualisieren**. Kein automatischer vollständiger Historienabruf bei jedem App-Start.
 - Zunächst ausschließlich verfügbare Listenmetadaten: Anbieter, Konto, ID, Titel, Datum, Sportart, Distanz, Dauer und gegebenenfalls Höhenmeter. Fehlende Felder als unbekannt anzeigen.
@@ -30,12 +30,12 @@ Ziel: Erst sehen, welche Aktivitäten vorhanden sind, dann gezielt auswählen. *
 | Anbieter | Technische Grundlage | Grenzen |
 | --- | --- | --- |
 | Garmin | Aktivitätsanzahl und paginierte Aktivitäten-/Zeitraumlisten der verwendeten Bibliothek | Kein universelles Verzeichnis aller Gesundheitsmessungen. Eine Aktivitätsliste beweist weder Schlaf- noch Pulsdaten für jeden Tag. Kompatibilität mit der konkret gesperrten Bibliotheksversion prüfen. |
-| Strava | Offizieller Endpunkt `GET /athlete/activities` liefert `SummaryActivity` | OAuth, passende Sichtbarkeitsrechte, App-Zulassung, Ratenlimits und Nutzungsbedingungen gelten auch für Listen. Private Aktivitäten benötigen entsprechende Freigabe. Kein Versprechen dauerhafter API-Archive. |
+| Strava | Vom Nutzer selbst heruntergeladenes Konto-ZIP mit Aktivitätenliste | Ausschließlich lokaler Import; keine automatische Online-Bestandsabfrage. |
 | Komoot | Inoffizielle Projekte können Touren zunächst auflisten | Geplante Routen und aufgezeichnete Aktivitäten klar trennen. Keine öffentliche allgemeine API; Zugriff und Stabilität müssen geprüft werden. |
 
 Für Garmin-Gesundheitsdaten soll die Ansicht zwischen **unterstützt**, **nachweislich vorhanden**, **lokal vorhanden** und **nicht geprüft** unterscheiden. Keine tageweise Komplettabfrage im Hintergrund nur zum Aufbau einer scheinbar kostenlosen Übersicht. Falls eine Kategorie keinen geeigneten Übersichtsabruf hat, diese Grenze offen anzeigen und gegebenenfalls eine ausdrücklich gewählte, begrenzte Prüfung anbieten.
 
-Primärquellen zur Machbarkeit: [Garmin-Bibliothek](https://github.com/cyberjunky/python-garminconnect), [Strava-Referenz](https://developers.strava.com/docs/reference/), [Strava-Ratenlimits](https://developers.strava.com/docs/rate-limits/), [Strava-API-Bedingungen](https://www.strava.com/legal/api_policy), [Komoot-API-Hinweis](https://support.komoot.com/hc/en-us/articles/10331570510618-komoot-API), [KomootGPX mit Listenfunktion](https://github.com/timschneeb/KomootGPX). Recherche belegt eine technische Grundlage, keinen erfolgreichen Test mit den Nutzerkonten.
+Primärquellen zur Machbarkeit: [Garmin-Bibliothek](https://github.com/cyberjunky/python-garminconnect), [Offizieller Strava-Dateiexport](https://support.strava.com/en-us/articles/15401919-how-do-i-export-my-strava-data), [Komoot-API-Hinweis](https://support.komoot.com/hc/en-us/articles/10331570510618-komoot-API), [KomootGPX mit Listenfunktion](https://github.com/timschneeb/KomootGPX). Recherche belegt eine technische Grundlage, keinen erfolgreichen Test mit den Nutzerkonten.
 
 ## 2. Oberfläche vereinfachen und Konten hinzufügen
 
@@ -53,13 +53,11 @@ Geplanter neuer Standard: `Downloads\TTN Activity Export\Garmin`, `Komoot` und `
 
 **Komoot:** Einzelne geplante Routen und aufgezeichnete Aktivitäten zuerst; Gesamtauswahl optional. Offizielle GPX-Möglichkeiten und Dateiimport berücksichtigen. Inoffizielle Schnittstellen können sich ändern. Zugang, Formate, Metadaten und Lizenzpflichten verwendeter Projekte vor Integration prüfen; GPL-Code nicht ungeprüft in das MIT-Projekt übernehmen.
 
-**Strava:** Offizielle OAuth-Freigabe, Zulassung und ein für eine öffentlich verteilte lokale App geeignetes Anmeldeverfahren klären. Kein gemeinsam eingebettetes Client-Secret als sichere Lösung darstellen. Einzelaktivitäten, Listen und Importe unterscheiden; nicht jede API-Repräsentation ist eine Originaldatei.
-
-Stravas aktuelle Bedingungen beschränken unter anderem bestimmte Massenausleitungen und dauerhafte API-Archive. Lange Pausen lösen ein Berechtigungs- oder Nutzungsproblem nicht. Für zulässige Vorgänge Ratenlimit-Header auswerten, Anfragen budgetieren und Wiederaufnahme ermöglichen; Gesamt- und Leselimits der App berücksichtigen. Für historische Gesamtdaten den offiziellen Kontoexport und dessen Import prüfen. Keine Umgehung durch zusätzliche Tokens oder App-IDs.
+**Strava:** Ausschließlich lokaler Import. Der Nutzer lädt das Paket selbst über die offiziellen Strava-Exportfunktionen herunter. Die App importiert die Aktivitätenübersicht und unterstützte referenzierte Aufzeichnungen, danach sind lokale Filter, Karten und Tabellenexport möglich. Kein automatisierter Website-Abruf und keine Strava-API-Anbindung. Kein API-Schlüssel oder Strava-Abo für diese Importfunktion nötig. In 0.6.1 als Testfunktion enthalten; ein echtes Nutzerpaket muss noch geprüft werden.
 
 ## 4. Auftragsliste und Zusammenfassung vor dem Start
 
-Einzelne Aufträge und mehrere Konten gemeinsam unterstützen. Standardreihenfolge **Garmin → Komoot → Strava**, vom Nutzer veränderbar und speicherbar. Aufträge enthalten feste Schnappschüsse ihrer Einstellungen. Verschieben per Pfeilbuttons und optional Ziehen; Wartezustände pro Anbieter sichtbar halten. Optional andere bereite Aufträge weiterbearbeiten, während ein Anbieter pausiert.
+Einzelne Aufträge und mehrere Konten gemeinsam unterstützen. Standardreihenfolge für Online-Aufträge **Garmin → Komoot**; Strava bleibt ein separater lokaler Import, vom Nutzer veränderbar und speicherbar. Aufträge enthalten feste Schnappschüsse ihrer Einstellungen. Verschieben per Pfeilbuttons und optional Ziehen; Wartezustände pro Anbieter sichtbar halten. Optional andere bereite Aufträge weiterbearbeiten, während ein Anbieter pausiert.
 
 Vor dem eigentlichen Start ein Fenster **Aufträge prüfen und starten**:
 

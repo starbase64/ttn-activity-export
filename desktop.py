@@ -86,29 +86,37 @@ class StudioMixin:
                                 'Add an account. Files and settings are kept separate for each account.'))
         self.account_list=QListWidget();self.account_list.currentRowChanged.connect(self.account_row_changed);av.addWidget(self.account_list,1)
         actions=QHBoxLayout();actions.addWidget(self.button('Konto hinzufügen','Add account',self.add_account_dialog,primary=True))
-        actions.addWidget(self.button('Anmelden / Einstellungen','Sign in / settings',self.open_account))
+        self.account_settings_button=self.button('Anmelden / Einstellungen','Sign in / settings',self.open_account);actions.addWidget(self.account_settings_button)
         actions.addWidget(self.button('Konto entfernen','Remove account',self.remove_account));actions.addStretch();av.addLayout(actions)
         self.account_hint=self.label('Noch kein Konto hinzugefügt.','No account added yet.');av.addWidget(self.account_hint)
         self.download_page=QWidget();dv=QVBoxLayout(self.download_page)
         row=QHBoxLayout();row.addWidget(self.label('Konto','Account'));self.account_picker=QComboBox();self.account_picker.currentIndexChanged.connect(self.picker_changed);row.addWidget(self.account_picker,1)
         row.addWidget(self.button('Optionen …','Options …',lambda:self.show_options()));dv.addLayout(row)
+        self.strava_panel=QWidget();sv=QVBoxLayout(self.strava_panel)
+        sv.addWidget(self.label('Strava · lokaler Import','Strava · local import'))
+        sv.addWidget(self.label('Lade dein Datenpaket selbst auf der Strava-Website herunter. Hier kannst du es lokal importieren; eine Strava-Anmeldung, ein API-Schlüssel oder ein Abo werden in der App nicht benötigt.',
+                               'Download your data package yourself on the Strava website. Import it locally here; no Strava sign-in, API key or subscription is needed in this app.'))
+        sr=QHBoxLayout();sr.addWidget(self.button('Strava-Datenpaket importieren …','Import Strava data package …',self.import_strava_dialog,primary=True))
+        sr.addWidget(self.button('Lokale Strava-Daten öffnen','Open local Strava data',self.open_strava_data));sv.addLayout(sr)
+        dv.addWidget(self.strava_panel)
+        self.garmin_controls=QWidget();settings_layout=QVBoxLayout(self.garmin_controls);settings_layout.setContentsMargins(0,0,0,0);dv.addWidget(self.garmin_controls)
         dates=QHBoxLayout();dates.addWidget(self.label('Von','From'));dates.addWidget(self.start_date);dates.addWidget(self.label('Bis einschließlich','Through'));dates.addWidget(self.end_date)
-        dates.addWidget(self.reset_start_button);dates.addStretch();dv.addLayout(dates)
+        dates.addWidget(self.reset_start_button);dates.addStretch();settings_layout.addLayout(dates)
         row=QHBoxLayout();row.addWidget(self.label('Auswahl','Selection'));self.simple_preset=QComboBox()
         for de,en,key in [('Aktivitätenliste','Activity list','activities'),('Gesundheit: Tageskennzahlen','Health: daily statistics','daily'),
                            ('Alle unterstützten Daten','All supported datasets','all'),('Eigene Auswahl unter Optionen','Custom selection in Options','custom')]:
             self.simple_preset.addItem(self.tr(de,en),key)
         self.simple_preset.currentIndexChanged.connect(self.apply_simple_preset);row.addWidget(self.simple_preset,1)
-        row.addWidget(self.button('Online-Bestand anzeigen','Show online inventory',self.show_inventory));dv.addLayout(row)
-        self.selection_summary=self.label('','');dv.addWidget(self.selection_summary)
-        row=QHBoxLayout();row.addWidget(self.label('Ziel','Destination'));row.addWidget(self.output,1);row.addWidget(self.button('Ordner wählen','Choose folder',self.choose_folder));dv.addLayout(row)
+        row.addWidget(self.button('Online-Bestand anzeigen','Show online inventory',self.show_inventory));settings_layout.addLayout(row)
+        self.selection_summary=self.label('','');settings_layout.addWidget(self.selection_summary)
+        row=QHBoxLayout();row.addWidget(self.label('Ziel','Destination'));row.addWidget(self.output,1);row.addWidget(self.button('Ordner wählen','Choose folder',self.choose_folder));settings_layout.addLayout(row)
         row=QHBoxLayout();self.job_action=QComboBox()
         for de,en,key in [('Nur herunterladen','Download only','download'),('Download und Dateien exportieren','Download and export files','export'),('Nur lokal exportieren','Export offline only','offline')]:self.job_action.addItem(self.tr(de,en),key)
         row.addWidget(self.job_action)
         for check in self.format_checks.values():row.addWidget(check)
-        row.addStretch();row.addWidget(self.button('Auswahl zurücksetzen','Clear activity selection',self.clear_activity_selection));dv.addLayout(row)
+        row.addStretch();row.addWidget(self.button('Auswahl zurücksetzen','Clear activity selection',self.clear_activity_selection));settings_layout.addLayout(row)
         row=QHBoxLayout();row.addWidget(self.button('Zur Auftragsliste hinzufügen','Add to job list',self.enqueue_current,primary=True))
-        row.addWidget(self.button('Vorschau','Preview',self.show_export_preview));dv.addLayout(row)
+        row.addWidget(self.button('Vorschau','Preview',self.show_export_preview));settings_layout.addLayout(row)
         dv.addWidget(self.label('Auftragsliste','Job list'))
         self.jobs_table=QTableWidget(0,4);self.jobs_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.jobs_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers);self.jobs_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
@@ -164,13 +172,17 @@ class StudioMixin:
         for a in self.workspace.accounts:
             connected=a['id'] in self.clients or (a['provider']=='garmin' and self.identity==a['id'] and bool(self.api))
             status=self.tr('angemeldet','connected') if connected else self.tr('nicht angemeldet','not connected')
-            if a['provider']!='garmin':status=self.tr('Anbindung noch nicht verfügbar','connection not available yet')
+            if a['provider']=='strava':status=self.tr('Lokale Importquelle','Local import source')
+            elif a['provider']!='garmin':status=self.tr('Anbindung noch nicht verfügbar','connection not available yet')
             self.account_list.addItem(a['provider'].capitalize()+' · '+a['email']+'\n'+status)
             self.account_picker.addItem(a['provider'].capitalize()+' · '+a['email'],a['id'])
         idx=next((i for i,a in enumerate(self.workspace.accounts) if a['id']==ident),0 if self.workspace.accounts else -1)
         self.account_list.setCurrentRow(idx);self.account_picker.setCurrentIndex(idx)
         self.account_list.blockSignals(False);self.account_picker.blockSignals(False)
         self.activate_account(self.workspace.accounts[idx] if idx>=0 else None)
+        is_strava=bool(self.active_account and self.active_account['provider']=='strava')
+        self.strava_panel.setVisible(is_strava);self.garmin_controls.setVisible(not is_strava)
+        self.account_settings_button.setText(self.tr('Import / Einstellungen','Import / settings') if is_strava else self.tr('Anmelden / Einstellungen','Sign in / settings'))
     def account_row_changed(self,index):
         if 0<=index<len(self.workspace.accounts):self.refresh_accounts(self.workspace.accounts[index]['id'])
     def picker_changed(self,index):
@@ -200,8 +212,8 @@ class StudioMixin:
         if account['provider']!='garmin':text+='\n'+self.provider_note(account['provider'])
         self.account_hint.setText(text)
     def provider_note(self,provider):
-        if provider=='strava':return self.tr('Strava ist in dieser Testversion vorbereitet, aber noch nicht angebunden. API-Registrierung, sichere Anmeldung und erlaubter Exportumfang sind noch zu klären. Dateien können bereits lokal importiert werden.',
-                                            'Strava account settings are prepared, but this test build has no live connector. API registration, secure authorization and permitted export scope remain to be resolved. Local file import is available.')
+        if provider=='strava':return self.tr('Strava ist eine lokale Importquelle. Lade das Konto-ZIP selbst auf strava.com unter Einstellungen → Mein Konto → Konto herunterladen herunter und wähle es hier aus. Keine Anmeldung und kein automatischer Strava-Abruf in der App.',
+                                            'Strava is a local import source. Download your account ZIP yourself on strava.com under Settings → My Account → Download your account, then select it here. The app does not sign in to or automatically retrieve data from Strava.')
         return self.tr('Komoot ist in dieser Testversion vorbereitet, aber noch nicht angebunden. Der inoffizielle Zugriff muss separat implementiert und mit einem Konto geprüft werden. Unterstützte GPX-Dateien können bereits importiert werden.',
                        'Komoot account settings are prepared, but this test build has no live connector. Unofficial access needs a separate implementation and account test. Supported GPX files can already be imported.')
     def add_account_dialog(self):
@@ -213,8 +225,8 @@ class StudioMixin:
         provider.currentIndexChanged.connect(lambda:china.setVisible(provider.currentText()=='Garmin'))
         f.addRow(self.tr('Anbieter','Provider'),provider);f.addRow(self.tr('Konto / E-Mail','Account / email'),email);f.addRow(china)
         row=QHBoxLayout();row.addWidget(folder);choose=self.button('Wählen','Choose',lambda:self.pick_account_folder(folder));row.addWidget(choose);f.addRow(self.tr('Zielordner','Destination'),row)
-        hint=self.label('Garmin ist nutzbar. Komoot und Strava können mit eigenen Zielordnern vorgemerkt werden; Online-Anmeldung und Download sind dort noch nicht verfügbar.',
-                        'Garmin is available. Komoot and Strava can be configured with separate destinations; their online sign-in and download are not available yet.');f.addRow(hint)
+        hint=self.label('Garmin ist nutzbar. Strava ist eine lokale Importquelle ohne Online-Anmeldung. Komoot kann vorgemerkt werden; dessen Onlinezugriff ist noch nicht verfügbar.',
+                        'Garmin is available. Strava is a local import source without online sign-in. Komoot can be configured, but its online connector is not available yet.');f.addRow(hint)
         buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel);f.addRow(buttons)
         buttons.accepted.connect(dialog.accept);buttons.rejected.connect(dialog.reject)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
@@ -242,7 +254,10 @@ class StudioMixin:
         a=self.active_account;dialog=QDialog(self);dialog.setWindowTitle(a['provider'].capitalize());v=QVBoxLayout(dialog)
         note=QLabel(self.provider_note(a['provider']));note.setWordWrap(True);v.addWidget(note)
         field=QLineEdit(a['output']);row=QHBoxLayout();row.addWidget(field);row.addWidget(self.button('Ordner wählen','Choose folder',lambda:self.pick_account_folder(field)));v.addLayout(row)
-        v.addWidget(self.button('Lokale Dateien importieren','Import local files',lambda:self.data_page.import_dialog()))
+        if a['provider']=='strava':
+            v.addWidget(self.button('Strava-Datenpaket importieren …','Import Strava data package …',lambda:(dialog.accept(),QTimer.singleShot(0,self.import_strava_dialog))))
+            v.addWidget(self.button('Lokale Strava-Daten öffnen','Open local Strava data',lambda:(dialog.accept(),QTimer.singleShot(0,self.open_strava_data))))
+        else:v.addWidget(self.button('Lokale Dateien importieren','Import local files',lambda:self.data_page.import_dialog()))
         buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel);v.addWidget(buttons);buttons.accepted.connect(dialog.accept);buttons.rejected.connect(dialog.reject)
         if dialog.exec()==QDialog.DialogCode.Accepted and field.text().strip():a['output']=field.text();self.save_workspace();self.refresh_accounts(a['id'])
     def login_done(self,result):
@@ -619,3 +634,52 @@ class StudioMixin:
     def update_format_controls(self):
         enabled=self.job_action.currentData()!='download'
         for control in self.format_checks.values():control.setEnabled(enabled)
+
+    def update_connection(self):
+        if getattr(self,'_studio_ready',False) and (self.active_account or {}).get('provider')=='strava':
+            self.connection.setText(self.tr('Strava · lokale Importquelle · keine Anmeldung erforderlich','Strava · local import source · no sign-in required'));return
+        super().update_connection()
+
+    def strava_database(self,account):
+        from engine import account_root
+        return str(account_root(account['output'],account['id'])/'strava-offline.sqlite')
+
+    def import_strava_dialog(self):
+        account=deepcopy(self.active_account)
+        if not account or account['provider']!='strava' or (self.worker and self.worker.isRunning()):return
+        source,_=QFileDialog.getOpenFileName(self,self.tr('Selbst heruntergeladenes Strava-Konto-ZIP auswählen','Select your downloaded Strava account ZIP'),'', 'ZIP (*.zip)')
+        if not source:return
+        path=self.strava_database(account)
+        self.start_strava_import(account,source,path)
+
+    def start_strava_import(self,account,source,path):
+        from strava_import import import_strava_archive
+        from datahub import load_archive
+        # Account identity is derived locally; a Garmin database cannot be overwritten accidentally.
+        def operation(w):
+            report=import_strava_archive(path,source,account['id'],w.cancel,lambda *a:w.event.emit(a))
+            try:atomic_json(Path(path).parent/'strava-import-report.json',report)
+            except OSError:report['report_write_error']=True
+            return {'report':report,'data':load_archive(path,w.cancel if not w.cancel.is_set() else None,with_tracks=False),'path':path,'account':account}
+        self.run_worker(operation,self.strava_import_done,network=False)
+
+    def strava_import_done(self,result):
+        report=result['report'];self.archive_path.setText(result['path']);self.data_page.filter_initialized=False
+        self.data_page.loaded(result['data']);self.tabs.setCurrentIndex(2)
+        text=self.tr(f"Strava-Import: {report['imported']} neue Aktivitäten · {report['duplicates']} bereits bekannt/aktualisiert · {report['files']} Aktivitätsdateien · {report['failed']} Fehler.",
+                     f"Strava import: {report['imported']} new activities · {report['duplicates']} already known/updated · {report['files']} activity files · {report['failed']} errors.")
+        if report['cancelled']:text+='\n'+self.tr('Abgebrochen; bereits importierte Daten bleiben erhalten.','Stopped; imported data is retained.')
+        if report.get('limited'):text+='\n'+self.tr('Größenlimit erreicht. Der Import ist nur teilweise erfolgt.','Import size limit reached. Only part of the archive was processed.')
+        self.last_output=str(Path(result['path']).parent);self.open_button.setEnabled(True)
+        for error in report.get('errors',[]):
+            self.log.appendPlainText(self.tr('Strava-Importfehler: Zeile ','Strava import error: row ')+str(error.get('row','?'))+' · '+error.get('stage','')+' · '+error.get('error_type','Error'))
+        if report.get('report_write_error'):text+='\n'+self.tr('Importbericht konnte nicht als Datei gespeichert werden.','Could not save the import report file.')
+        self.log.appendPlainText(text);self.message(text,text)
+
+    def open_strava_data(self):
+        account=self.active_account
+        if not account or account['provider']!='strava':return
+        path=self.strava_database(account)
+        if not Path(path).is_file():self.message('Noch keine Strava-Daten importiert. Zuerst ein selbst heruntergeladenes Konto-ZIP auswählen.',
+                                              'No Strava data imported yet. Select your downloaded account ZIP first.');return
+        self.archive_path.setText(path);self.data_page.filter_initialized=False;self.tabs.setCurrentIndex(2);self.data_page.reload()

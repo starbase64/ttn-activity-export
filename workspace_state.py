@@ -6,7 +6,7 @@ import json
 from engine import Plan, account_key, atomic_json
 
 PROVIDERS = ('garmin', 'komoot', 'strava')
-DEFAULT_ORDER = ('garmin', 'komoot', 'strava')
+DEFAULT_ORDER = ('garmin', 'komoot')
 
 def now():return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
@@ -17,6 +17,7 @@ class Workspace:
             saved=json.loads(self.path.read_text(encoding='utf-8'))
             if not isinstance(saved,dict) or saved.get('schema')!=1:raise ValueError('Invalid workspace')
             self.data.update(saved)
+            self.data['order']=[p for p in self.data.get('order',DEFAULT_ORDER) if p in DEFAULT_ORDER]
             if not isinstance(self.accounts,list) or not isinstance(self.jobs,list):raise ValueError('Invalid workspace')
             for a in self.accounts:
                 if not isinstance(a,dict) or a.get('provider') not in PROVIDERS or not isinstance(a.get('email'),str) or not a['email'].strip() or not isinstance(a.get('output'),str) or not a['output'].strip() or type(a.get('china',False)) is not bool:raise ValueError('Invalid account')
