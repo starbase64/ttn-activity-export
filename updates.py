@@ -1,5 +1,4 @@
-"""Bounded public GitHub release checks. Never downloads or executes app files."""
-from dataclasses import dataclass
+"""Bounded public GitHub release checks; installation metadata is opt-in UI input."""
 import json
 from pathlib import Path
 import re
@@ -7,28 +6,12 @@ from urllib.parse import quote
 from PySide6.QtCore import QObject,QTimer,QUrl,Signal
 from PySide6.QtNetwork import QNetworkAccessManager,QNetworkRequest,QNetworkReply
 from engine import atomic_json
+from updater import Version,version
 
 REPOSITORY='starbase64/ttn-activity-export'
 RELEASES_URL='https://github.com/'+REPOSITORY+'/releases'
 MAX_BYTES=2*1024*1024
 MAX_PAGES=5
-
-
-@dataclass(order=True,frozen=True)
-class Version:
-    major:int
-    minor:int
-    patch:int
-    phase:int
-    number:int
-
-
-def version(value):
-    if not isinstance(value,str) or len(value)>100:return None
-    match=re.fullmatch(r'v?(\d+)\.(\d+)\.(\d+)(?:[-.](alpha|beta|preview|rc)(?:[.-]?(\d+))?)?(?:\+[\w.-]+)?',value.strip(),re.I)
-    if not match:return None
-    a,b,c,phase,n=match.groups()
-    return Version(int(a),int(b),int(c),{'alpha':0,'beta':1,'preview':2,'rc':3,None:4}[phase.lower() if phase else None],int(n or 0))
 
 
 def release_result(current,releases,partial=False):
@@ -40,11 +23,14 @@ def release_result(current,releases,partial=False):
         tag=item.get('tag_name');parsed=version(tag)
         if parsed is None:continue
         if local.phase==4 and (item['prerelease'] or parsed.phase<4):continue
-        candidates.append((parsed,tag))
-    best=max(candidates,default=None)
+        candidates.append((parsed,tag,item))
+    best=max(candidates,key=lambda c:(c[0],c[1]),default=None)
     result={'current':current,'latest':best[1] if best else None,'url':None,'partial':partial,'preview':local.phase<4}
     if best and best[0]>local:
         result.update(status='available',url=RELEASES_URL+'/tag/'+quote(best[1],safe=''))
+        from updater import installer_asset
+        installer=installer_asset(best[2],best[1])
+        if installer:result['installer']=installer
     elif partial:result['status']='incomplete'
     elif not best:result['status']='no_releases'
     else:result['status']='ahead' if local>best[0] else 'current'

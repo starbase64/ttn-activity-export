@@ -58,3 +58,13 @@ def test_starter_archive_contains_self_setup_and_no_runtime_or_personal_data(tmp
         lock=json.loads(archive.read('TTN-Activity-Export/windows-dependencies.lock.json'))
         assert len(lock['wheels'])>=5 and all(w['url'].startswith('https://files.pythonhosted.org/') for w in lock['wheels'])
     assert output.with_suffix('.zip.sha256').read_text().startswith(hashlib.sha256(output.read_bytes()).hexdigest())
+
+
+def test_new_runtime_reuses_verified_shared_cache_without_network(tmp_path,monkeypatch):
+    wheel,entry=fixture_wheel(tmp_path)
+    root=tmp_path/'new-version';root.mkdir()
+    (root/'windows-dependencies.lock.json').write_text(json.dumps({'schema':1,'wheels':[entry]}))
+    monkeypatch.setattr('urllib.request.urlopen',lambda *a,**k:pytest.fail('Verified cached wheel must not be downloaded again'))
+    setup(root,cache_dir=tmp_path)
+    assert (root/'runtime/Lib/site-packages/example/module.py').read_bytes()==b'VALUE=1\n'
+    assert not (root/'.setup-cache').exists()

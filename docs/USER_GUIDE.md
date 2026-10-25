@@ -1,12 +1,12 @@
 # TTN Activity Export — user guide
 
-For source version **0.6.5-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For version **0.6.10**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
 This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava is a local-only import source; Komoot has an experimental online connector. Older application downloads may not include every feature described here.
 
 ## Getting started with preview 0.6
 
-This guide covers version 0.6.9. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
+This guide covers version 0.6.10. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks and OK/Cancel installation are available beside the language control; delta updates remain future work.
 
 The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
 
@@ -295,11 +295,11 @@ Recognized local failures show a translated explanation and allowlisted code suc
 
 ## Checking for updates (since 0.6.8)
 
-**Check updates** appears at the top right beside language and theme. It checks this project's published GitHub releases while sign-in, downloads and local browsing remain available. Results appear below the header. A newer matching release provides **Open download**, which opens its GitHub release notes and downloads in your default browser. Download the Windows ZIP, close the old app and extract to a separate program directory. Your existing data/profile directory remains usable.
+**Check updates** appears at the top right beside language and theme. It checks this project's published GitHub releases while sign-in, downloads and local browsing remain available. Results appear below the header. An installable newer Windows release provides **Install update** (see below). Other installations provide **Open download**, which opens its GitHub release notes and downloads in your default browser. Download the Windows ZIP, close the old app and extract to a separate program directory. Your existing data/profile directory remains usable.
 
 **Check automatically at startup** saves your preference per user profile and defaults to off. When enabled, a normal app startup checks once. Demo/smoke runs never check automatically. Manual checks remain available. The check needs internet access to GitHub; it does not transmit Garmin/Komoot credentials or activity data. Connection errors and GitHub rate limits are shown explicitly and do not establish that the installed version is current.
 
-Preview installations include published prereleases; stable installations use stable releases only. Older versions are never offered as updates. If your test build is ahead of published releases, the app says so. Source-only changes, Git tags without a release, drafts and privately distributed test packages are not published updates. Automatic installation and incremental/delta updates remain planned.
+Preview installations include published prereleases; stable installations use stable releases only. Older versions are never offered as updates. If your test build is ahead of published releases, the app says so. Source-only changes, Git tags without a release, drafts and privately distributed test packages are not published updates. Confirmed Windows starter installation is added in 0.6.10; delta updates remain planned.
 
 
 ### Remembering a database location (since 0.6.9)
@@ -307,3 +307,17 @@ Preview installations include published prereleases; stable installations use st
 Choose the desired existing SQLite file under **Data → Open file**. Matching account archives are remembered immediately. Valid edited paths persist on close without an account switch. Explicitly typed new SQLite targets are saved without creating an empty database. Restored Garmin sign-in keeps the selection.
 
 The exact default root is `Downloads/TTN_Activity_Export`, with Garmin, Komoot and Strava account subdirectories. Existing files are not moved automatically. If you copied or moved the database to the new folder, select it there once. Foreign or invalid databases do not replace the saved account location.
+
+
+## Installing with OK/Cancel (since 0.6.10)
+
+Install the new Windows starter manually once. Later installable published updates offer **OK** or **Cancel**. Cancel downloads nothing and changes no installation. OK shows cancellable download/verification, then closes the app. Running account/download/export/GPS jobs are not interrupted. A separate helper tests the new private runtime/app, activates it and restarts through the same launcher/shortcut. Existing profiles, sessions, databases, downloads and custom files stay in place. Additional program folders retain previous versions for fallback and need free disk space; verified runtime/package cache downloads are reused.
+
+Failed installation/startup checks leave the previous version active; the launcher can also fall back after a later startup failure. Diagnostics are under `.updates` in the original program folder. Do not delete program version folders during setup. Source/EXE/other-platform installations keep the download-page fallback. Verification uses HTTPS, GitHub's asset digest and per-file hashes, not a separate code-signing certificate. Delta patching remains future work.
+
+
+### Importing a Garmin export cache
+
+**Import export cache** appears only with a Garmin account selected. It finds older Garmin raw responses or a matching existing database. Supported `cache-v1` responses are copied into the offline database without another download. Strava and Komoot use their own import/download actions.
+
+Successfully imported records can be browsed and exported locally without the original cache or another import. Remove old cache files only after a complete error-free import and a database backup; unsupported or not-yet-imported files may still exist only in the cache. The app does not delete cache files automatically.

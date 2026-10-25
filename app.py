@@ -35,10 +35,11 @@ from failures import diagnostic, RatePause
 from archive import Archive,OfflineArchiveError,OfflineDataMissing
 from offline import ArchiveSync,OfflineExporter,OfflinePreviewer,ArchiveExporter
 from sessionlog import SessionLog
+from install_updates import UpdateInstallMixin
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.6.9'
+VERSION = '0.6.10'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -79,7 +80,7 @@ class Worker(QThread):
             self.operation = None  # Release credential closures after the operation.
 
 
-class MainWindow(QMainWindow):
+class MainWindow(UpdateInstallMixin,QMainWindow):
     def __init__(self, demo=False):
         super().__init__()
         self.demo = demo
@@ -103,6 +104,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(APP_NAME + ' · ' + VERSION)
         self.data_dir = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation))
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.init_installer(__file__,VERSION)
         self.theme=load_theme(self.data_dir/'ui-preferences.json')
         tick=self.data_dir/'checkbox-tick.png'
         icon=QImage(24,24,QImage.Format.Format_ARGB32);icon.fill(Qt.GlobalColor.transparent)
@@ -668,7 +670,7 @@ class MainWindow(QMainWindow):
         self._saved_auto_update=bool(enabled)
 
     def check_updates(self,automatic=False):
-        if self._closing or self.update_job is not None:return
+        if self._closing or self.update_job is not None or self.install_worker is not None:return
         if automatic and (self.demo or not self.auto_updates.isChecked()):return
         from updates import ReleaseCheck
         self._update_automatic=automatic;self.update_info=None;self.update_button.setEnabled(False);self.update_download.hide()
@@ -682,6 +684,7 @@ class MainWindow(QMainWindow):
         if self._closing:return
         self.update_button.setEnabled(True);self.update_info=result;self.render_update_result()
         self.log.appendPlainText(self.update_status.text())
+        if self.can_install_update():self._offer_timer.start(0)
 
     def render_update_result(self):
         info=self.update_info or {};status=info.get('status');local=info.get('current',VERSION);latest=info.get('latest','')
@@ -710,8 +713,10 @@ class MainWindow(QMainWindow):
         self.update_status.setObjectName('warningText' if status in ('error','incomplete') else '')
         self.update_status.style().unpolish(self.update_status);self.update_status.style().polish(self.update_status)
         self.update_download.setVisible(status=='available' and bool(info.get('url')))
+        self.update_download.setText(self.tr('Update installieren','Install update') if self.can_install_update() else self.tr('Download öffnen','Open download'))
 
     def open_update_release(self):
+        if self.can_install_update():self.confirm_update();return
         from updates import RELEASES_URL
         url=(self.update_info or {}).get('url')
         if not isinstance(url,str) or not url.startswith(RELEASES_URL+'/tag/'):return
@@ -1270,6 +1275,8 @@ class MainWindow(QMainWindow):
         except Exception: self.message('Vorlage ungültig oder nicht lesbar.','Preset is invalid or unreadable.')
 
     def closeEvent(self,event):
+        if self.install_worker and self.install_worker.isRunning():
+            self._close_after_preparation=True;self.install_worker.cancel.set();event.ignore();return
         if self.data_page.track_worker and self.data_page.track_worker.isRunning():
             self.data_page.track_worker.cancel.set();self.data_page.pending_tracks=[];event.ignore()
             self.message('GPS-Lesen wird beendet. Danach bitte erneut schließen.','Stopping GPS read. Close again when finished.');return

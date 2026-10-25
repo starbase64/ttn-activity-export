@@ -2,6 +2,11 @@ param([Parameter(ValueFromRemainingArguments=$true)][string[]]$AppArgs)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Set-Location $PSScriptRoot
+function Get-TtnSha256([string]$Path) {
+    $stream=[IO.File]::OpenRead($Path);$sha=[Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant() }
+    finally { $sha.Dispose();$stream.Dispose() }
+}
 $setupLock = $null
 try {
     if ($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitOperatingSystem) {
@@ -12,10 +17,46 @@ try {
     }
     try { $setupLock = [IO.File]::Open((Join-Path $PSScriptRoot '.setup.lock'),'OpenOrCreate','ReadWrite','None') }
     catch { throw 'App oder Einrichtung laeuft bereits, oder der Ordner ist nicht beschreibbar / App or setup is running, or folder is not writable.' }
+    # The original shortcut stays valid: activate checked versions beside this
+    # folder rather than overwriting a running program or touching user data.
+    $activeFile=Join-Path $PSScriptRoot '.active-version.json'
+    if (Test-Path -LiteralPath $activeFile) {
+        $active=Get-Content -LiteralPath $activeFile -Raw | ConvertFrom-Json
+        if ($active.schema -ne 1 -or $active.path -notmatch '^\.versions/[A-Za-z0-9_.-]+$') { throw 'Invalid active update pointer.' }
+        $activeRoot=Join-Path $PSScriptRoot $active.path
+        if ((Get-Item -LiteralPath (Split-Path -Parent $activeRoot)).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Invalid active update directory.' }
+        if ((Get-Item -LiteralPath $activeRoot).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Invalid active update directory.' }
+        $env:TTN_UPDATE_CONTROLLER=$PSScriptRoot
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $activeRoot 'bootstrap.ps1') @AppArgs
+        $activeCode=$LASTEXITCODE
+        if ($activeCode -eq 0) { exit 0 }
+        # A failed new app cannot strand the old launcher. Restore its previous
+        # checked destination (or this original package), then start it again.
+        if ($null -eq $active.previous) { Remove-Item -LiteralPath $activeFile }
+        else {
+            if ($active.previous.path -notmatch '^\.versions/[A-Za-z0-9_.-]+$') { throw 'Invalid fallback update pointer.' }
+            $fallback=@{schema=1;path=$active.previous.path;version=$active.previous.version;previous=$null}
+            $temporary=$activeFile+'.tmp'
+            [IO.File]::WriteAllText($temporary,($fallback | ConvertTo-Json),[Text.UTF8Encoding]::new($false))
+            [IO.File]::Replace($temporary,$activeFile,$null)
+        }
+        Write-Host 'Update fehlgeschlagen; bisherige Version wird gestartet / Restarting the previous version.'
+        $setupLock.Dispose();$setupLock=$null
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'bootstrap.ps1') @AppArgs
+        exit $LASTEXITCODE
+    }
     $lock = Get-Content -LiteralPath './windows-dependencies.lock.json' -Raw | ConvertFrom-Json
     $runtime = Join-Path $PSScriptRoot 'runtime'
     $python = Join-Path $runtime 'python.exe'
     $cache = Join-Path $PSScriptRoot '.setup-cache'
+    # Reuse the original verified wheel/runtime cache across version folders.
+    if ($env:TTN_UPDATE_CONTROLLER) {
+        $controller=[IO.Path]::GetFullPath($env:TTN_UPDATE_CONTROLLER)
+        $versions=Join-Path $controller '.versions'
+        if ((Split-Path -Parent $PSScriptRoot) -eq $versions -and (Test-Path -LiteralPath (Join-Path $controller 'Start-TTN-Activity-Export.cmd'))) {
+            $cache=Join-Path $controller '.setup-cache'
+        }
+    }
     New-Item -ItemType Directory -Path $cache -Force | Out-Null
     $runtimeReady = $false
     if (Test-Path -LiteralPath $python) {
@@ -29,11 +70,11 @@ try {
         $url = [Uri]$lock.python.url
         if ($url.Scheme -ne 'https' -or $url.Host -ne 'www.python.org') { throw 'Unexpected Python source.' }
         $zip = Join-Path $cache 'python-runtime.zip'
-        if (-not (Test-Path -LiteralPath $zip) -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $lock.python.sha256) {
+        if (-not (Test-Path -LiteralPath $zip) -or (Get-TtnSha256 $zip) -ne $lock.python.sha256) {
             $partial = "$zip.partial"
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing
-            if ((Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash -ne $lock.python.sha256) { throw 'Python checksum mismatch.' }
+            if ((Get-TtnSha256 $partial) -ne $lock.python.sha256) { throw 'Python checksum mismatch.' }
             Move-Item -LiteralPath $partial -Destination $zip -Force
         }
         $stage = Join-Path $cache ('python-' + [Guid]::NewGuid().ToString('N'))
@@ -50,7 +91,7 @@ try {
     & $python $bootstrap check
     if ($LASTEXITCODE -ne 0) {
         Write-Host 'Fehlende Pakete werden installiert oder repariert / Installing or repairing missing packages...'
-        & $python $bootstrap verify 2>&1 | Tee-Object -FilePath (Join-Path $PSScriptRoot 'setup.log') -Append
+        & $python $bootstrap verify --cache-dir $cache 2>&1 | Tee-Object -FilePath (Join-Path $PSScriptRoot 'setup.log') -Append
         if ($LASTEXITCODE -ne 0) { throw 'Einrichtung fehlgeschlagen. Internetverbindung und setup.log pruefen / Check Internet connection and setup.log.' }
         & $python $bootstrap check
         if ($LASTEXITCODE -ne 0) { throw 'Abhaengigkeitspruefung fehlgeschlagen / Dependency check failed. See console and setup.log.' }

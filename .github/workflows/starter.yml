@@ -28,8 +28,10 @@ jobs:
         shell: pwsh
         run: |
           $tokens = $null; $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'bootstrap.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
-          if ($errors.Count) { throw ($errors | Out-String) }
+          foreach ($script in @('bootstrap.ps1','windows_update.ps1')) {
+            [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $script),[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { throw ($errors | Out-String) }
+          }
       - name: Build small starter
         run: python build_starter.py dist/TTN-Activity-Export-Windows-Starter.zip
       - name: First setup using official pinned downloads and app smoke test
@@ -50,6 +52,12 @@ jobs:
           Remove-Item ./dist/check/TTN-Activity-Export/runtime/Lib/site-packages/fitdecode/__init__.py
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./dist/check/TTN-Activity-Export/bootstrap.ps1 --smoke-test
           if ($LASTEXITCODE -ne 0) { throw 'Cached dependency repair failed.' }
+      - name: Verified offline update and failed-update fallback
+        env:
+          HTTP_PROXY: http://127.0.0.1:9
+          HTTPS_PROXY: http://127.0.0.1:9
+          NO_PROXY: ''
+        run: python scripts/check_windows_update.py dist/check/TTN-Activity-Export dist/TTN-Activity-Export-Windows-Starter.zip
       - uses: actions/upload-artifact@v4
         with:
           name: TTN-Activity-Export-Windows-Starter

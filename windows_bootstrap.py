@@ -92,9 +92,9 @@ def download(wheel,cache):
     return target
 
 
-def setup(root,offline_wheels=None,verify=False):
+def setup(root,offline_wheels=None,verify=False,cache_dir=None):
     lock=load_lock(root);site=root/'runtime'/'Lib'/'site-packages';site.mkdir(parents=True,exist_ok=True)
-    cache=root/'.setup-cache';cache.mkdir(exist_ok=True);state=read_state(root)
+    cache=Path(cache_dir) if cache_dir is not None else root/'.setup-cache';cache.mkdir(parents=True,exist_ok=True);state=read_state(root)
     for index,wheel in enumerate(lock['wheels'],1):
         print(f'[{index}/{len(lock["wheels"])}] {wheel["name"]}',flush=True)
         if installed(wheel,site,state,verify):continue
@@ -121,10 +121,10 @@ def check(root):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('action',choices=('check','setup','verify'))
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parent)
-    parser.add_argument('--offline-wheels',type=Path);args=parser.parse_args()
+    parser.add_argument('--offline-wheels',type=Path);parser.add_argument('--cache-dir',type=Path);args=parser.parse_args()
     try:
         if args.action=='check':return 0 if check(args.root) else 1
-        setup(args.root,args.offline_wheels,verify=args.action=='verify')
+        setup(args.root,args.offline_wheels,verify=args.action=='verify',cache_dir=args.cache_dir)
         return 0
     except Exception as exc:
         # Setup receives no Garmin credentials. Keep messages concise and useful.

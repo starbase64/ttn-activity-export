@@ -1,12 +1,12 @@
 # TTN Activity Export – Anleitung
 
-Für den Quellstand **0.6.5-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
+Für Version **0.6.10**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
 
 Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava ist ausschließlich eine lokale Importquelle; Komoot hat eine experimentelle Online-Anbindung. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
 
 ## Einstieg in die Testversion 0.6
 
-Diese Anleitung beschreibt Version 0.6.9. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfungen sind oben bei der Sprache erreichbar; automatische Installation und Delta-Updates folgen separat.
+Diese Anleitung beschreibt Version 0.6.10. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfung und Installation mit OK/Abbrechen sind oben bei der Sprache erreichbar. Inkrementelle/Delta-Updates sind weiterhin geplant.
 
 Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
 
@@ -293,11 +293,11 @@ Statt eines allgemeinen ValueError zeigen erkennbare Importprobleme einen festen
 
 ## Auf Updates prüfen (ab 0.6.8)
 
-Oben rechts steht **Updates prüfen**, direkt neben Sprache und Farbschema. Der Button fragt die veröffentlichten Releases dieses GitHub-Projekts ab. Währenddessen kannst du Anmeldung, Downloads und lokale Daten weiter nutzen. Das Ergebnis steht unter der Kopfzeile; bei einer neueren passenden Version erscheint **Download öffnen**. Dieser Button öffnet die GitHub-Seite mit Versionshinweisen und Downloads im Standardbrowser. Lade das gewünschte Windows-ZIP herunter, beende die alte App und entpacke das Paket in einen eigenen Programmordner. Der bisherige Daten-/Profilordner bleibt nutzbar.
+Oben rechts steht **Updates prüfen**, direkt neben Sprache und Farbschema. Der Button fragt die veröffentlichten Releases dieses GitHub-Projekts ab. Währenddessen kannst du Anmeldung, Downloads und lokale Daten weiter nutzen. Das Ergebnis steht unter der Kopfzeile; bei einem installierbaren neueren Windows-Release erscheint **Update installieren** (siehe unten). Bei anderen Installationen erscheint **Download öffnen**. Dieser Button öffnet die GitHub-Seite mit Versionshinweisen und Downloads im Standardbrowser. Lade das gewünschte Windows-ZIP herunter, beende die alte App und entpacke das Paket in einen eigenen Programmordner. Der bisherige Daten-/Profilordner bleibt nutzbar.
 
 **Beim Start automatisch prüfen** speichert deine Entscheidung pro Benutzerprofil. Die Vorgabe ist aus. Mit Haken wird bei jedem normalen Programmstart einmal geprüft. Im Demo-/Smoke-Modus findet keine automatische Abfrage statt. Manuell kannst du jederzeit erneut prüfen. Für die Prüfung braucht die App Internetzugang zu GitHub; Garmin-/Komoot-Zugangsdaten und Aktivitätsdaten werden dabei nicht übertragen. Verbindungsfehler oder GitHub-Limits werden angezeigt und bedeuten nicht, dass deine Version aktuell ist.
 
-Eine installierte Testversion berücksichtigt auch veröffentlichte Vorabversionen; eine stabile Version nur stabile Releases. Ältere Versionen werden nicht als Update angeboten. Wenn dein lokales Testpaket neuer als das veröffentlichte Release ist, wird das ausdrücklich angezeigt. Reine Quellcodeänderungen, Git-Tags ohne Release, Entwürfe und privat verteilte Testpakete erscheinen nicht als veröffentlichte Updates. Automatische Installation und inkrementelle/Delta-Updates sind weiterhin geplant.
+Eine installierte Testversion berücksichtigt auch veröffentlichte Vorabversionen; eine stabile Version nur stabile Releases. Ältere Versionen werden nicht als Update angeboten. Wenn dein lokales Testpaket neuer als das veröffentlichte Release ist, wird das ausdrücklich angezeigt. Reine Quellcodeänderungen, Git-Tags ohne Release, Entwürfe und privat verteilte Testpakete erscheinen nicht als veröffentlichte Updates. Der Windows-Starter unterstützt ab 0.6.10 die Installation mit OK/Abbrechen; inkrementelle/Delta-Updates sind weiterhin geplant.
 
 
 ### Datenbankpfad merken (ab 0.6.9)
@@ -305,3 +305,19 @@ Eine installierte Testversion berücksichtigt auch veröffentlichte Vorabversion
 Unter **Daten → Datei öffnen** die gewünschte vorhandene SQLite-Datei auswählen. Bei passender Kontozuordnung merkt die App den Pfad sofort. Ein gültiger manuell eingetragener Dateipfad bleibt auch beim Beenden gespeichert, ohne vorherigen Kontowechsel. Ein ausdrücklich eingegebener neuer SQLite-Zielpfad kann vorgemerkt werden; eine leere Datenbank wird dabei nicht angelegt. Die nächste Garmin-Anmeldung behält die Auswahl bei.
 
 Der Standardordner heißt exakt `Downloads\TTN_Activity_Export`, darunter `Garmin`, `Komoot`, `Strava` und getrennte Kontoordner. Bestehende Dateien werden nicht automatisch verschoben. Wenn du deine Datenbank in den neuen Ordner kopiert oder verschoben hast, wähle dort die Datei einmal aus. Eine fremde oder ungültige Datenbank überschreibt den gemerkten Kontopfad nicht.
+
+
+## Updates mit OK/Abbrechen installieren (ab 0.6.10)
+
+Die neue Windows-Starter-Version muss einmal manuell installiert werden. Danach erscheint bei einem installierbaren neueren Release die Frage **Jetzt installieren?** mit **OK** und **Abbrechen**. Abbrechen lädt kein Paket und verändert keine Installation. Mit OK siehst du zunächst Download und Prüfung. Du kannst die Vorbereitung abbrechen. Während laufender Konto-/Download-/Export-/GPS-Vorgänge wird die Installation zurückgestellt.
+
+Nach erfolgreicher Vorbereitung beendet sich die App. Ein Update-Fenster zeigt die Einrichtung und Prüfung der neuen Version; anschließend startet die App automatisch. Verwende auch künftig deine bisherige CMD-Datei beziehungsweise Verknüpfung. Sie führt zur aktivierten Version. Profil, Sitzungen, Datenbanken, Dateien und eigene Dateien im bisherigen Programmordner bleiben erhalten. Updates werden in zusätzlichen Programmordnern eingerichtet. Die bisherige Version bleibt für eine Wiederherstellung erhalten; alte Programmordner nicht während einer Einrichtung löschen.
+
+Wenn die Einrichtung oder Startprüfung fehlschlägt, wird die neue Version nicht aktiviert und die bisherige Version wieder gestartet. Auch bei einem späteren Startfehler kann der Starter zur vorherigen Version zurückkehren. Details stehen unter `.updates` im Programmordner. Für eine separate private Laufzeit wird zusätzlicher freier Speicher benötigt. Unveränderte geprüfte Python-/Paketdownloads werden aus dem Cache wiederverwendet. Auf anderen Plattformen sowie bei Quellcode-/EXE-Installationen öffnet die App weiterhin die Downloadseite. Die Veröffentlichung wird über HTTPS und GitHub-Dateidigest/Dateiprüfsummen geprüft; es handelt sich nicht um eine eigene digitale Codesignatur.
+
+
+### Garmin-Exportcache übernehmen
+
+**Exportcache übernehmen** erscheint nur bei einem ausgewählten Garmin-Konto. Die Funktion sucht ältere Garmin-Rohdaten beziehungsweise eine passende bestehende Datenbank. Rohdaten aus `cache-v1` werden in die Offline-Datenbank übernommen, ohne sie erneut herunterzuladen. Strava und Komoot verwenden ihre eigenen Import- beziehungsweise Downloadfunktionen.
+
+Bereits erfolgreich übernommene Datensätze lassen sich ohne den ursprünglichen Cache lokal anzeigen und exportieren. Ein erneuter Import ist dafür nicht nötig. Alte Cache-Dateien erst nach vollständiger Übernahme ohne Fehler und einer Sicherung der Datenbank entfernen; nicht unterstützte oder noch nicht übernommene Dateien können weiterhin nur im Cache liegen. Die App löscht den Cache nicht automatisch.
