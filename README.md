@@ -16,6 +16,8 @@ Die App wird ausschließlich als **TTN Activity Export** ausgeliefert. Bestehend
 
 ## Aktueller Stand
 
+**Testzweig 0.6.11-preview:** Korrigiert den automatischen Start des Update-Helfers. Die App wartet auf seine Startbestätigung, bevor sie sich schließt; Startfehler und Protokollpfad bleiben sichtbar. Öffentlich bleibt 0.6.10.
+
 **Neu in 0.6.10:** Windows-Starter-Updates mit OK/Abbrechen, geprüfter Einrichtung und automatischem Neustart. Ältere Starter einmal manuell aktualisieren; danach lassen sich spätere veröffentlichte Releases direkt installieren. Der Button „Exportcache übernehmen“ erscheint nur beim ausgewählten Garmin-Konto.
 
 Die veröffentlichte Version ist **0.6.10**. **Garmin Connect wird unterstützt. Strava ist eine lokale Importquelle. Die Komoot-Online-Anbindung bleibt experimentell.**

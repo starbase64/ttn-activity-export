@@ -28,6 +28,7 @@ try {
     $target=Join-Path $controller $plan.target
     if ((Get-Item -LiteralPath (Split-Path -Parent $target)).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Invalid update path.' }
     if ((Get-Item -LiteralPath $target).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Invalid update path.' }
+    Write-AtomicJson (Join-Path $work 'helper-ready.json') @{schema=1;token=$plan.token;pid=$PID}
     if ($ParentProcessId -gt 0) {
         $parent=Get-Process -Id $ParentProcessId -ErrorAction SilentlyContinue
         if ($null -ne $parent -and -not $parent.WaitForExit(60000)) { throw 'The previous app has not exited.' }

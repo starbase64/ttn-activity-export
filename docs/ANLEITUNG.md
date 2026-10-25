@@ -1,12 +1,12 @@
 # TTN Activity Export – Anleitung
 
-Für Version **0.6.10**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
+Für Version **0.6.11-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
 
 Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava ist ausschließlich eine lokale Importquelle; Komoot hat eine experimentelle Online-Anbindung. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
 
 ## Einstieg in die Testversion 0.6
 
-Diese Anleitung beschreibt Version 0.6.10. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfung und Installation mit OK/Abbrechen sind oben bei der Sprache erreichbar. Inkrementelle/Delta-Updates sind weiterhin geplant.
+Diese Anleitung beschreibt Version 0.6.11-preview. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfung und Installation mit OK/Abbrechen sind oben bei der Sprache erreichbar. Inkrementelle/Delta-Updates sind weiterhin geplant.
 
 Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
 
@@ -321,3 +321,10 @@ Wenn die Einrichtung oder Startprüfung fehlschlägt, wird die neue Version nich
 **Exportcache übernehmen** erscheint nur bei einem ausgewählten Garmin-Konto. Die Funktion sucht ältere Garmin-Rohdaten beziehungsweise eine passende bestehende Datenbank. Rohdaten aus `cache-v1` werden in die Offline-Datenbank übernommen, ohne sie erneut herunterzuladen. Strava und Komoot verwenden ihre eigenen Import- beziehungsweise Downloadfunktionen.
 
 Bereits erfolgreich übernommene Datensätze lassen sich ohne den ursprünglichen Cache lokal anzeigen und exportieren. Ein erneuter Import ist dafür nicht nötig. Alte Cache-Dateien erst nach vollständiger Übernahme ohne Fehler und einer Sicherung der Datenbank entfernen; nicht unterstützte oder noch nicht übernommene Dateien können weiterhin nur im Cache liegen. Die App löscht den Cache nicht automatisch.
+
+
+### Bestätigter Helferstart (ab 0.6.11)
+
+Nach Download und Prüfung zeigt die App „Update-Helfer wird gestartet“. Sie bleibt geöffnet, bis der Helfer seinen Start bestätigt hat. Bei einem Startfehler bleibt die App offen und zeigt den Ordner der Update-Protokolle an. `helper-output.log` enthält Startversuch, Prozess-ID und erkennbare Startfehler. Die vorbereiteten Dateien bleiben bei Fehlern erhalten. `helper-ready.json` bestätigt den gestarteten Helfer; `result.json` bestätigt die erfolgreiche Installation.
+
+Bei einem manuellen Start von `windows_update.ps1` erwartet `PlanPath` den vollständigen Pfad zur Datei `.updates/<Vorgang>/plan.json`, nicht zum Programmordner. Vor einem manuellen Installationsversuch die App schließen. Die alte Version 0.6.10 enthält noch den Fehler beim automatischen Helferstart; die korrigierte Vorschau deshalb einmal manuell in einem neuen Programmordner starten.

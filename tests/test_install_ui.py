@@ -50,3 +50,15 @@ def test_confirmation_buttons_follow_app_language(window,monkeypatch):
     monkeypatch.setattr(QMessageBox,'exec',answer)
     window._ask_install_confirmation('Test');window.toggle_language();window._ask_install_confirmation('Test')
     assert labels==[('OK','Abbrechen'),('OK','Cancel')]
+
+
+def test_failed_handoff_keeps_app_open_and_preserves_diagnostics(window,tmp_path,monkeypatch):
+    from types import SimpleNamespace
+    plan=tmp_path/'plan.json';plan.write_text('{}')
+    log=tmp_path/'helper-output.log';log.write_text('helper did not start')
+    w=window;messages=[]
+    monkeypatch.setattr(w,'message',lambda *a:messages.append(a))
+    w.install_worker=SimpleNamespace(cancel=__import__('threading').Event(),plan=str(plan),error='helper_exited',helper=None,deleteLater=lambda:None)
+    w._installation_prepared()
+    assert not w._closing and plan.exists() and log.exists()
+    assert messages and str(tmp_path) in messages[0][0]
