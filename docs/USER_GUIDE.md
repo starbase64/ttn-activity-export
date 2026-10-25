@@ -6,7 +6,7 @@ This local desktop app downloads supported Garmin Connect data, keeps a reusable
 
 ## Getting started with preview 0.6
 
-This guide covers version 0.6.8. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
+This guide covers version 0.6.9. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
 
 The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
 
@@ -300,3 +300,10 @@ Recognized local failures show a translated explanation and allowlisted code suc
 **Check automatically at startup** saves your preference per user profile and defaults to off. When enabled, a normal app startup checks once. Demo/smoke runs never check automatically. Manual checks remain available. The check needs internet access to GitHub; it does not transmit Garmin/Komoot credentials or activity data. Connection errors and GitHub rate limits are shown explicitly and do not establish that the installed version is current.
 
 Preview installations include published prereleases; stable installations use stable releases only. Older versions are never offered as updates. If your test build is ahead of published releases, the app says so. Source-only changes, Git tags without a release, drafts and privately distributed test packages are not published updates. Automatic installation and incremental/delta updates remain planned.
+
+
+### Remembering a database location (since 0.6.9)
+
+Choose the desired existing SQLite file under **Data → Open file**. Matching account archives are remembered immediately. Valid edited paths persist on close without an account switch. Explicitly typed new SQLite targets are saved without creating an empty database. Restored Garmin sign-in keeps the selection.
+
+The exact default root is `Downloads/TTN_Activity_Export`, with Garmin, Komoot and Strava account subdirectories. Existing files are not moved automatically. If you copied or moved the database to the new folder, select it there once. Foreign or invalid databases do not replace the saved account location.

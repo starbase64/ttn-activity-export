@@ -38,7 +38,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.6.8'
+VERSION = '0.6.9'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -1275,6 +1275,8 @@ class MainWindow(QMainWindow):
             self.message('GPS-Lesen wird beendet. Danach bitte erneut schließen.','Stopping GPS read. Close again when finished.');return
         if self.worker and self.worker.isRunning():
             self.stop();event.ignore();self.message('Abbruch angefordert. Bitte warten, bis der laufende Vorgang beendet ist, dann schließen.','Stop requested. Please wait until the running operation finishes, then close.');return
+        remember=getattr(self,'remember_active_archive',None)
+        if remember:remember()
         if self.update_job is not None:self.update_job.cancel()
         self._closing=True
         self.log.appendPlainText('TTN Activity Export · session ended');event.accept()

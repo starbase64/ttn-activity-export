@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QLabe
     QDialogButtonBox,QTabWidget,QAbstractItemView,QHeaderView,QApplication,QFileDialog,QGroupBox,QScrollArea,QLayout,QMessageBox)
 from engine import Plan,account_key,atomic_json
 from catalog import DATASETS,ACTIVITY_DETAILS
-from archive import Archive
+from archive import Archive,OfflineArchiveError
 from offline import ArchiveSync,ArchiveExporter,OfflineExporter
 from workspace_state import Workspace,now
 from inventory import read_inventory
@@ -206,10 +206,35 @@ class StudioMixin:
         if 0<=index<len(self.workspace.accounts):self.refresh_accounts(self.workspace.accounts[index]['id'])
     def picker_changed(self,index):
         if 0<=index<len(self.workspace.accounts):self.refresh_accounts(self.workspace.accounts[index]['id'])
+
+    def remember_active_archive(self,path=None,account=None,allow_new=False):
+        """Persist a selected location without borrowing another account's archive."""
+        active=getattr(self,'active_account',None)
+        if not active or (account is not None and account!=active['id']):return False
+        text=(self.data_page.source.text() if path is None else path).strip()
+        if not text:return False
+        allow_new=allow_new or self.data_page.edited_archive_source==(active['id'],text)
+        try:
+            candidate=Path(text).expanduser().resolve()
+            if candidate.is_file():
+                with Archive(candidate,active['id'],readonly=True):pass
+            elif not allow_new or candidate.exists() or candidate.suffix.lower() not in ('.sqlite','.db'):return False
+        except (OSError,ValueError,RuntimeError,OfflineArchiveError):return False
+        chosen=str(candidate)
+        if active.get('archive_path')==chosen:return True
+        previous=active.get('archive_path');active['archive_path']=chosen
+        if self.save_workspace():return True
+        if previous is None:active.pop('archive_path',None)
+        else:active['archive_path']=previous
+        return False
+
+    def choose_archive(self):
+        before=self.archive_path.text();super().choose_archive()
+        if self.archive_path.text()!=before:self.remember_active_archive(self.archive_path.text(),allow_new=True)
+
     def activate_account(self,account):
         previous=self.active_account
-        if previous and (not account or previous['id']!=account['id']) and self.data_page.data.get('account')==previous['id']:
-            previous['archive_path']=self.data_page.source.text();self.save_workspace()
+        if previous and (not account or previous['id']!=account['id']):self.remember_active_archive()
         if previous and previous['provider']=='garmin' and self.api and self.identity==previous['id']:self.clients[previous['id']]=self.api
         self.active_account=account
         changed=not previous or not account or previous['id']!=account['id']

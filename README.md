@@ -16,9 +16,9 @@ Die App wird ausschließlich als **TTN Activity Export** ausgeliefert. Bestehend
 
 ## Aktueller Stand
 
-Die veröffentlichte Version ist **0.6.8**. **Garmin Connect wird unterstützt. Strava ist eine lokale Importquelle. Die Komoot-Online-Anbindung bleibt experimentell.**
+Die veröffentlichte Version ist **0.6.9**. **Garmin Connect wird unterstützt. Strava ist eine lokale Importquelle. Die Komoot-Online-Anbindung bleibt experimentell.**
 
-[Windows 10/11 x64 herunterladen](https://github.com/starbase64/ttn-activity-export/releases/download/v0.6.8/TTN-Activity-Export-Windows-0.6.8.zip) · [Release und Prüfsumme](https://github.com/starbase64/ttn-activity-export/releases/tag/v0.6.8)
+[Windows 10/11 x64 herunterladen](https://github.com/starbase64/ttn-activity-export/releases/download/v0.6.9/TTN-Activity-Export-Windows-0.6.9.zip) · [Release und Prüfsumme](https://github.com/starbase64/ttn-activity-export/releases/tag/v0.6.9)
 
 ZIP vollständig entpacken und **Start-TTN-Activity-Export.cmd** doppelklicken. Beim ersten Start lädt der Starter eine private Python-Laufzeit und fehlende Pakete; eine eigene Python-Installation oder Administratorrechte sind nicht erforderlich. Internet ist für die Ersteinrichtung nötig. Bestehende Profile und Datenbanken bleiben verwendbar.
 
@@ -76,7 +76,7 @@ Große Erstexporte, vollständige Messverläufe und Excel-Dateien brauchen Zeit.
 
 A local Garmin Connect desktop app for downloading selected data or years of history, keeping a reusable SQLite archive, browsing activities and maps, and exporting CSV, Excel or JSON. Includes German/English UI, persistent light/dark mode, bounded previews, download ETA and session logs. The Windows starter installs a private Python runtime and pinned, hash-verified dependencies; no existing Python installation is required.
 
-**Release: 0.6.8. [Download the Windows x64 starter](https://github.com/starbase64/ttn-activity-export/releases/tag/v0.6.8). Extract the ZIP and double-click Start-TTN-Activity-Export.cmd. First use installs a private Python runtime and pinned dependencies; no system Python or admin rights are required. Garmin is supported. Strava imports user-downloaded ZIPs/folders only. Komoot offers experimental sign-in, inventory and GPX export.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-activity-export/actions) for automated Windows validation.
+**Release: 0.6.9. [Download the Windows x64 starter](https://github.com/starbase64/ttn-activity-export/releases/tag/v0.6.9). Extract the ZIP and double-click Start-TTN-Activity-Export.cmd. First use installs a private Python runtime and pinned dependencies; no system Python or admin rights are required. Garmin is supported. Strava imports user-downloaded ZIPs/folders only. Komoot offers experimental sign-in, inventory and GPX export.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-activity-export/actions) for automated Windows validation.
 
 ## Entwicklung / Development
 

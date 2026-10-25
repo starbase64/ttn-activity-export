@@ -1,3 +1,9 @@
+# 0.6.9 · remember account archive locations
+
+- Persist opened matching database locations immediately and valid edited locations on close, without requiring an account switch. Preserve explicit new SQLite targets without creating files, and retain the chosen location after Garmin sign-in restoration.
+- Validate archive ownership before saving. Foreign/corrupt archives cannot replace the selected account’s location; saving failures restore the previous preference.
+- Retain the exact default Downloads/TTN_Activity_Export/{Garmin,Komoot,Strava} with account subdirectories. No automatic data movement, deletion or redownload. Select the desired existing archive once at its new location.
+
 # 0.6.8 · public release
 
 - Publish the user-tested 0.6.8 desktop as a stable release after successful Garmin/Komoot sign-in, retrieval and Strava account archive import testing.

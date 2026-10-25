@@ -40,6 +40,8 @@ class DataPage(QWidget):
         self.source=QLineEdit();self.source.setPlaceholderText('SQLite');bar.addWidget(self.source,1)
         bar.addWidget(host.button('Datei öffnen','Open file',self.choose_archive));bar.addWidget(host.button('Daten laden','Load data',self.reload))
         layout.addLayout(bar)
+        self.edited_archive_source=None
+        self.source.textEdited.connect(lambda text:setattr(self,'edited_archive_source',((getattr(host,'active_account',None) or {}).get('id'),text.strip())))
         self.source.editingFinished.connect(lambda:host.archive_path.setText(self.source.text()))
         action=QHBoxLayout()
         self.tools_button=host.bind(QPushButton(),'Werkzeuge','Tools');tools=QMenu(self.tools_button)
@@ -181,6 +183,8 @@ class DataPage(QWidget):
                                           'Could not open this database for the selected account. Check the file and account identity.'))
         self.host.run_worker(operation,done,network=False)
     def loaded(self,data):
+        remember=getattr(self.host,'remember_active_archive',None)
+        if remember and data.get('account') and 'activity_status' in data:remember(account=data['account'])
         self.track_generation+=1
         if self.track_worker and self.track_worker.isRunning():self.track_worker.cancel.set()
         self.data=data;self.by_key={a['_key']:a for a in data['activities']}
