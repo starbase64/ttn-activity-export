@@ -6,7 +6,7 @@ Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connec
 
 ## Einstieg in die Testversion 0.6
 
-Diese Anleitung beschreibt Version 0.6.8. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfungen sind oben bei der Sprache erreichbar; automatische Installation und Delta-Updates folgen separat.
+Diese Anleitung beschreibt Version 0.6.9. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfungen sind oben bei der Sprache erreichbar; automatische Installation und Delta-Updates folgen separat.
 
 Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
 
@@ -298,3 +298,10 @@ Oben rechts steht **Updates prüfen**, direkt neben Sprache und Farbschema. Der 
 **Beim Start automatisch prüfen** speichert deine Entscheidung pro Benutzerprofil. Die Vorgabe ist aus. Mit Haken wird bei jedem normalen Programmstart einmal geprüft. Im Demo-/Smoke-Modus findet keine automatische Abfrage statt. Manuell kannst du jederzeit erneut prüfen. Für die Prüfung braucht die App Internetzugang zu GitHub; Garmin-/Komoot-Zugangsdaten und Aktivitätsdaten werden dabei nicht übertragen. Verbindungsfehler oder GitHub-Limits werden angezeigt und bedeuten nicht, dass deine Version aktuell ist.
 
 Eine installierte Testversion berücksichtigt auch veröffentlichte Vorabversionen; eine stabile Version nur stabile Releases. Ältere Versionen werden nicht als Update angeboten. Wenn dein lokales Testpaket neuer als das veröffentlichte Release ist, wird das ausdrücklich angezeigt. Reine Quellcodeänderungen, Git-Tags ohne Release, Entwürfe und privat verteilte Testpakete erscheinen nicht als veröffentlichte Updates. Automatische Installation und inkrementelle/Delta-Updates sind weiterhin geplant.
+
+
+### Datenbankpfad merken (ab 0.6.9)
+
+Unter **Daten → Datei öffnen** die gewünschte vorhandene SQLite-Datei auswählen. Bei passender Kontozuordnung merkt die App den Pfad sofort. Ein gültiger manuell eingetragener Dateipfad bleibt auch beim Beenden gespeichert, ohne vorherigen Kontowechsel. Ein ausdrücklich eingegebener neuer SQLite-Zielpfad kann vorgemerkt werden; eine leere Datenbank wird dabei nicht angelegt. Die nächste Garmin-Anmeldung behält die Auswahl bei.
+
+Der Standardordner heißt exakt `Downloads\TTN_Activity_Export`, darunter `Garmin`, `Komoot`, `Strava` und getrennte Kontoordner. Bestehende Dateien werden nicht automatisch verschoben. Wenn du deine Datenbank in den neuen Ordner kopiert oder verschoben hast, wähle dort die Datei einmal aus. Eine fremde oder ungültige Datenbank überschreibt den gemerkten Kontopfad nicht.
