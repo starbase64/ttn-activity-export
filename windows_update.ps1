@@ -62,12 +62,17 @@ try {
     $env:TTN_UPDATE_CONTROLLER=$controller
     $bootstrap=Join-Path $target 'bootstrap.ps1'
     $probe=Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+$bootstrap+'"'),'--smoke-test') -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $work 'setup-output.log') -RedirectStandardError (Join-Path $work 'setup-error.log')
+    # Keep the process handle before it exits: Windows PowerShell can otherwise
+    # return a null ExitCode for a completed Start-Process -PassThru process.
+    $null=$probe.Handle
     $deadline=[DateTime]::UtcNow.AddMinutes(15)
     while (-not $probe.WaitForExit(200)) {
         if ($null -ne $form) { [Windows.Forms.Application]::DoEvents() }
         if ([DateTime]::UtcNow -ge $deadline) { & taskkill.exe /PID $probe.Id /T /F | Out-Null; throw 'Update setup timed out.' }
     }
-    if ($probe.ExitCode -ne 0) { throw 'The new version failed its installation/startup check.' }
+    $probe.WaitForExit()
+    if ($null -eq $probe.ExitCode) { throw 'The installation check returned no exit status.' }
+    if ($probe.ExitCode -ne 0) { throw ('The new version failed its installation/startup check (exit '+$probe.ExitCode+').') }
     Write-AtomicJson $pointer @{schema=1;path=$plan.target;version=$plan.version;previous=$previous}
     $activated=$true;$success=$true
     Write-AtomicJson (Join-Path $work 'result.json') @{success=$true;version=$plan.version}
