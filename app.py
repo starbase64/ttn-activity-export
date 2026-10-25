@@ -26,6 +26,7 @@ from garminconnect import Garmin, GarminConnectTooManyRequestsError, GarminConne
 from catalog import DATASETS, ACTIVITY_DETAILS, selected_datasets, all_definitions
 from engine import Plan, Exporter, account_key, leaves, read_methods, substitute, field_patterns, MAX_WORKERS, atomic_json, account_root
 from help_content import HELP
+from themes import load_theme,apply_theme
 from sports import FALLBACK_SPORTS, activity_type_keys, sport_label
 from activity_table import SOURCE_PATHS
 from preview import Previewer
@@ -36,7 +37,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.6-preview'
+VERSION = '0.5.7-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -100,6 +101,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('TTN Garmin Export · ' + VERSION)
         self.data_dir = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation))
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.theme=load_theme(self.data_dir/'ui-preferences.json')
         tick=self.data_dir/'checkbox-tick.png'
         icon=QImage(24,24,QImage.Format.Format_ARGB32);icon.fill(Qt.GlobalColor.transparent)
         painter=QPainter(icon);painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -107,44 +109,22 @@ class MainWindow(QMainWindow):
         painter.drawLine(5,12,10,17);painter.drawLine(10,17,20,6);painter.end();icon.save(str(tick))
         self.tick_style=f'QCheckBox::indicator:checked, QAbstractItemView::indicator:checked {{ image:url({json.dumps(tick.as_posix())}); }}'
         self.rate_pause=RatePause(self.data_dir/'rate-pause.json')
-        self.setStyleSheet('''
-          QMainWindow, QWidget { background: #f4f7fb; color:#192b43; font-size:14px; }
-          QLabel#title { font-size:27px; font-weight:700; }
-          QLabel#subtitle { color:#53677f; }
-          QTabWidget::pane { border:1px solid #dbe2ec; border-radius:8px; background:white; }
-          QTabBar::tab { padding:12px 20px; background:#e7edf5; }
-          QTabBar::tab:selected { background:#ffffff; color:#076fa0; font-weight:bold; }
-          QGroupBox { border:1px solid #d8e1ec; border-radius:8px; margin-top:18px; padding:16px; font-weight:600; }
-          QGroupBox::title { subcontrol-origin:margin; left:14px; padding:0 5px; }
-          QLineEdit, QDateEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit, QListWidget, QTextBrowser { background:white; border:1px solid #c7d3e2; border-radius:5px; padding:6px; }
-          QPushButton { background:#e3ebf4; border:0; border-radius:6px; padding:9px 15px; }
-          QPushButton:hover { background:#d1e3f1; }
-          QPushButton#primary { background:#087eaa; color:white; font-weight:bold; }
-          QPushButton:disabled { background:#e4e9ee; color:#95a0af; }
-          QCheckBox { spacing:8px; padding:3px; }
-          QCheckBox::indicator { width:24px; height:24px; border:2px solid #58718e; border-radius:4px; background:white; }
-          QCheckBox::indicator:checked { background:#087eaa; border-color:#075f82; }
-          QCheckBox::indicator:disabled { border-color:#a3afbd; background:#e0e5ec; }
-          QCheckBox:focus { border:1px dashed #087eaa; border-radius:4px; }
-          QTableView::indicator { width:22px; height:22px; border:2px solid #58718e; border-radius:3px; background:white; }
-          QTableView::indicator:checked { background:#087eaa; border-color:#075f82; }
-          QProgressBar { border:0; border-radius:5px; background:#dce6ef; text-align:center; }
-          QProgressBar::chunk { background:#0998af; border-radius:5px; }
-        ''')
-        self.setStyleSheet(self.styleSheet()+self.tick_style)
+        apply_theme(QApplication.instance(),self.theme,self.tick_style)
         central = QWidget(); outer = QVBoxLayout(central); outer.setContentsMargins(24,18,24,18)
         top = QHBoxLayout(); heading = QVBoxLayout()
         title = QLabel('TTN Garmin Export'); title.setObjectName('title'); heading.addWidget(title)
         self.subtitle = self.label('Deine Daten. Dein Zeitraum. Lokal auf deinem Rechner.', 'Your data. Your date range. On your computer.')
         self.subtitle.setObjectName('subtitle'); heading.addWidget(self.subtitle); top.addLayout(heading); top.addStretch()
         self.language = QPushButton('English'); self.language.clicked.connect(self.toggle_language); top.addWidget(self.language)
+        self.theme_button=QPushButton();self.theme_button.clicked.connect(self.toggle_theme);top.addWidget(self.theme_button)
+        self.update_theme_button()
         outer.addLayout(top)
         if demo:
             warning = self.label('DEMO · Nur künstliche Beispieldaten, kein Garmin-Zugriff', 'DEMO · Synthetic samples only, no Garmin access')
-            warning.setStyleSheet('background:#fff1d0; padding:8px; color:#815000; font-weight:bold;'); outer.addWidget(warning)
+            warning.setObjectName('warningBanner'); outer.addWidget(warning)
         self.connection = self.label('Nicht angemeldet', 'Not signed in'); outer.addWidget(self.connection)
         self.source_label=QLabel();outer.addWidget(self.source_label)
-        self.cooldown_label=QLabel();self.cooldown_label.setWordWrap(True);self.cooldown_label.setStyleSheet('color:#926000');outer.addWidget(self.cooldown_label)
+        self.cooldown_label=QLabel();self.cooldown_label.setWordWrap(True);self.cooldown_label.setObjectName('warningText');outer.addWidget(self.cooldown_label)
         self.tabs = QTabWidget(); outer.addWidget(self.tabs, 1)
         self.config_tabs = []
         self.account_page(); self.export_page(); self.advanced_page(); self.fields_page(); self.expert_page(); self.offline_page()
@@ -163,7 +143,7 @@ class MainWindow(QMainWindow):
         outer.addLayout(bottom)
         self.progress = QProgressBar(); self.progress.setValue(0); outer.addWidget(self.progress)
         self.status = self.label('Bereit · Vorschauversion', 'Ready · Preview version'); outer.addWidget(self.status)
-        self.eta_label=QLabel();self.eta_label.setWordWrap(True);self.eta_label.setStyleSheet('font-weight:600; color:#087eaa');outer.addWidget(self.eta_label)
+        self.eta_label=QLabel();self.eta_label.setWordWrap(True);self.eta_label.setObjectName('etaText');outer.addWidget(self.eta_label)
         self.eta_snapshot=None;self.eta_received=0.;self.eta_active=False;self.retry_until=0.;self.request_count=0
         self.local_transfer=False
         self.eta_timer=QTimer(self);self.eta_timer.timeout.connect(self.update_eta);self.eta_timer.start(1000)
@@ -656,6 +636,22 @@ class MainWindow(QMainWindow):
         method=getattr(Garmin,name,None)
         self.method_doc.setPlainText((name+str(inspect.signature(method))+'\n\n'+(inspect.getdoc(method) or '')) if name in read_methods(Garmin) else self.tr('Keine gültige Leseabfrage','Not a supported reader'))
 
+    def update_theme_button(self):
+        dark=self.theme=='dark'
+        self.theme_button.setText(self.tr('Hellmodus','Light mode') if dark else self.tr('Dunkelmodus','Dark mode'))
+        self.theme_button.setToolTip(self.tr('Auf helles Farbschema umschalten','Switch to light colors') if dark else self.tr('Auf dunkles Farbschema umschalten','Switch to dark colors'))
+        self.theme_button.setAccessibleName(self.tr('Farbschema umschalten','Switch color scheme'))
+
+    def toggle_theme(self):
+        self.theme='light' if self.theme=='dark' else 'dark'
+        apply_theme(QApplication.instance(),self.theme,self.tick_style)
+        self.update_theme_button()
+        self.data_page.map.update()
+        self.data_page.update_route_colors(self.data_page.selected())
+        try:atomic_json(self.data_dir/'ui-preferences.json',{'theme':self.theme})
+        except OSError:
+            self.log.appendPlainText(self.tr('Farbschema konnte nicht für den nächsten Start gespeichert werden.','Could not save the color scheme for the next start.'))
+
     def toggle_language(self):
         self.lang='en' if self.lang=='de' else 'de'
         for obj,de,en,setter in self.bindings: getattr(obj,setter)(self.tr(de,en))
@@ -666,6 +662,7 @@ class MainWindow(QMainWindow):
         self.populate_sports()
         self.update_sports_hint()
         self.language.setText('English' if self.lang=='de' else 'Deutsch')
+        self.update_theme_button()
         self.help.setHtml(HELP[self.lang]); self.update_connection();self.update_cooldown_label();self.offline_source_changed()
         if hasattr(self,'last_coverage_result'):self.render_coverage(self.last_coverage_result)
         self.data_page.retranslate()
@@ -945,7 +942,7 @@ class MainWindow(QMainWindow):
         notice.setWordWrap(True);layout.addWidget(notice)
         if result['budget_reached'] or result['cancelled']:
             text=self.tr('Abfragelimit erreicht oder Vorschau abgebrochen – es wird nur die bisher geladene Stichprobe gezeigt.', 'Query limit reached or preview stopped – only samples retrieved so far are shown.')
-            label=QLabel(text);label.setWordWrap(True);label.setStyleSheet('color:#926000');layout.addWidget(label)
+            label=QLabel(text);label.setWordWrap(True);label.setObjectName('warningText');layout.addWidget(label)
         if result['notes']:
             messages={
                 'daily_statistics_without_timelines':self.tr('Detailgrad: Tageskennzahlen. Die betroffenen Tabellen enthalten keine Messverläufe.','Detail level: daily statistics. Affected tables contain no measurement timelines.'),
@@ -962,7 +959,7 @@ class MainWindow(QMainWindow):
                 label=QLabel(messages.get(code,code));label.setWordWrap(True);layout.addWidget(label)
         for err in result['errors']:
             text=err['dataset']+': '+self.error_description(err)
-            label=QLabel(text);label.setStyleSheet('color:#a23535');label.setWordWrap(True);layout.addWidget(label)
+            label=QLabel(text);label.setObjectName('errorText');label.setWordWrap(True);layout.addWidget(label)
         tabs=QTabWidget();layout.addWidget(tabs,1)
         labels={d.key:(d.de if self.lang=='de' else d.en) for d in all_definitions()}
         for group in result['groups']:

@@ -1,3 +1,9 @@
+# 0.5.7-preview · light and dark mode
+
+- Add a bilingual theme button next to the language switch. Dark mode uses a dark blue-gray background and soft light foreground, with theme-aware inputs, visible checkboxes, disabled states, tables, selections, headers, menus, tooltips, app dialogs and logs.
+- Persist theme selection locally in ui-preferences.json. Missing/invalid settings default to light. Switching preserves sign-in, export configuration, selections and running work.
+- Offline map grid, overlays and route/table colors follow the palette; external online tile imagery is unchanged. Update bilingual guide. No new dependencies.
+
 # 0.5.6-preview · faster file generation and separate download
 
 - Export-tab Download only saves the selected normal resources directly to the account archive with no CSV/XLSX/JSON file generation. Uses Export/Options activity extras; sign-in required. Existing Offline-data actions remain.
