@@ -6,7 +6,7 @@ Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connec
 
 ## Einstieg in die Testversion 0.6
 
-Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Automatische App-Updates folgen separat.
+Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfungen sind oben bei der Sprache erreichbar; automatische Installation und Delta-Updates folgen separat.
 
 Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
 
@@ -289,3 +289,12 @@ Wählst du unter **Konten** oder im Konto-Auswahlfeld ein anderes Konto, wechsel
 Beim Anlegen eines Kontos wird dessen Speicherordner erstellt; eine Datenbank entsteht erst beim Speichern von Daten. Der Import kann benötigte Zielordner ebenfalls anlegen. Deutsche und englische CSV-Spalten werden erkannt; die Originalspalten bleiben gespeichert. Komma, Semikolon und Tab als Trennzeichen sowie explizite deutsche Datumsformate sind unterstützt.
 
 Statt eines allgemeinen ValueError zeigen erkennbare Importprobleme einen festen Fehlercode mit Erklärung, etwa `strava_csv_headers`, `strava_csv_missing`, `strava_zip_invalid` oder `strava_copy_limit`. Bei unbekannten Spalten genügt für die weitere Diagnose die erste Zeile der activities.csv, ohne Aktivitätszeilen oder das gesamte Paket. Bei einer Kopie über 8 GiB kann die Quelle am bisherigen Ort verwendet werden. Nicht jedes Sprach-/Exportformat ist damit automatisch unterstützt. Der konkrete Fehler eines Nutzerpakets lässt sich aus einem Screenshot mit ValueError allein nicht beweisen.
+
+
+## Auf Updates prüfen (ab 0.6.8)
+
+Oben rechts steht **Updates prüfen**, direkt neben Sprache und Farbschema. Der Button fragt die veröffentlichten Releases dieses GitHub-Projekts ab. Währenddessen kannst du Anmeldung, Downloads und lokale Daten weiter nutzen. Das Ergebnis steht unter der Kopfzeile; bei einer neueren passenden Version erscheint **Download öffnen**. Dieser Button öffnet die GitHub-Seite mit Versionshinweisen und Downloads im Standardbrowser. Lade das gewünschte Windows-ZIP herunter, beende die alte App und entpacke das Paket in einen eigenen Programmordner. Der bisherige Daten-/Profilordner bleibt nutzbar.
+
+**Beim Start automatisch prüfen** speichert deine Entscheidung pro Benutzerprofil. Die Vorgabe ist aus. Mit Haken wird bei jedem normalen Programmstart einmal geprüft. Im Demo-/Smoke-Modus findet keine automatische Abfrage statt. Manuell kannst du jederzeit erneut prüfen. Für die Prüfung braucht die App Internetzugang zu GitHub; Garmin-/Komoot-Zugangsdaten und Aktivitätsdaten werden dabei nicht übertragen. Verbindungsfehler oder GitHub-Limits werden angezeigt und bedeuten nicht, dass deine Version aktuell ist.
+
+Eine installierte Testversion berücksichtigt auch veröffentlichte Vorabversionen; eine stabile Version nur stabile Releases. Ältere Versionen werden nicht als Update angeboten. Wenn dein lokales Testpaket neuer als das veröffentlichte Release ist, wird das ausdrücklich angezeigt. Reine Quellcodeänderungen, Git-Tags ohne Release, Entwürfe und privat verteilte Testpakete erscheinen nicht als veröffentlichte Updates. Automatische Installation und inkrementelle/Delta-Updates sind weiterhin geplant.

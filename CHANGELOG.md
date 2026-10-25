@@ -1,3 +1,10 @@
+# 0.6.8-preview · manual and optional startup update checks
+
+- Add Check updates beside the language/theme controls and a persistent opt-in startup checkbox. Check published public GitHub releases in an independent, cancellable Qt network operation without blocking provider jobs or session restoration.
+- Compare numeric release versions and prerelease stages; preview installations include published prereleases, stable installations exclude them. Ignore drafts and unsupported tags, never offer downgrades, and explain when the installed test build is ahead of published releases.
+- Bound requests by timeout, response size and page count. Use a fixed repository/HTTPS API host, no redirects or provider credentials, and explicit connection/rate-limit/incomplete-check messages. Open canonical GitHub release pages only after the user presses Open download. Startup checks are disabled in demo/smoke runs.
+- Store the startup preference independently of theme preferences. Add offline regression tests for versions/channels, persistence, pagination, failures, cancellation and GUI behavior; no new runtime dependencies.
+
 # 0.6.7-preview · remembered Komoot sessions and reliable inventory completion
 
 - Add opt-in Windows DPAPI storage of account-bound Komoot session tokens. Restore locally when selecting the account, without storing the password or issuing a startup login request. Verify saved tokens; report save failures; support removing saved tokens without authentication, on unchecking remember, signing out and removing the account. No plaintext fallback on other platforms. Invalid HTTP 401 tokens are removed; HTTP 403 export permission failures do not remove them.

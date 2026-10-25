@@ -1,12 +1,12 @@
 # Roadmap
 
-Planungsstand zur Testversion **0.6.7-preview**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
+Planungsstand zur Testversion **0.6.8-preview**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
 
 ## In der Testversion 0.6 umgesetzt
 
 Vier Hauptreiter und Optionen-Fenster mit Übernehmen/Abbrechen, eigenes Logfenster, Kontoeinträge mit getrennten Zielordnern und ausdrücklich gespeicherten Vorgaben, begrenzte Garmin-Bestandsliste mit Teilstatus/Weiterladen und ID-Auswahl sowie gespeicherte/sortierbare Aufträge mit manueller Startprüfung. Tooltips sind global abschaltbar. Vor dem Start gibt es eine lokale Planung offener Grundabfragen; eine verlässliche Gesamtdauer bleibt ohne Messgrundlage unbekannt.
 
-**Noch offen:** Stabilisierung der experimentellen Komoot-Anbindung, Anbieterreihenfolge über tatsächlich ausführbare Mehranbieteraufträge und automatische App-Updates. Strava bleibt ausdrücklich eine lokale Importquelle; keine Online-Anmeldung, kein automatischer Website-/API-Abruf und keine API-Budgetverwaltung sind vorgesehen. Die folgende Zielbeschreibung bleibt für diese offenen Teile gültig.
+**Noch offen:** Stabilisierung der experimentellen Komoot-Anbindung, Anbieterreihenfolge über tatsächlich ausführbare Mehranbieteraufträge und automatische Update-Installation. Strava bleibt ausdrücklich eine lokale Importquelle; keine Online-Anmeldung, kein automatischer Website-/API-Abruf und keine API-Budgetverwaltung sind vorgesehen. Die folgende Zielbeschreibung bleibt für diese offenen Teile gültig.
 
 ## Bereits vorhanden
 
@@ -75,7 +75,7 @@ Zusätzliche Tooltips standardmäßig an, unter Einstellungen global abschaltbar
 
 ## 6. Programmupdates
 
-Manueller **Nach Updates suchen**-Button, optional Prüfung beim Start. Bevorzugt inkrementelle Dateiupdates statt binärer Delta-Patches: nur geänderte geprüfte Dateien beziehen. Ausschließlich veröffentlichte Versionen des gewählten Kanals, keine unbeaufsichtigten Updates von `main`.
+**Umgesetzt ab 0.6.8:** manueller **Updates prüfen**-Button und optional gespeicherte Prüfung beim Start, mit Downloadlink zu passenden veröffentlichten GitHub-Releases. **Noch geplant:** automatische Update-Installation. Bevorzugt inkrementelle Dateiupdates statt binärer Delta-Patches: nur geänderte geprüfte Dateien beziehen. Ausschließlich veröffentlichte Versionen des gewählten Kanals, keine unbeaufsichtigten Updates von `main`.
 
 Signiertes Manifest und Hashprüfung, Updatehelfer nach App-Ende, temporäre Installation, Sicherung, Selbsttest und Rücknahme bei Fehler. Nutzerdaten und Anmeldungen erhalten. Laufzeit/Bibliotheken nur bei Bedarf aktualisieren; vorhandene Setup-Reparatur ist noch kein App-Updater. Ein erstes manuelles Update wäre zur Einführung nötig.
 

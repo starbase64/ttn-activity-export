@@ -6,7 +6,7 @@ This local desktop app downloads supported Garmin Connect data, keeps a reusable
 
 ## Getting started with preview 0.6
 
-This guide covers the new desktop. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Automatic application updates remain future work.
+This guide covers the new desktop. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
 
 The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
 
@@ -291,3 +291,12 @@ Selecting another account changes the Data source, immediately clears the previo
 Registering an account creates its storage directory; the database is created only when data is saved. Imports also create missing destinations. German/English CSV headers, comma/semicolon/tab delimiters, decimal commas and explicit German date formats are supported; original columns stay preserved.
 
 Recognized local failures show a translated explanation and allowlisted code such as strava_csv_headers, strava_csv_missing, strava_zip_invalid or strava_copy_limit. Unrecognized layouts can be diagnosed from the first activities.csv line without activity rows or the full package. Use the source in place if a complete source copy exceeds 8 GiB. Other languages/layouts are not automatically supported; a generic ValueError screenshot alone cannot prove the cause of a particular user package.
+
+
+## Checking for updates (since 0.6.8)
+
+**Check updates** appears at the top right beside language and theme. It checks this project's published GitHub releases while sign-in, downloads and local browsing remain available. Results appear below the header. A newer matching release provides **Open download**, which opens its GitHub release notes and downloads in your default browser. Download the Windows ZIP, close the old app and extract to a separate program directory. Your existing data/profile directory remains usable.
+
+**Check automatically at startup** saves your preference per user profile and defaults to off. When enabled, a normal app startup checks once. Demo/smoke runs never check automatically. Manual checks remain available. The check needs internet access to GitHub; it does not transmit Garmin/Komoot credentials or activity data. Connection errors and GitHub rate limits are shown explicitly and do not establish that the installed version is current.
+
+Preview installations include published prereleases; stable installations use stable releases only. Older versions are never offered as updates. If your test build is ahead of published releases, the app says so. Source-only changes, Git tags without a release, drafts and privately distributed test packages are not published updates. Automatic installation and incremental/delta updates remain planned.
