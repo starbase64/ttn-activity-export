@@ -1,3 +1,11 @@
+# 0.6.5-preview · account-specific data views
+
+- Prefix the Data selection summary with the total number of local activities, retaining selection/track counts and showing the visible count when filters narrow the list. Keep the total visible while GPS is loaded; translate both languages.
+- Selecting Garmin, Komoot or Strava immediately switches the Data source to the account’s saved/custom archive or managed default location. Clear the previous table, map and account filters; automatically load an existing matching archive without authentication or network requests. Missing archives show an empty state and intended path, without creating a database.
+- Create each provider/account storage directory when registering an account; reject unwritable targets without saving a broken account entry.
+- Accept German/English Strava CSV headers, comma/semicolon/tab delimiters, decimal commas and explicit German date formats while preserving original columns. Add allowlisted translated import errors for unsupported headers, missing lists, corrupt ZIPs and size/copy limits; do not expose arbitrary exception text.
+- Remember chosen archive paths per account. Validate archive ownership and reject stale results after rapid account switches; existing work finishes before a deferred local read starts.
+
 # 0.6.4-preview · cache discovery and consistent names
 
 - Search known account destinations, prior standard folders and current archive paths for matching Garmin SQLite archives and legacy cache-v1 response folders. Search in a bounded background task without network requests; open/import a single match directly, offer a choice for multiple matches, and show the manual folder picker only when no matching data was found. Never merge another account’s data or overwrite an already stored response when importing an older cache.

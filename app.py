@@ -38,7 +38,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.6.4-preview'
+VERSION = '0.6.5-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -90,6 +90,7 @@ class MainWindow(QMainWindow):
         self.worker = None
         self._closing=False
         self._restoring=False
+        self._restore_pending=False
         self.last_output = ''
         self.completed = 0
         self.field_checks = []
@@ -230,9 +231,11 @@ class MainWindow(QMainWindow):
         self.remember.setChecked(auto_restore)
         if not auto_restore:return
         self._restore_account=(email,china)
+        self._restore_pending=True
         QTimer.singleShot(0,self.restore_saved_session)
 
     def restore_saved_session(self):
+        self._restore_pending=False
         if self._closing or self.api or not self.remember.isChecked():return
         if self.worker and self.worker.isRunning():return
         if (self.email.text().strip(),self.china.isChecked())!=getattr(self,'_restore_account',None):return
@@ -758,6 +761,10 @@ class MainWindow(QMainWindow):
         self.eta_label.setText(text+self.tr(f' · {self.request_count} Garmin-Abfragen',f' · {self.request_count} Garmin requests'))
 
     def error_description(self,detail):
+        from import_errors import IMPORT_MESSAGES
+        if detail.get('import_code') in IMPORT_MESSAGES:
+            de,en=IMPORT_MESSAGES[detail['import_code']]
+            return self.tr('Strava-Import','Strava import')+' · '+detail['import_code']+'\n'+self.tr(de,en)
         reasons={
             'rate_limit':('Garmin begrenzt die Anfragen. Vorerst nicht erneut anmelden oder abrufen.','Garmin is limiting requests. Do not sign in or fetch again for now.'),
             'challenge':('Garmin verlangt möglicherweise eine Browser-/Sicherheitsprüfung. Keine automatischen Wiederholungen.','Garmin may require a browser/security check. No automatic retries.'),

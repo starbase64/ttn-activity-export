@@ -10,6 +10,7 @@ from dataclasses import replace
 from pathlib import Path
 import pytest
 from strava_import import import_strava_archive,row_summary,prepare_source
+from import_errors import ImportProblem
 from datahub import load_archive
 from archive import Archive,OfflineAccountMismatch
 from engine import Plan,account_key
@@ -42,6 +43,40 @@ def test_folder_and_zip_produce_same_data_and_keep_sources(tmp_path):
     a=load_archive(tmp_path/'zip.sqlite');b=load_archive(tmp_path/'folder.sqlite')
     assert a['activities']==b['activities'] and a['tracks']==b['tracks']
     assert (folder/'activities.csv').is_file() and source.is_file()
+
+
+@pytest.mark.parametrize('delimiter',[',',';'])
+def test_german_headers_dates_decimal_comma_and_original_columns(tmp_path,delimiter):
+    headers=['Aktivitäts-ID','Aktivitätsdatum','Name der Aktivität','Aktivitätsart','Verstrichene Zeit','Distanz','Dateiname','Verstrichene Zeit','Bewegungszeit','Distanz','Höhenzunahme']
+    values=row(name='Radtour');values[1]='01.01.2020, 10:00:00';values[3]='Radfahrt';values[5]='2,50';values[7]='600,0';values[8]='600,0';values[9]='2500,0'
+    text=io.StringIO(newline='');writer=csv.writer(text,delimiter=delimiter);writer.writerow(headers);writer.writerow(values)
+    source=tmp_path/'de.zip'
+    with zipfile.ZipFile(source,'w') as z:
+        z.writestr('activities.csv',text.getvalue().encode('utf-8-sig'));z.writestr(values[6],gzip.compress(make_fit()))
+    account=account_key('strava:mine');target=tmp_path/'db.sqlite'
+    assert prepare_source(source,tmp_path/'not-created')==source
+    result=import_strava_archive(target,source,account)
+    assert result['imported']==1 and not result['failed'] and result['files']==1
+    activity=load_archive(target)['activities'][0]
+    assert activity['distance']==2500 and activity['duration']==600 and activity['activityType']['typeKey']=='cycling'
+    assert activity['startTimeLocal']=='2020-01-01T10:00:00'
+    assert len([v for k,v in activity['stravaCsv'] if k=='Distanz'])==2
+    from strava_import import timestamp
+    assert timestamp('1. März 2020, 10:00:00')=='2020-03-01T10:00:00'
+
+
+def test_import_failures_have_safe_specific_diagnostics(tmp_path):
+    from failures import diagnostic
+    missing=tmp_path/'missing.zip'
+    with pytest.raises(ImportProblem) as caught:prepare_source(missing,tmp_path/'sources')
+    assert diagnostic(caught.value)['import_code']=='strava_source_missing'
+    invalid=tmp_path/'invalid.zip';invalid.write_bytes(b'not a zip')
+    with pytest.raises(ImportProblem) as caught:prepare_source(invalid,tmp_path/'sources')
+    assert diagnostic(caught.value)['import_code']=='strava_zip_invalid'
+    with zipfile.ZipFile(invalid,'w') as z:z.writestr('activities.csv','private-token,name@example.invalid\n')
+    with pytest.raises(ImportProblem) as caught:prepare_source(invalid,tmp_path/'sources')
+    detail=diagnostic(caught.value)
+    assert detail['import_code']=='strava_csv_headers' and 'private-token' not in json.dumps(detail) and '@' not in json.dumps(detail)
 
 
 def test_source_copy_is_complete_isolated_and_cancellable(tmp_path,monkeypatch):

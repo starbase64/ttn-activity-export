@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 import json
-from engine import Plan, account_key, atomic_json
+from engine import Plan, account_key, account_root, atomic_json
 
 PROVIDERS = ('garmin', 'komoot', 'strava')
 DEFAULT_ORDER = ('garmin', 'komoot')
@@ -37,10 +37,13 @@ class Workspace:
     def save(self):atomic_json(self.path,self.data)
     def add_account(self,provider,email,output,china=False):
         email=email.strip()
-        if provider not in PROVIDERS or not email or len(email)>320:raise ValueError('Invalid account')
+        if provider not in PROVIDERS or not email or len(email)>320 or not str(output).strip():raise ValueError('Invalid account')
         ident=self.key(provider,email,china)
         found=next((a for a in self.accounts if a['id']==ident),None)
-        if found:return found
+        if found:
+            account_root(found['output'],ident).mkdir(parents=True,exist_ok=True)
+            return found
+        account_root(output,ident).mkdir(parents=True,exist_ok=True)
         found={'id':ident,'provider':provider,'email':email,'china':bool(china),'output':str(output),'created':now()}
         self.accounts.append(found)
         try:self.save()

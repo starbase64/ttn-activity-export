@@ -58,6 +58,18 @@ def test_workspace_preserves_snapshots_and_never_restarts_running_jobs(tmp_path)
     with pytest.raises(ValueError):store.enqueue(other,replace(p,account=other['id'],datasets=['activities']),'download')
 
 
+def test_creating_accounts_creates_directories_but_not_databases(tmp_path):
+    from engine import account_root
+    store=Workspace(tmp_path/'workspace.json')
+    for provider in ('garmin','komoot','strava'):
+        account=store.add_account(provider,'mine@example.invalid',tmp_path/provider)
+        folder=account_root(account['output'],account['id'])
+        assert folder.is_dir() and not list(folder.glob('*.sqlite'))
+    before=len(store.accounts);blocked=tmp_path/'not-a-folder';blocked.write_text('file')
+    with pytest.raises(OSError):store.add_account('strava','other@example.invalid',blocked)
+    assert len(store.accounts)==before and len(Workspace(store.path).accounts)==before
+
+
 def test_inventory_is_metadata_only_bounded_and_resumable():
     class API:
         def __init__(self):self.calls=[]
@@ -243,6 +255,65 @@ def test_cache_button_imports_legacy_responses_without_picker(window,tmp_path,mo
     wait_gui(lambda:bool(w.data_page.data['activities']))
     assert messages and len(w.data_page.data['activities'])==1 and not w.request_count
     assert (root/'garmin-offline.sqlite').is_file() and file.is_file()
+
+
+def save_account_activity(path,account,name,ident=123):
+    with Archive(path,account['id']) as db:
+        db.put('activities','2020-01-01',{'import':'activity-files-v1'},[{'activityId':ident,'activityName':name,'startTimeLocal':'2020-01-01T10:00:00','activityType':{'typeKey':'cycling'}}])
+
+
+def test_account_selection_loads_own_archive_and_clears_missing_provider(window,tmp_path):
+    from engine import account_root
+    w=window;garmin=w.active_account
+    gpath=account_root(garmin['output'],garmin['id'])/'garmin-offline.sqlite';save_account_activity(gpath,garmin,'Garmin ride')
+    komoot=w.workspace.add_account('komoot','local-komoot',tmp_path/'Komoot')
+    kpath=Path(w.komoot_database(komoot));save_account_activity(kpath,komoot,'Komoot tour',456)
+    strava=w.workspace.add_account('strava','local-strava',tmp_path/'Strava')
+    w.refresh_accounts(komoot['id'])
+    assert w.data_page.source.text()==str(kpath) and not w.data_page.map.routes
+    assert wait_gui(lambda:w.data_page.data['account']==komoot['id'] and bool(w.data_page.data['activities']))
+    assert w.data_page.data['activities'][0]['activityName']=='Komoot tour'
+    w.refresh_accounts(strava['id'])
+    assert w.data_page.source.text()==w.strava_database(strava) and not w.data_page.data['activities']
+    assert not w.data_page.map.routes and not Path(w.strava_database(strava)).exists()
+    w.refresh_accounts(garmin['id'])
+    assert wait_gui(lambda:bool(w.data_page.data['activities']))
+    assert w.data_page.source.text()==str(gpath) and w.data_page.data['activities'][0]['activityName']=='Garmin ride'
+    assert not w.request_count
+
+
+def test_custom_archive_is_remembered_and_wrong_account_database_is_rejected(window,tmp_path):
+    from datahub import load_archive
+    w=window;garmin=w.active_account;custom=tmp_path/'custom.sqlite';save_account_activity(custom,garmin,'Custom archive')
+    w.archive_path.setText(str(custom));w.data_page.loaded(load_archive(custom,with_tracks=False))
+    other=w.workspace.add_account('komoot','other',tmp_path/'Komoot');other['archive_path']=str(custom)
+    w.refresh_accounts(other['id'])
+    assert wait_gui(lambda:'Could not open' in w.data_page.note.text() or 'konnte' in w.data_page.note.text())
+    assert not w.data_page.data['activities'] and w.data_page.data['account']==other['id']
+    w.refresh_accounts(garmin['id'])
+    assert wait_gui(lambda:bool(w.data_page.data['activities']))
+    assert w.data_page.source.text()==str(custom) and garmin['archive_path']==str(custom)
+
+
+def test_late_archive_result_cannot_replace_newly_selected_account(window,tmp_path,monkeypatch):
+    import data_page
+    w=window;garmin=w.active_account;garmin['archive_path']=str(tmp_path/'garmin.sqlite');save_account_activity(Path(garmin['archive_path']),garmin,'Old account')
+    w.archive_path.setText(garmin['archive_path'])
+    komoot=w.workspace.add_account('komoot','other',tmp_path/'Komoot');kpath=Path(w.komoot_database(komoot));save_account_activity(kpath,komoot,'New account',456)
+    started=threading.Event();release=threading.Event();original=data_page.load_archive
+    def delayed(path,*args,**kwargs):
+        if str(path)==garmin['archive_path']:started.set();release.wait(5)
+        return original(path,*args,**kwargs)
+    monkeypatch.setattr(data_page,'load_archive',delayed)
+    # Switch away and back to request the saved Garmin archive.
+    w.refresh_accounts(komoot['id']);w.refresh_accounts(garmin['id'])
+    assert wait_gui(started.is_set)
+    seen=[];loaded=w.data_page.loaded
+    def record(data):seen.extend(a['activityName'] for a in data['activities']);loaded(data)
+    monkeypatch.setattr(w.data_page,'loaded',record)
+    w.refresh_accounts(komoot['id']);release.set()
+    assert wait_gui(lambda:bool(w.data_page.data['activities']))
+    assert w.data_page.data['account']==komoot['id'] and seen==['New account']
 
 
 def test_komoot_download_is_account_isolated_and_not_blocked_by_garmin_pause(window,tmp_path):

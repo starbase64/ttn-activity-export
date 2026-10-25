@@ -26,7 +26,7 @@ class TrackLoader(QThread):
 class DataPage(QWidget):
     def __init__(self,host):
         super().__init__();self.host=host;self.data={'activities':[],'tracks':{},'health':[]};self.by_key={};self.visible=[];self.summary_rows=[]
-        self.loading=False;self.filter_initialized=False;self.presets_path=host.data_dir/'data-view-presets.json'
+        self.loading=False;self.filter_initialized=False;self.account_load_generation=0;self.presets_path=host.data_dir/'data-view-presets.json'
         self.date_account=None;self.first_activity_date=None
         self.track_worker=None;self.track_generation=0;self.pending_tracks=[]
         self.persisted_columns=[]
@@ -147,6 +147,39 @@ class DataPage(QWidget):
         try:path=self.path()
         except Exception as exc:self.error(exc);return
         self.host.run_worker(lambda w:load_archive(path,w.cancel,with_tracks=False),self.loaded,network=False)
+
+    def select_account_archive(self,account,path):
+        """Clear immediately; load only the latest selected account, without online requests."""
+        self.account_load_generation+=1;generation=self.account_load_generation
+        self.host.archive_path.setText(path);self.source.setText(path)
+        self.filter_initialized=False
+        self.search.blockSignals(True);self.search.clear();self.search.blockSignals(False)
+        self.min_km.blockSignals(True);self.min_km.setValue(0);self.min_km.blockSignals(False)
+        self.loaded({'activities':[],'tracks':{},'health':[],'account':account})
+        if not path or not Path(path).is_file():
+            self.note.setText(self.t('Für dieses Konto ist noch keine lokale Datenbank vorhanden. Der vorgesehene Speicherort steht oben.',
+                                     'No local database exists for this account yet. Its intended location is shown above.') if account else self.t('Zuerst ein Konto auswählen.','Select an account first.'))
+            return
+        self.note.setText(self.t('Lokaler Bestand des ausgewählten Kontos wird geladen …','Loading the selected account’s local archive …'))
+        QTimer.singleShot(0,lambda:self.load_selected_account(account,path,generation))
+
+    def load_selected_account(self,account,path,generation):
+        if self.host._closing or generation!=self.account_load_generation or self.source.text()!=path:return
+        active=getattr(self.host,'active_account',None)
+        if not active or active['id']!=account:return
+        if (self.host.worker and self.host.worker.isRunning()) or getattr(self.host,'_queue_active',False) or getattr(self.host,'_restore_pending',False):
+            QTimer.singleShot(50,lambda:self.load_selected_account(account,path,generation));return
+        def operation(w):
+            try:
+                with Archive(path,account,readonly=True):pass
+                return {'data':load_archive(path,w.cancel,with_tracks=False)}
+            except Exception as exc:return {'error':type(exc).__name__}
+        def done(result):
+            if generation!=self.account_load_generation or self.source.text()!=path:return
+            if result.get('data',{}).get('account')==account:self.loaded(result['data'])
+            else:self.note.setText(self.t('Datenbank konnte für dieses Konto nicht geöffnet werden. Datei und Kontozuordnung prüfen.',
+                                          'Could not open this database for the selected account. Check the file and account identity.'))
+        self.host.run_worker(operation,done,network=False)
     def loaded(self,data):
         self.track_generation+=1
         if self.track_worker and self.track_worker.isRunning():self.track_worker.cancel.set()
@@ -211,7 +244,11 @@ class DataPage(QWidget):
         self.map.lang=self.host.lang;self.map.set_routes(routes,self.heat.isChecked())
         unknown=[a for a in selected if a['_key'] not in self.data['tracks']]
         self.pending_tracks=unknown
-        self.selection_note.setText(self.t(f'{len(selected)} ausgewählt · {len(routes)} Strecken · {missing} ohne sichtbare GPS-Strecke',f'{len(selected)} selected · {len(routes)} tracks · {missing} without visible GPS track') if not unknown else self.t(f'{len(unknown)} GPS-Strecken werden lokal gelesen …',f'Reading {len(unknown)} GPS tracks locally …'))
+        total=len(self.data['activities']);visible=len(self.visible)
+        prefix=self.t(f'{total} Aktivitäten insgesamt',f'{total} activities total')
+        if visible!=total:prefix+=self.t(f' · {visible} angezeigt',f' · {visible} shown')
+        detail=self.t(f'{len(selected)} ausgewählt · {len(routes)} Strecken · {missing} ohne sichtbare GPS-Strecke',f'{len(selected)} selected · {len(routes)} tracks · {missing} without visible GPS track') if not unknown else self.t(f'{len(selected)} ausgewählt · {len(unknown)} GPS-Strecken werden lokal gelesen …',f'{len(selected)} selected · Reading {len(unknown)} GPS tracks locally …')
+        self.selection_note.setText(prefix+' · '+detail)
         if unknown:self.start_track_loader()
         self.update_route_colors(selected)
 

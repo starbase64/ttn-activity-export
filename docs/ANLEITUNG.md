@@ -1,6 +1,6 @@
 # TTN Activity Export – Anleitung
 
-Für den Quellstand **0.6.4-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
+Für den Quellstand **0.6.5-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
 
 Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava ist ausschließlich eine lokale Importquelle; Komoot hat eine experimentelle Online-Anbindung. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
 
@@ -247,7 +247,7 @@ Für Strava gibt es in der App keine Anmeldung, API-Schlüssel, API-Budgetanzeig
 1. Lade dein Konto-ZIP selbst auf der Strava-Website unter Einstellungen → Mein Konto → Konto herunterladen herunter. Warte auf die E-Mail mit dem Downloadlink. Die App fordert das Paket nicht automatisch an.
 2. Unter **Konten → Konto hinzufügen → Strava** einen lokalen Namen oder deine E-Mail-Adresse und einen Zielordner festlegen. Diese Bezeichnung dient nur der lokalen Trennung, nicht der Anmeldung bei Strava.
 3. **Import / Einstellungen → Strava-Datenpaket importieren …** wählen. Alternativ findest du den Importbutton im Reiter Download, sobald Strava ausgewählt ist.
-4. ZIP-Datei oder bereits entpackten Ordner auswählen. Die App erkennt und prüft die Quelle beim Import. Anschließend wählen, ob die Quelle am bisherigen Ort bleiben oder vollständig im Kontobereich unter `sources` gesichert werden soll. In beiden Fällen entsteht eine lokale Aktivitätsdatenbank mit den importierten Aufzeichnungen. Die vollständige Kopie benötigt zusätzlichen Speicher und ist auf 8 GiB begrenzt. Unterbrochene Kopien werden entfernt; Originaldateien bleiben unverändert. Symbolische Verknüpfungen werden nicht übernommen. Unterstützt werden die Aktivitätenliste `activities.csv` mit den üblichen englischen Exportspalten und darin referenzierte FIT-, GPX- oder TCX-Dateien, auch gzip-komprimiert. Die App liest das Paket ohne Netzverbindung.
+4. ZIP-Datei oder bereits entpackten Ordner auswählen. Die App erkennt und prüft die Quelle beim Import. Anschließend wählen, ob die Quelle am bisherigen Ort bleiben oder vollständig im Kontobereich unter `sources` gesichert werden soll. In beiden Fällen entsteht eine lokale Aktivitätsdatenbank mit den importierten Aufzeichnungen. Die vollständige Kopie benötigt zusätzlichen Speicher und ist auf 8 GiB begrenzt. Unterbrochene Kopien werden entfernt; Originaldateien bleiben unverändert. Symbolische Verknüpfungen werden nicht übernommen. Unterstützt werden die Aktivitätenliste `activities.csv` mit deutschen oder englischen Exportspalten und darin referenzierte FIT-, GPX- oder TCX-Dateien, auch gzip-komprimiert. Die App liest das Paket ohne Netzverbindung.
 5. Nach dem Import öffnet sich **Daten**. Nach Sportart, Datum oder Suchtext filtern und Zeilen mit Strg/Shift markieren. Unter **Auswahl → Auswahl exportieren** die gewünschte Tabelle als CSV, Excel oder JSON speichern. Karten funktionieren nur, wenn eine unterstützte Aufzeichnung GPS enthält.
 
 Die Daten liegen in einer getrennten `strava-offline.sqlite` im lokalen Strava-Kontobereich. **Lokale Strava-Daten öffnen** lädt diesen Bestand später erneut. Bereits importierte Strava-IDs werden beim erneuten Paketimport aktualisiert, statt zusätzliche Zeilen anzulegen. Eine Aktivität ohne referenzierte Datei bleibt als Tabellenzeile erhalten. Defekte oder fehlende Aufzeichnungen werden gemeldet; sie erzeugen keine erfundene GPS-Strecke.
@@ -275,3 +275,17 @@ Quellen: [Komoot zur API](https://support.komoot.com/hc/en-us/articles/103315705
 ## Unterstützte Plattformen
 
 Der Doppelklick-Starter und die portable Verpackung sind für Windows 10/11 x64 ausgelegt und werden unter Windows automatisch getestet. Der Python-Quellcode und die Tests laufen auch unter Linux; dort Python und die Abhängigkeiten aus `requirements.txt` in einer virtuellen Umgebung installieren und `python app.py` ausführen. Die hier durchgeführten Linux-GUI-Tests verwenden eine virtuelle, nicht sichtbare Qt-Oberfläche. Für macOS liegt bisher kein geprüfter Build vor. Es gibt keine Android-/iOS-Version. Die Windows-CMD- und PowerShell-Starter lassen sich auf diesen Systemen nicht verwenden.
+
+
+## Datenansicht beim Kontowechsel (ab 0.6.5)
+
+Die Zusammenfassung unter der Aktivitätentabelle beginnt mit der Gesamtzahl der lokalen Aktivitäten des geöffneten Bestands. Wenn Zeitraum, Suche oder Sportfilter die Tabelle einschränken, folgt die Zahl der angezeigten Aktivitäten. Auswahl und GPS-Strecken beziehen sich weiterhin auf die markierten Zeilen.
+
+Wählst du unter **Konten** oder im Konto-Auswahlfeld ein anderes Konto, wechselt auch der Datenpfad. Tabelle und Karte des vorherigen Kontos werden sofort geleert. Eine vorhandene passende Datenbank wird automatisch lokal geladen; Anmeldung oder Online-Abruf sind dafür nicht nötig. Ohne Datenbank steht der vorgesehene Dateipfad im Datenfeld, und die Ansicht bleibt leer. Ein selbst gewählter Datenbankpfad wird pro Konto gemerkt. Eine fremde oder nicht lesbare Datenbank wird mit einem Hinweis abgewiesen; alte Daten werden dabei nicht angezeigt. Bereits laufende Arbeit wird vor dem lokalen Laden abgeschlossen. Bei schnellem Wechsel wird ein verspätetes Ergebnis des vorherigen Kontos ignoriert.
+
+
+## Strava-Importfehler und Kontoordner (ab 0.6.5)
+
+Beim Anlegen eines Kontos wird dessen Speicherordner erstellt; eine Datenbank entsteht erst beim Speichern von Daten. Der Import kann benötigte Zielordner ebenfalls anlegen. Deutsche und englische CSV-Spalten werden erkannt; die Originalspalten bleiben gespeichert. Komma, Semikolon und Tab als Trennzeichen sowie explizite deutsche Datumsformate sind unterstützt.
+
+Statt eines allgemeinen ValueError zeigen erkennbare Importprobleme einen festen Fehlercode mit Erklärung, etwa `strava_csv_headers`, `strava_csv_missing`, `strava_zip_invalid` oder `strava_copy_limit`. Bei unbekannten Spalten genügt für die weitere Diagnose die erste Zeile der activities.csv, ohne Aktivitätszeilen oder das gesamte Paket. Bei einer Kopie über 8 GiB kann die Quelle am bisherigen Ort verwendet werden. Nicht jedes Sprach-/Exportformat ist damit automatisch unterstützt. Der konkrete Fehler eines Nutzerpakets lässt sich aus einem Screenshot mit ValueError allein nicht beweisen.

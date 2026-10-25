@@ -16,14 +16,41 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path,PurePosixPath
 from archive import Archive
+from import_errors import ImportProblem
 from datahub import activities_from_archive,parse_activity,MAX_FILE,MAX_ZIP_FILES
 
 MAX_TOTAL=8*1024**3
 MAX_CSV=32*1024**2
 MONTHS={m:i for i,m in enumerate(('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'),1)}
+GERMAN_MONTHS={name:i for i,names in enumerate((('jan','januar'),('feb','februar'),('mär','märz','maerz'),('apr','april'),('mai',),('jun','juni'),('jul','juli'),('aug','august'),('sep','sept','september'),('okt','oktober'),('nov','november'),('dez','dezember')),1) for name in names}
 SPORTS={'Ride':'cycling','Virtual Ride':'virtual_ride','EBikeRide':'e_bike_fitness','E-Bike Ride':'e_bike_fitness',
         'Run':'running','Virtual Run':'virtual_run','Walk':'walking','Hike':'hiking','Swim':'swimming',
         'Weight Training':'strength_training','WeightTraining':'strength_training','Workout':'other'}
+SPORTS.update({'Radfahrt':'cycling','Radfahren':'cycling','Virtuelle Radfahrt':'virtual_ride','E-Bike-Fahrt':'e_bike_fitness',
+               'Lauf':'running','Laufen':'running','Gehen':'walking','Spaziergang':'walking','Wanderung':'hiking','Wandern':'hiking',
+               'Schwimmen':'swimming','Gewichtstraining':'strength_training','Training':'other'})
+HEADER_ALIASES={
+ 'Aktivitäts-ID':'Activity ID','Aktivitätsdatum':'Activity Date','Name der Aktivität':'Activity Name','Aktivitätsname':'Activity Name',
+ 'Aktivitätsart':'Activity Type','Aktivitätstyp':'Activity Type','Dateiname':'Filename',
+ 'Verstrichene Zeit':'Elapsed Time','Bewegungszeit':'Moving Time','Zeit in Bewegung':'Moving Time',
+ 'Distanz':'Distance','Entfernung':'Distance','Höhenzunahme':'Elevation Gain','Höhengewinn':'Elevation Gain','Höhenverlust':'Elevation Loss',
+ 'Durchschnittliche Herzfrequenz':'Average Heart Rate','Ø Herzfrequenz':'Average Heart Rate','Max. Herzfrequenz':'Max Heart Rate',
+ 'Maximale Herzfrequenz':'Max Heart Rate','Durchschnittliche Leistung':'Average Watts','Kalorien':'Calories'}
+HEADER_ALIASES={k.casefold():v for k,v in HEADER_ALIASES.items()}
+
+
+def canonical_header(name):return HEADER_ALIASES.get(name.strip().casefold(),name.strip())
+
+
+def activity_csv(raw):
+    try:text=raw.decode('utf-8-sig')
+    except UnicodeDecodeError:raise ImportProblem('strava_csv_encoding') from None
+    try:delimiter=csv.Sniffer().sniff(text.splitlines()[0],delimiters=',;\t').delimiter
+    except (csv.Error,IndexError):delimiter=','
+    reader=csv.reader(io.StringIO(text,newline=''),delimiter=delimiter);headers=next(reader,[])
+    if len(headers)>512 or not {'Activity ID','Activity Date','Activity Name','Activity Type'}<=set(map(canonical_header,headers)):
+        raise ImportProblem('strava_csv_headers')
+    return reader,headers
 
 
 def member_path(name):
@@ -51,7 +78,7 @@ class FolderSource:
                 key=member_path(path.relative_to(self.root).as_posix())
                 if not path.is_file():continue
                 self.entries[key]=SimpleNamespace(filename=key,file_size=path.stat().st_size,is_dir=lambda:False)
-                if len(self.entries)>MAX_ZIP_FILES:raise ValueError('Folder member count limit')
+                if len(self.entries)>MAX_ZIP_FILES:raise ImportProblem('strava_member_limit')
     def infolist(self):return list(self.entries.values())
     def open(self,info):
         path=self.root/info.filename
@@ -64,9 +91,12 @@ class FolderSource:
 @contextmanager
 def open_source(source):
     source=Path(source)
-    if source.is_dir():yield FolderSource(source)
-    else:
-        with zipfile.ZipFile(source) as archive:yield archive
+    if not source.exists():raise ImportProblem('strava_source_missing')
+    try:
+        if source.is_dir():yield FolderSource(source)
+        else:
+            with zipfile.ZipFile(source) as archive:yield archive
+    except zipfile.BadZipFile:raise ImportProblem('strava_zip_invalid') from None
 
 
 def prepare_source(source,destination,copy_source=False,cancel=None):
@@ -75,15 +105,15 @@ def prepare_source(source,destination,copy_source=False,cancel=None):
     source=Path(source).resolve();cancel=cancel or threading.Event()
     with open_source(source) as archive:
         infos=archive.infolist()
-        if len(infos)>MAX_ZIP_FILES:raise ValueError('Source member count limit')
-        manifests=[i for i in infos if not i.is_dir() and PurePosixPath(i.filename).name=='activities.csv']
-        if len(manifests)!=1:raise ValueError('Expected one activities.csv')
+        if len(infos)>MAX_ZIP_FILES:raise ImportProblem('strava_member_limit')
+        manifests=[i for i in infos if not i.is_dir() and PurePosixPath(i.filename).name.casefold()=='activities.csv']
+        if len(manifests)!=1:raise ImportProblem('strava_csv_missing')
+        if manifests[0].file_size>MAX_CSV:raise ImportProblem('strava_csv_size')
         with archive.open(manifests[0]) as stream:
-            headers=next(csv.reader(io.StringIO(bounded_read(stream,MAX_CSV).decode('utf-8-sig'))),[])
-        if not {'Activity ID','Activity Date','Activity Name','Activity Type'}<=set(headers):raise ValueError('Unsupported activity CSV headers')
+            activity_csv(bounded_read(stream,MAX_CSV))
     if not copy_source:return source
     destination=Path(destination).resolve()
-    if source.is_dir() and destination.is_relative_to(source):raise ValueError('Copy destination is inside source folder')
+    if source.is_dir() and destination.is_relative_to(source):raise ImportProblem('strava_copy_nested')
     destination.mkdir(parents=True,exist_ok=True)
     target=destination/('strava-'+uuid.uuid4().hex)
     staging=destination/('.copy-'+uuid.uuid4().hex)
@@ -100,7 +130,7 @@ def prepare_source(source,destination,copy_source=False,cancel=None):
                         chunk=src.read(1024**2)
                         if not chunk:break
                         total+=len(chunk)
-                        if total>MAX_TOTAL:raise ValueError('Source copy size limit')
+                        if total>MAX_TOTAL:raise ImportProblem('strava_copy_limit')
                         dst.write(chunk)
             result=target
         else:
@@ -110,7 +140,7 @@ def prepare_source(source,destination,copy_source=False,cancel=None):
                     chunk=src.read(1024**2)
                     if not chunk:break
                     total+=len(chunk)
-                    if total>MAX_TOTAL:raise ValueError('Source copy size limit')
+                    if total>MAX_TOTAL:raise ImportProblem('strava_copy_limit')
                     dst.write(chunk)
             result=target/source.name
         staging.rename(target)
@@ -124,8 +154,14 @@ def timestamp(value):
     value=value.strip()
     try:return datetime.fromisoformat(value.replace('Z','+00:00')).isoformat()
     except ValueError:pass
+    for fmt in ('%d.%m.%Y, %H:%M:%S','%d.%m.%Y %H:%M:%S'):
+        try:return datetime.strptime(value,fmt).isoformat()
+        except ValueError:pass
+    german=re.fullmatch(r'(\d{1,2})\.?\s+([^\W\d_]+)\.?\s+(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})',value)
+    if german and german[2].casefold() in GERMAN_MONTHS:
+        return datetime(int(german[3]),GERMAN_MONTHS[german[2].casefold()],int(german[1]),int(german[4]),int(german[5]),int(german[6])).isoformat()
     m=re.fullmatch(r'([A-Za-z]{3}) (\d{1,2}), (\d{4}), (\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)?',value)
-    if not m or m[1] not in MONTHS:raise ValueError('Unsupported activity date')
+    if not m or m[1] not in MONTHS:raise ImportProblem('strava_date')
     hour=int(m[4]);suffix=m[7]
     if suffix:hour=hour%12+(12 if suffix=='PM' else 0)
     return datetime(int(m[3]),MONTHS[m[1]],int(m[2]),hour,int(m[5]),int(m[6])).isoformat()
@@ -133,13 +169,13 @@ def timestamp(value):
 
 def numeric(value):
     try:
-        n=float(value.strip())
+        n=float(value.strip().replace(',','.'))
         return n if math.isfinite(n) and n>=0 else None
     except (ValueError,AttributeError):return None
 
 
 def row_summary(headers,row):
-    def values(name):return [row[i].strip() for i,h in enumerate(headers) if h==name and i<len(row)]
+    def values(name):return [row[i].strip() for i,h in enumerate(headers) if canonical_header(h)==name and i<len(row)]
     def first(name):return next((v for v in values(name) if v),'')
     ident=first('Activity ID')
     if not ident.isdigit() or len(ident)>32 or int(ident)<=0:raise ValueError('Invalid Strava activity ID')
@@ -177,22 +213,19 @@ def import_strava_archive(path,source,account,cancel=None,event=lambda *a:None):
     with open_source(source) as z:
         entries={}
         infos=z.infolist()
-        if len(infos)>MAX_ZIP_FILES:raise ValueError('Archive member count limit')
+        if len(infos)>MAX_ZIP_FILES:raise ImportProblem('strava_member_limit')
         for info in infos:
             if info.is_dir():continue
             try:key=member_path(info.filename)
             except ValueError:continue  # Never extract paths or follow a reference outside this archive.
             if key in entries:raise ValueError('Ambiguous archive member names')
             entries[key]=info
-        manifests=[k for k in entries if PurePosixPath(k).name=='activities.csv']
-        if len(manifests)!=1:raise ValueError('Expected one activities.csv')
+        manifests=[k for k in entries if PurePosixPath(k).name.casefold()=='activities.csv']
+        if len(manifests)!=1:raise ImportProblem('strava_csv_missing')
         manifest=manifests[0]
-        if entries[manifest].file_size>MAX_CSV:raise ValueError('Activity list size limit')
+        if entries[manifest].file_size>MAX_CSV:raise ImportProblem('strava_csv_size')
         with z.open(entries[manifest]) as f:raw=bounded_read(f,MAX_CSV)
-        reader=csv.reader(io.StringIO(raw.decode('utf-8-sig'),newline=''))
-        headers=next(reader,[])
-        if len(headers)>512:raise ValueError('Too many CSV columns')
-        if not {'Activity ID','Activity Date','Activity Name','Activity Type'}<=set(headers):raise ValueError('Unsupported activity CSV headers')
+        reader,headers=activity_csv(raw)
         prefix=PurePosixPath(manifest).parent
         budget=len(raw);seen=set()
         with Archive(path,account) as db:
@@ -256,7 +289,10 @@ def import_strava_archive(path,source,account,cancel=None,event=lambda *a:None):
                     import sqlite3
                     if isinstance(exc,sqlite3.Error):raise
                     stats['failed']+=1
-                    if len(stats['errors'])<100:stats['errors'].append({'row':row_number,'error_type':type(exc).__name__,'stage':'row'})
+                    if len(stats['errors'])<100:
+                        detail={'row':row_number,'error_type':type(exc).__name__,'stage':'row'}
+                        if isinstance(exc,ImportProblem):detail['import_code']=exc.import_code
+                        stats['errors'].append(detail)
                 event('import',stats['imported'],stats['duplicates'],stats['failed'])
                 if budget>MAX_TOTAL:stats['limited']=True;break
             stats['cancelled']=cancel.is_set()

@@ -202,11 +202,13 @@ class StudioMixin:
         if 0<=index<len(self.workspace.accounts):self.refresh_accounts(self.workspace.accounts[index]['id'])
     def activate_account(self,account):
         previous=self.active_account
+        if previous and (not account or previous['id']!=account['id']) and self.data_page.data.get('account')==previous['id']:
+            previous['archive_path']=self.data_page.source.text();self.save_workspace()
         if previous and previous['provider']=='garmin' and self.api and self.identity==previous['id']:self.clients[previous['id']]=self.api
         self.active_account=account
         changed=not previous or not account or previous['id']!=account['id']
         if not account:
-            self.api=None;self.identity=None;self.account_hint.setText(self.tr('Noch kein Konto hinzugefügt.','No account added yet.'));return
+            self.api=None;self.identity=None;self.data_page.select_account_archive(None,'');self.account_hint.setText(self.tr('Noch kein Konto hinzugefügt.','No account added yet.'));return
         if previous and previous['id']!=account['id']:self.invalidate_inventory()
         if not changed:
             self.update_connection();return
@@ -220,6 +222,9 @@ class StudioMixin:
             self.archive_path.setText(account.get('archive_path',''));self.ensure_archive_path()
             self.apply_account_defaults(account)
         else:self.api=None;self.identity=None
+        from engine import account_root
+        path=account.get('archive_path') or str(account_root(account['output'],account['id'])/(account['provider']+'-offline.sqlite'))
+        self.data_page.select_account_archive(account['id'],path)
         self.update_connection()
         text=account['provider'].capitalize()+' · '+account['email']+'\n'+account['output']
         if account['provider']!='garmin':text+='\n'+self.provider_note(account['provider'])
@@ -832,6 +837,10 @@ class StudioMixin:
         self.last_output=str(Path(result['path']).parent);self.open_button.setEnabled(True)
         for error in report.get('errors',[]):
             self.log.appendPlainText(self.tr('Strava-Importfehler: Zeile ','Strava import error: row ')+str(error.get('row','?'))+' · '+error.get('stage','')+' · '+error.get('error_type','Error'))
+        codes={e.get('import_code') for e in report.get('errors',[]) if e.get('import_code')}
+        for code in sorted(codes):
+            detail=self.error_description({'import_code':code})
+            self.log.appendPlainText(detail);text+='\n'+detail
         if report.get('report_write_error'):text+='\n'+self.tr('Importbericht konnte nicht als Datei gespeichert werden.','Could not save the import report file.')
         self.log.appendPlainText(text);self.message(text,text)
 

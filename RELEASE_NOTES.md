@@ -1,4 +1,6 @@
-# TTN Activity Export · 0.6.4-preview · Testversion
+# TTN Activity Export · 0.6.5-preview · Testversion
+
+Neu in 0.6.5: Kontoordner werden beim Anlegen erstellt. Strava-Import unterstützt deutsche und englische Spalten und meldet erkennbare Importprobleme konkret. Gesamtzahl der lokalen Aktivitäten vor der Auswahlstatistik; zusätzliche Anzeige der gefilterten Anzahl. Ein Kontowechsel wechselt auch den Datenpfad, leert alte Tabelle/Karte und lädt eine passende vorhandene Datenbank automatisch lokal. Ohne Datenbank bleibt die Ansicht leer und zeigt den vorgesehenen Pfad. Benutzerdefinierte Datenbankpfade werden je Konto gemerkt.
 
 Neu in 0.6.4: automatische Garmin-Cache-/Datenbanksuche vor der manuellen Ordnerauswahl, nur noch ein Activity-Export-Starter und neuer Standardordner `Downloads\TTN_Activity_Export` mit Anbieter-/Kontounterordnern. Vorhandene Speicherorte werden nicht verschoben und bleiben auffindbar.
 

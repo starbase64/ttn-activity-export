@@ -39,6 +39,15 @@ def sample():
         data['tracks'][key]=[(51+i*.01,8),(51.05+i*.01,8.05)] if i!=1 else []
     return data
 
+
+def test_selection_summary_starts_with_total_and_distinguishes_filter():
+    window=MainWindow(demo=True);view=window.data_page;view.loaded(sample())
+    assert view.selection_note.text().startswith('3 Aktivitäten insgesamt · 0 ausgewählt')
+    view.search.setText('Ride 1')
+    assert view.selection_note.text().startswith('3 Aktivitäten insgesamt · 1 angezeigt · 0 ausgewählt')
+    window.toggle_language()
+    assert view.selection_note.text().startswith('3 activities total · 1 shown · 0 selected')
+
 def test_real_ctrl_shift_click_selection_map_sync_filters_and_language(monkeypatch):
     window=MainWindow(demo=True);window.resize(1450,1000);window.tabs.setCurrentWidget(window.data_page);window.show();view=window.data_page
     calls=[];monkeypatch.setattr(view.map.network,'get',lambda *a:calls.append(a))

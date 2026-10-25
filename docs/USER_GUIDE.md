@@ -1,6 +1,6 @@
 # TTN Activity Export — user guide
 
-For source version **0.6.4-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For source version **0.6.5-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
 This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava is a local-only import source; Komoot has an experimental online connector. Older application downloads may not include every feature described here.
 
@@ -245,7 +245,7 @@ The app does not sign in to Strava, request API keys, track API budgets or autom
 1. Download your account ZIP yourself on Strava's website: Settings → My Account → Download your account. Wait for the email link. The app does not request the package for you.
 2. Under **Accounts → Add account → Strava**, enter a local label/email and destination. This label separates local data; it is not a Strava login.
 3. Choose **Import / settings → Import Strava data package …**, or use the corresponding button under Download with Strava selected.
-4. Select a ZIP file or an already extracted folder. The source is detected and validated during import. Choose whether to keep it in place or retain a complete copy under `sources` in the account folder. Both modes create the local activity database including imported recordings. A complete source copy needs extra disk space and is limited to 8 GiB. Partial copies are removed after cancellation/failure; originals stay unchanged. Symbolic links are not followed. Supported: `activities.csv` using the usual English export headers and its referenced FIT, GPX or TCX recordings, including gzip wrappers. Import makes no network requests.
+4. Select a ZIP file or an already extracted folder. The source is detected and validated during import. Choose whether to keep it in place or retain a complete copy under `sources` in the account folder. Both modes create the local activity database including imported recordings. A complete source copy needs extra disk space and is limited to 8 GiB. Partial copies are removed after cancellation/failure; originals stay unchanged. Symbolic links are not followed. Supported: `activities.csv` using German or English export headers and its referenced FIT, GPX or TCX recordings, including gzip wrappers. Import makes no network requests.
 5. **Data** opens after import. Filter sports/dates/text, select rows using Ctrl/Shift and use **Selection → Export selection** for CSV, Excel or JSON. Maps require supported GPS recordings.
 
 A separate `strava-offline.sqlite` is stored in the local Strava account directory. **Open local Strava data** reopens it later. Repeated package imports update known Strava IDs instead of adding duplicate rows. Activities without referenced files remain in the table. Missing/corrupt recordings are reported; no GPS route is invented.
@@ -277,3 +277,17 @@ Sources: [Komoot API availability](https://support.komoot.com/hc/en-us/articles/
 ## Platform status
 
 The self-setup CMD/PowerShell starter and portable build target Windows 10/11 x64 and have native Windows checks. Source and tests also run on Linux; install Python/dependencies from `requirements.txt` in a virtual environment and run `python app.py`. Linux GUI checks here use Qt offscreen mode. No macOS build has been validated; no Android/iOS app exists. Windows launchers are not usable on other platforms.
+
+
+## Switching account data (since 0.6.5)
+
+The summary below the activity table starts with the total number of local activities in the open archive. When filters narrow the list, it also shows the visible count. Selection and GPS counts still refer to selected rows.
+
+Selecting another account changes the Data source, immediately clears the previous table/map and locally loads an existing matching database without sign-in or online requests. If no database exists, the intended file path remains visible with an empty state; no database is created. Custom archive locations are remembered per account. Wrong-account or unreadable archives show an inline warning. Existing work finishes before a deferred local read; stale results from earlier account selections are ignored.
+
+
+## Strava import diagnostics and account folders (since 0.6.5)
+
+Registering an account creates its storage directory; the database is created only when data is saved. Imports also create missing destinations. German/English CSV headers, comma/semicolon/tab delimiters, decimal commas and explicit German date formats are supported; original columns stay preserved.
+
+Recognized local failures show a translated explanation and allowlisted code such as strava_csv_headers, strava_csv_missing, strava_zip_invalid or strava_copy_limit. Unrecognized layouts can be diagnosed from the first activities.csv line without activity rows or the full package. Use the source in place if a complete source copy exceeds 8 GiB. Other languages/layouts are not automatically supported; a generic ValueError screenshot alone cannot prove the cause of a particular user package.
