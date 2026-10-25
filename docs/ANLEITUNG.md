@@ -6,7 +6,7 @@ Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connec
 
 ## Einstieg in die Testversion 0.6
 
-Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfungen sind oben bei der Sprache erreichbar; automatische Installation und Delta-Updates folgen separat.
+Diese Anleitung beschreibt Version 0.6.8. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Update-Prüfungen sind oben bei der Sprache erreichbar; automatische Installation und Delta-Updates folgen separat.
 
 Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
 

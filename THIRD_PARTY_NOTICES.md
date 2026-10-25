@@ -17,3 +17,7 @@ Main dependencies:
 - PyInstaller: GPL with an exception allowing distribution of bundled applications — https://pyinstaller.org/en/stable/license.html
 
 The portable application uses the one-directory build to keep Qt shared libraries replaceable. Preserve library files and notices when distributing. Corresponding Qt/PySide sources and license information are available from https://download.qt.io/official_releases/QtForPython/ and https://download.qt.io/official_releases/qt/ . Check LGPL obligations for your exact distribution, including the ability to replace libraries for debugging modifications. No restriction in this project's MIT license removes rights granted by dependencies' licenses.
+
+## Research acknowledgement
+
+[GarminDB](https://github.com/tcgoetz/GarminDB) informed research into reusable offline archives and daily wellness FIT downloads. GarminDB code is not bundled and GarminDB is not a runtime dependency. The Garmin Connect client used by this app is python-garminconnect, credited above.

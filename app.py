@@ -38,7 +38,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.6.8-preview'
+VERSION = '0.6.8'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -156,7 +156,7 @@ class MainWindow(QMainWindow):
         bottom.addWidget(self.download_only_button); bottom.addWidget(self.export_preview_button); bottom.addWidget(self.start_button); bottom.addWidget(self.stop_button); bottom.addStretch(); bottom.addWidget(self.open_button)
         outer.addLayout(bottom)
         self.progress = QProgressBar(); self.progress.setValue(0); outer.addWidget(self.progress)
-        self.status = self.label('Bereit · Vorschauversion', 'Ready · Preview version'); outer.addWidget(self.status)
+        self.status = self.label('Bereit', 'Ready'); outer.addWidget(self.status)
         self.eta_label=QLabel();self.eta_label.setWordWrap(True);self.eta_label.setObjectName('etaText');outer.addWidget(self.eta_label)
         self.eta_snapshot=None;self.eta_received=0.;self.eta_active=False;self.retry_until=0.;self.request_count=0
         self.local_transfer=False

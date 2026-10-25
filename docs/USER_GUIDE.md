@@ -6,7 +6,7 @@ This local desktop app downloads supported Garmin Connect data, keeps a reusable
 
 ## Getting started with preview 0.6
 
-This guide covers the new desktop. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
+This guide covers version 0.6.8. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
 
 The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
 

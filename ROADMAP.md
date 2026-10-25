@@ -1,8 +1,8 @@
 # Roadmap
 
-Planungsstand zur Testversion **0.6.8-preview**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
+Planungsstand zur Version **0.6.8**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
 
-## In der Testversion 0.6 umgesetzt
+## In Version 0.6 umgesetzt
 
 Vier Hauptreiter und Optionen-Fenster mit Übernehmen/Abbrechen, eigenes Logfenster, Kontoeinträge mit getrennten Zielordnern und ausdrücklich gespeicherten Vorgaben, begrenzte Garmin-Bestandsliste mit Teilstatus/Weiterladen und ID-Auswahl sowie gespeicherte/sortierbare Aufträge mit manueller Startprüfung. Tooltips sind global abschaltbar. Vor dem Start gibt es eine lokale Planung offener Grundabfragen; eine verlässliche Gesamtdauer bleibt ohne Messgrundlage unbekannt.
 

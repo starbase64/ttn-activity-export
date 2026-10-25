@@ -1,3 +1,10 @@
+# 0.6.8 · public release
+
+- Publish the user-tested 0.6.8 desktop as a stable release after successful Garmin/Komoot sign-in, retrieval and Strava account archive import testing.
+- Include the compact bilingual desktop, account-specific data stores, offline export, local Strava ZIP/folder import, experimental Komoot connector with protected Windows sessions, first-activity date reset, map browsing and GitHub release checks.
+- Provide a Windows x64 starter ZIP and SHA-256 checksum. A publication workflow only consumes the successful same-repository main-push Windows artifact, verifies its version/checksum and publishes the release after uploading the verified assets.
+- Update installation instructions, release notes, acknowledgements and guides for the public release. Application data and the existing storage profile remain compatible.
+
 # 0.6.8-preview · manual and optional startup update checks
 
 - Add Check updates beside the language/theme controls and a persistent opt-in startup checkbox. Check published public GitHub releases in an independent, cancellable Qt network operation without blocking provider jobs or session restoration.
