@@ -1,3 +1,9 @@
+# 0.6.4-preview · cache discovery and consistent names
+
+- Search known account destinations, prior standard folders and current archive paths for matching Garmin SQLite archives and legacy cache-v1 response folders. Search in a bounded background task without network requests; open/import a single match directly, offer a choice for multiple matches, and show the manual folder picker only when no matching data was found. Never merge another account’s data or overwrite an already stored response when importing an older cache.
+- Remove the obsolete compatibility CMD launcher from source and Windows packages. Use TTN_Activity_Export as the new Downloads directory, with provider/account subfolders. Retain existing saved paths and legacy report readers to preserve previous data and sessions.
+- Document actual platform status: Windows x64 starter tested, source/tests run on Linux, no validated macOS build and no Android/iOS application.
+
 # 0.6.3-preview · OSM defaults, inventory layout and experimental Komoot
 
 - Enable OSM basemaps by default in Data; retain the offline toggle. Draw the empty GPS-selection hint as black text on an opaque white panel over map imagery. Demo maps do not send tile requests.
@@ -31,7 +37,7 @@
 
 # 0.5.8-preview · TTN Activity Export
 
-- Rename the application from TTN Garmin Export to **TTN Activity Export**. German subtitle: “Deine Aktivitäten. Deine Daten. Alles lokal.” English: “Your activities. Your data. All local.”
+- Rename the application to **TTN Activity Export**. German subtitle: “Deine Aktivitäten. Deine Daten. Alles lokal.” English: “Your activities. Your data. All local.”
 - Update window/dialog titles, session log branding, map export attribution, help, documentation, Windows launcher, package names and build workflows. Retain the previous starter filename as a forwarding launcher. Include GitHub-readable manuals in the starter.
 - Preserve the internal GarminExportStudio profile and current output directory so existing sessions, preferences, remembered dates, request pauses and account archives stay accessible. New export reports use the new identity; both old and new reports remain accepted for verified reuse and managed-file cleanup.
 - This is a rename of the existing Garmin app, not the planned multi-provider release. Strava and Komoot remain planned. Historical changelog entries retain their original names.
@@ -99,7 +105,7 @@
 
 # 0.5.0-preview · 2026-10-23
 
-- Renamed the application to TTN Garmin Export to distinguish it from existing garmin-data-export projects. Retained internal application profile name for existing sessions/logs.
+- Introduced a distinct public application name for the original Garmin-only exporter. Retained internal application profile name for existing sessions/logs.
 - Small Windows x64 starter: private Python runtime, pinned/checksummed PyPI wheels, missing/corrupt-package repair, local download cache, progress and setup.log. No admin or preinstalled Python required.
 - Reproducible starter builder, locked full transitive Windows dependency set and Windows CI for first setup, offline restart and cached missing-file repair.
 - Existing 0.4 export behavior retained, including full-detail archive sync and optional daily statistics. No claim of faster complete archive downloads or live Garmin verification.

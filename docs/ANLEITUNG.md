@@ -1,6 +1,6 @@
 # TTN Activity Export – Anleitung
 
-Für den Quellstand **0.6.3-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
+Für den Quellstand **0.6.4-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
 
 Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava ist ausschließlich eine lokale Importquelle; Komoot hat eine experimentelle Online-Anbindung. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
 
@@ -37,7 +37,7 @@ Mehrere Exporte desselben Kontos können im gemeinsamen `exports/current` späte
 
 ### Konten, Ordner und Bedienhilfen
 
-Neue Konten verwenden `Downloads\TTN Activity Export\Garmin`, `Komoot` oder `Strava`, darunter getrennte Kontobereiche. Ein vorhandenes gemerktes Garmin-Konto übernimmt den bisherigen Ausgabeordner; alte Daten werden nicht verschoben. Wähle beim Fortsetzen deine bisherige SQLite-Datei über Optionen → Offline-Bestand. Mehrere Garmin-Konten können in einer Sitzung nacheinander angemeldet werden. Für die automatische Anmeldung beim Programmstart bleibt zunächst das zuletzt ausdrücklich gemerkte Garmin-Konto maßgeblich. Weitere Konten bei Bedarf über deren Anmeldung verbinden.
+Neue Konten verwenden `Downloads\TTN_Activity_Export\Garmin`, `Komoot` oder `Strava`, darunter getrennte Kontobereiche. Ein vorhandenes gemerktes Garmin-Konto übernimmt den bisherigen Ausgabeordner; alte Daten werden nicht verschoben. Wähle beim Fortsetzen deine bisherige SQLite-Datei über Optionen → Offline-Bestand. Mehrere Garmin-Konten können in einer Sitzung nacheinander angemeldet werden. Für die automatische Anmeldung beim Programmstart bleibt zunächst das zuletzt ausdrücklich gemerkte Garmin-Konto maßgeblich. Weitere Konten bei Bedarf über deren Anmeldung verbinden.
 
 Unter Optionen lassen sich **Hilfetexte beim Darüberfahren** global an-/ausschalten. Wichtige Status- und Fehlermeldungen bleiben sichtbar. **Protokoll …** öffnet das Protokollfenster mit **Log öffnen** und **Log der heutigen Sitzung exportieren**. Sprache und Farbschema bleiben oben erreichbar. Die neue Oberfläche kann pro Benutzerprofil nur einmal gleichzeitig laufen; schließe vor dem Test auch die alte App.
 
@@ -91,7 +91,7 @@ Beispiel: Du möchtest alle Fahrradtouren eines Monats in einer CSV-Datei mit Da
 1. Öffne **Export** und klicke **Nur Aktivitätsliste (CSV)**. Damit wird die Aktivitätenübersicht ausgewählt und zusätzliche Aktivitätsabfragen werden abgewählt.
 2. Wähle den ersten und letzten Tag. **Bis einschließlich** bedeutet, dass auch dieser Tag berücksichtigt wird. Mehrere Jahre sind möglich; es gibt kein allgemeines 365-Tage-Limit für den Gesamtzeitraum.
 3. Wähle unter **Optionen → Sportart** den gewünschten Typ. Für alle Sportarten lass den Filter leer beziehungsweise wähle alle.
-4. Prüfe auf Export den Zielordner. Standard ist `Downloads\TTN Activity Export\Garmin`.
+4. Prüfe auf Export den Zielordner. Standard ist `Downloads\TTN_Activity_Export\Garmin`.
 5. Lass **Aktivitäten: eine Tabellenzeile pro Aktivität** eingeschaltet. Für eine einzige zusammenhängende Datei lass die Trennung nach Jahr ausgeschaltet.
 6. Klicke bei Bedarf **Vorschau anzeigen**. Die Vorschau lädt nur eine begrenzte Stichprobe; sie prüft nicht den gesamten Zeitraum.
 7. Wähle **Download und Dateien exportieren**, füge den Auftrag hinzu und starte ihn nach der Prüfung. Anschließend **Ergebnisordner öffnen**.
@@ -201,7 +201,7 @@ Im Reiter Daten findest du unter **Werkzeuge** Dateiimport, Datenbanksicherung, 
 
 Mit **Sicherung erstellen** erzeugst du eine Datenbanksicherung. Diese kannst du später über **Datei öffnen** auswählen. Schließe laufende Schreibvorgänge ab, bevor du Dateien manuell kopierst. Zum Umzug richte die App auf dem neuen Computer ein, übertrage die Sicherung und öffne sie dort. Eine Garmin-Anmeldung ist für reine Offline-Auswertungen nicht nötig.
 
-**Exportcache übernehmen** hilft, vorhandene ältere Antwort-Caches in den lokalen Bestand zu übernehmen. Eine beliebige bearbeitete CSV- oder Excel-Datei ist dagegen kein vollständiges Datenbankbackup und lässt sich nicht allgemein verlustfrei zurückimportieren. Originaldateien und Datenbank sichern, wenn du später weitere Auswertungen erstellen möchtest. Anmeldeschlüssel musst du dafür nicht mitnehmen.
+**Exportcache übernehmen** sucht zuerst automatisch nach Daten des ausgewählten Garmin-Kontos: im aktuellen Konto-/Ausgabeordner, in eingestellten Datenbankpfaden, früheren Auftragszielen und den bekannten Standardordnern `Downloads\TTN_Activity_Export\Garmin`, dem früheren Ordner mit Leerzeichen und `Downloads\Garmin_Export`. Ein einzelner passender SQLite-Bestand wird direkt geöffnet, ein älterer `cache-v1`-Ordner in die Kontodatenbank übernommen. Bei mehreren Treffern wählst du einen Pfad aus; nur ohne Treffer öffnet sich die manuelle Ordnersuche. Die Suche erfolgt lokal und begrenzt, nicht über alle Laufwerke. Andere Konten werden nicht vermischt. Bereits gespeicherte Antworten bleiben beim Übernehmen älterer Cache-Dateien erhalten. Benutzerdefinierte oder externe Speicherorte außerhalb der bekannten Pfade bei Bedarf manuell wählen. Eine beliebige bearbeitete CSV- oder Excel-Datei ist dagegen kein vollständiges Datenbankbackup und lässt sich nicht allgemein verlustfrei zurückimportieren. Originaldateien und Datenbank sichern, wenn du später weitere Auswertungen erstellen möchtest. Anmeldeschlüssel musst du dafür nicht mitnehmen.
 
 ## Fortschritt, Protokolle und Fehlerhilfe
 
@@ -270,3 +270,8 @@ Grenzen dieses ersten Importers: eine passende `activities.csv`, höchstens 30.0
 Der Anschluss nutzt eine inoffizielle, nicht öffentlich unterstützte Schnittstelle. Er ist mit synthetischen Antworten geprüft, noch nicht mit deinem Konto. Bei einem geänderten Anmeldeweg, CAPTCHA oder einer verweigerten Anfrage stoppt die App; Schutzmaßnahmen und Regionenfreischaltungen werden nicht umgangen. GPX wird ausschließlich über den Export-Endpunkt geladen, keine Route aus anderen Website-Inhalten nachgebaut. Bei HTTP 429 wird die Pause pro Komoot-Konto gespeichert und gilt auch nach einem Neustart. Kein automatischer Wiederanlauf. Verfügbare Touren werden dabei weder hochgeladen, verändert noch gelöscht.
 
 Quellen: [Komoot zur API](https://support.komoot.com/hc/en-us/articles/10331570510618-komoot-API), [GPX-Export und nötige Regionenfreischaltung](https://support.komoot.com/hc/en-us/articles/10115477099674-Export-and-import-Routes-and-Activities). Ein funktionierender GPX-Export auf der Website bedeutet nicht automatisch, dass der experimentelle Login der App mit jedem Konto funktioniert.
+
+
+## Unterstützte Plattformen
+
+Der Doppelklick-Starter und die portable Verpackung sind für Windows 10/11 x64 ausgelegt und werden unter Windows automatisch getestet. Der Python-Quellcode und die Tests laufen auch unter Linux; dort Python und die Abhängigkeiten aus `requirements.txt` in einer virtuellen Umgebung installieren und `python app.py` ausführen. Die hier durchgeführten Linux-GUI-Tests verwenden eine virtuelle, nicht sichtbare Qt-Oberfläche. Für macOS liegt bisher kein geprüfter Build vor. Es gibt keine Android-/iOS-Version. Die Windows-CMD- und PowerShell-Starter lassen sich auf diesen Systemen nicht verwenden.

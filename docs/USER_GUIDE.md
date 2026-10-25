@@ -1,6 +1,6 @@
 # TTN Activity Export — user guide
 
-For source version **0.6.3-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For source version **0.6.4-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
 This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava is a local-only import source; Komoot has an experimental online connector. Older application downloads may not include every feature described here.
 
@@ -37,7 +37,7 @@ Multiple exports for one account can replace earlier results in the shared `expo
 
 ### Accounts, folders and assistance
 
-New accounts use `Downloads/TTN Activity Export/Garmin`, `Komoot` or `Strava`, with separate account directories underneath. A previously remembered Garmin account retains the old output folder; no downloaded data is moved. For resumption select your existing SQLite file under Options → Offline archive. Multiple Garmin accounts can be signed in one after another during a session. Startup auto sign-in still uses the most recently explicitly remembered Garmin account; connect other accounts through their sign-in settings as needed.
+New accounts use `Downloads/TTN_Activity_Export/Garmin`, `Komoot` or `Strava`, with separate account directories underneath. A previously remembered Garmin account retains the old output folder; no downloaded data is moved. For resumption select your existing SQLite file under Options → Offline archive. Multiple Garmin accounts can be signed in one after another during a session. Startup auto sign-in still uses the most recently explicitly remembered Garmin account; connect other accounts through their sign-in settings as needed.
 
 **Show hover tooltips** in Options is a persistent global toggle. Essential status/errors stay visible. **Log …** opens the log window with Open log and Export current session log. Language and theme remain accessible at the top. Only one new-desktop instance may use a profile at a time; close the older app before testing too.
 
@@ -91,7 +91,7 @@ Example: export one month's cycling activities as a CSV with date, name, distanc
 1. On **Export**, click **Activity list only (CSV)**. This selects the activity summary and clears additional activity requests.
 2. Choose the first and last date. **Through** includes the final day. Multiple years are supported; the overall date range is not limited to 365 days.
 3. Under **Options → Sport type**, select cycling or the relevant Garmin type. Leave the filter empty/select all for every sport.
-4. Check the output folder on Export. The current default is `Downloads\TTN Activity Export\Garmin`.
+4. Check the output folder on Export. The current default is `Downloads\TTN_Activity_Export\Garmin`.
 5. Keep **Activities: one table row per activity** enabled. Leave year splitting off if you want a single combined list.
 6. Optionally click **Show preview** for a bounded sample. This does not inspect the whole history.
 7. Choose **Download and export files**, add the job and start it after review, then **Open results folder**.
@@ -268,3 +268,12 @@ Initial limits: one matching activities.csv, up to 30,000 ZIP/folder entries, 32
 This is an unofficial, publicly unsupported connector tested with synthetic responses, not a live user account. Changed login flows, challenges and rejected requests stop the operation. No CAPTCHA or region-unlock bypass is attempted. Routes come only from the GPX export endpoint; the app does not reconstruct routes from other website content. HTTP 429 pauses are stored per Komoot account across restarts. No automatic resumption. The connector never uploads, edits or deletes tours.
 
 Sources: [Komoot API availability](https://support.komoot.com/hc/en-us/articles/10331570510618-komoot-API), [GPX export and region requirements](https://support.komoot.com/hc/en-us/articles/10115477099674-Export-and-import-Routes-and-Activities). Successful website export does not guarantee that this experimental sign-in works with every account.
+
+
+## Automatic Garmin cache discovery (0.6.4)
+
+**Import export cache** first searches the selected Garmin account’s known destinations, configured archives, previous job outputs and current/older standard directories. A single matching SQLite archive is opened directly; a legacy `cache-v1` folder is imported into the local account database. Multiple matches offer a choice; the manual folder picker opens only when no matching data was found. The search is bounded and local, does not scan all drives and never mixes accounts. Importing a legacy cache preserves responses already present in the database. Saved custom paths and prior downloads remain unchanged. The new standard root is `Downloads/TTN_Activity_Export`, followed by provider and account folders.
+
+## Platform status
+
+The self-setup CMD/PowerShell starter and portable build target Windows 10/11 x64 and have native Windows checks. Source and tests also run on Linux; install Python/dependencies from `requirements.txt` in a virtual environment and run `python app.py`. Linux GUI checks here use Qt offscreen mode. No macOS build has been validated; no Android/iOS app exists. Windows launchers are not usable on other platforms.

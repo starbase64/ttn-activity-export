@@ -400,11 +400,11 @@ def import_cache(path,cache_dir,account,cancel=None):
     """Import legacy exporter cache without re-downloading or treating CSV as raw data."""
     cache=Path(cache_dir).resolve()
     if cache.name!='cache-v1' or cache.parent.name!='account-'+account:raise OfflineArchiveError('Select the matching account cache-v1 folder')
-    count=0;errors=0
+    count=0;errors=0;skipped=0
     with Archive(path,account) as db:
         for file in cache.rglob('*'):
             if cancel and cancel.is_set():break
-            if not file.is_file():continue
+            if file.is_symlink() or not file.is_file():continue
             rel=file.relative_to(cache)
             if len(rel.parts)!=3:continue
             dataset=rel.parts[0];day='snapshot' if file.name.startswith('snapshot-') else file.name[:10]
@@ -412,6 +412,7 @@ def import_cache(path,cache_dir,account,cancel=None):
                 if file.suffix=='.json':
                     envelope=json.loads(file.read_text(encoding='utf-8'))
                     if 'request' not in envelope or 'data' not in envelope:continue
+                    if db.get(dataset,day,envelope['request']) is not None:skipped+=1;continue
                     db.put(dataset,day,envelope['request'],envelope['data'],False,envelope.get('fetched_utc'));count+=1
                 elif dataset.startswith('activity-') and file.suffix in ('.gpx','.tcx','.zip','.kml','.csv'):
                     from garminconnect import Garmin
@@ -419,9 +420,12 @@ def import_cache(path,cache_dir,account,cancel=None):
                     if not ident.isdigit():continue
                     fmt=fmt.upper()
                     req=request_spec(dataset,'download_activity',(int(ident),),{'dl_fmt':Garmin.ActivityDownloadFormat[fmt]},fmt)
+                    if db.get(dataset,day,req) is not None:skipped+=1;continue
                     db.put(dataset,day,req,file.read_bytes(),True);count+=1
             except Exception:errors+=1
-    return {'responses':count,'errors':errors}
+    result={'responses':count,'errors':errors}
+    if skipped:result['skipped']=skipped
+    return result
 
 def similar_routes(activities,tracks,cancel=None):
     """Approximate footprint matching on a 250m equatorial grid, no physiology inference."""

@@ -10,6 +10,7 @@ from PySide6.QtCore import QEvent,QDate,Qt,QStandardPaths
 from PySide6.QtWidgets import QApplication,QDialog,QLineEdit,QTableWidget
 from PySide6.QtTest import QTest
 from app import DesktopWindow
+from archive import Archive
 from engine import Plan,account_key
 from workspace_state import Workspace
 from inventory import read_inventory
@@ -195,6 +196,43 @@ def test_inventory_fits_all_content_and_keeps_manual_layout(window):
     header.resizeSection(1,350);header.moveSection(1,0)
     search=dialog.findChild(QLineEdit);search.setText('2020')
     assert table.columnWidth(1)==350 and header.visualIndex(1)==0
+
+
+def test_cache_button_finds_database_without_opening_file_picker(window,tmp_path,monkeypatch):
+    from engine import account_root
+    from PySide6.QtWidgets import QFileDialog
+    w=window;a=w.active_account;path=account_root(a['output'],a['id'])/'garmin-offline.sqlite'
+    with Archive(path,a['id']) as db:
+        db.put('activities','2020-01-01',{'import':'activity-files-v1'},[{'activityId':123,'activityName':'Cached ride','startTimeLocal':'2020-01-01T10:00:00','activityType':{'typeKey':'cycling'}}])
+    monkeypatch.setattr(QFileDialog,'getExistingDirectory',lambda *a,**k:pytest.fail('Unexpected manual cache picker'))
+    monkeypatch.setattr(QFileDialog,'getSaveFileName',lambda *a,**k:pytest.fail('Unexpected archive picker'))
+    w.data_page.import_cache_dialog();deadline=time.monotonic()+5
+    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    assert w.archive_path.text()==str(path) and len(w.data_page.data['activities'])==1 and not w.request_count
+
+
+def test_cache_button_opens_manual_picker_only_after_no_match(window,tmp_path,monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    w=window;native=QStandardPaths.writableLocation
+    monkeypatch.setattr(QStandardPaths,'writableLocation',lambda key:str(tmp_path/'Downloads') if key==QStandardPaths.StandardLocation.DownloadLocation else native(key))
+    called=[];monkeypatch.setattr(QFileDialog,'getExistingDirectory',lambda *a,**k:(called.append(True) or ''))
+    w.data_page.import_cache_dialog();deadline=time.monotonic()+5
+    while not called and time.monotonic()<deadline:QTest.qWait(20)
+    assert called==[True] and not w.request_count
+
+
+def test_cache_button_imports_legacy_responses_without_picker(window,tmp_path,monkeypatch):
+    from engine import account_root
+    from PySide6.QtWidgets import QFileDialog
+    w=window;a=w.active_account;root=account_root(a['output'],a['id'])
+    file=root/'cache-v1/activities/2020/2020-01-01-test.json';file.parent.mkdir(parents=True)
+    file.write_text(json.dumps({'request':{},'data':[{'activityId':456,'activityName':'Old cache ride','startTimeLocal':'2020-01-01T10:00:00','activityType':{'typeKey':'cycling'}}]}))
+    messages=[];w.message=lambda *args:messages.append(args)
+    monkeypatch.setattr(QFileDialog,'getExistingDirectory',lambda *a,**k:pytest.fail('Unexpected manual picker'))
+    w.data_page.import_cache_dialog();deadline=time.monotonic()+5
+    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    assert messages and len(w.data_page.data['activities'])==1 and not w.request_count
+    assert (root/'garmin-offline.sqlite').is_file() and file.is_file()
 
 
 def test_komoot_download_is_account_isolated_and_not_blocked_by_garmin_pause(window,tmp_path):

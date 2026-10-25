@@ -38,13 +38,13 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.6.3-preview'
+VERSION = '0.6.4-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
 def default_output_folder():
     downloads=QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
-    return (Path(downloads) if downloads else Path.home()/'Downloads')/'TTN Activity Export'/'Garmin'
+    return (Path(downloads) if downloads else Path.home()/'Downloads')/'TTN_Activity_Export'/'Garmin'
 
 class Worker(QThread):
     event = Signal(object)

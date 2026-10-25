@@ -176,7 +176,7 @@ class StudioMixin:
             self.log.appendPlainText(self.tr('Konten/Aufträge konnten nicht gespeichert werden. Schreibrechte prüfen.','Could not save accounts/jobs. Check write permissions.'));return False
     def default_provider_folder(self,provider):
         downloads=QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
-        return (Path(downloads) if downloads else Path.home()/'Downloads')/'TTN Activity Export'/provider.capitalize()
+        return (Path(downloads) if downloads else Path.home()/'Downloads')/'TTN_Activity_Export'/provider.capitalize()
     def refresh_accounts(self,ident=None):
         ident=ident or (self.active_account or {}).get('id')
         self.account_list.blockSignals(True);self.account_picker.blockSignals(True)
