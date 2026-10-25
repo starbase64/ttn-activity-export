@@ -1,4 +1,6 @@
-# 0.6.10-preview · confirmed Windows starter self-updates
+# 0.6.10 · confirmed Windows starter self-updates
+
+- Show the Garmin export-cache import button only for a selected Garmin account; hide it for Komoot, Strava and no account. Document when legacy cache files are no longer needed.
 
 - Offer OK/Cancel for a newer installable published release. Cancel makes no download or installation changes; running account/track/download/export jobs finish before prompting.
 - Verify the fixed-repository GitHub asset digest, bounded ZIP paths, per-file manifest and actual app version. Prepare a separate version directory and invoke an external Windows helper only after confirmation.

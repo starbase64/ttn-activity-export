@@ -237,6 +237,7 @@ class StudioMixin:
         if previous and (not account or previous['id']!=account['id']):self.remember_active_archive()
         if previous and previous['provider']=='garmin' and self.api and self.identity==previous['id']:self.clients[previous['id']]=self.api
         self.active_account=account
+        self.data_page.cache_button.setVisible(bool(account and account['provider']=='garmin'))
         changed=not previous or not account or previous['id']!=account['id']
         if not account:
             self.api=None;self.identity=None;self.data_page.select_account_archive(None,'');self.account_hint.setText(self.tr('Noch kein Konto hinzugefügt.','No account added yet.'));return

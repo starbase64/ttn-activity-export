@@ -49,6 +49,7 @@ class DataPage(QWidget):
             item=host.bind(tools.addAction(de),de,en);item.triggered.connect(fn)
         self.tools_button.setMenu(tools);action.addWidget(self.tools_button)
         self.cache_button=host.button('Exportcache übernehmen','Import export cache',self.import_cache_dialog)
+        self.cache_button.setVisible(False)
         action.addWidget(self.cache_button,1);layout.addLayout(action)
         self.note=host.label('Lokale Daten öffnen. Kartenhintergründe werden nur bei eingeschalteter Onlinekarte geladen.','Open local data. Basemaps are downloaded only when online map is enabled.');layout.addWidget(self.note)
         self.views=QTabWidget();layout.addWidget(self.views,1)
