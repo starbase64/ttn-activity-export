@@ -2,6 +2,11 @@ param([Parameter(ValueFromRemainingArguments=$true)][string[]]$AppArgs)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 Set-Location $PSScriptRoot
+function Get-TtnSha256([string]$Path) {
+    $stream=[IO.File]::OpenRead($Path);$sha=[Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant() }
+    finally { $sha.Dispose();$stream.Dispose() }
+}
 $setupLock = $null
 try {
     if ($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitOperatingSystem) {
@@ -65,11 +70,11 @@ try {
         $url = [Uri]$lock.python.url
         if ($url.Scheme -ne 'https' -or $url.Host -ne 'www.python.org') { throw 'Unexpected Python source.' }
         $zip = Join-Path $cache 'python-runtime.zip'
-        if (-not (Test-Path -LiteralPath $zip) -or (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne $lock.python.sha256) {
+        if (-not (Test-Path -LiteralPath $zip) -or (Get-TtnSha256 $zip) -ne $lock.python.sha256) {
             $partial = "$zip.partial"
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing
-            if ((Get-FileHash -LiteralPath $partial -Algorithm SHA256).Hash -ne $lock.python.sha256) { throw 'Python checksum mismatch.' }
+            if ((Get-TtnSha256 $partial) -ne $lock.python.sha256) { throw 'Python checksum mismatch.' }
             Move-Item -LiteralPath $partial -Destination $zip -Force
         }
         $stage = Join-Path $cache ('python-' + [Guid]::NewGuid().ToString('N'))
@@ -86,7 +91,7 @@ try {
     & $python $bootstrap check
     if ($LASTEXITCODE -ne 0) {
         Write-Host 'Fehlende Pakete werden installiert oder repariert / Installing or repairing missing packages...'
-        & $python $bootstrap verify 2>&1 | Tee-Object -FilePath (Join-Path $PSScriptRoot 'setup.log') -Append
+        & $python $bootstrap verify --cache-dir $cache 2>&1 | Tee-Object -FilePath (Join-Path $PSScriptRoot 'setup.log') -Append
         if ($LASTEXITCODE -ne 0) { throw 'Einrichtung fehlgeschlagen. Internetverbindung und setup.log pruefen / Check Internet connection and setup.log.' }
         & $python $bootstrap check
         if ($LASTEXITCODE -ne 0) { throw 'Abhaengigkeitspruefung fehlgeschlagen / Dependency check failed. See console and setup.log.' }

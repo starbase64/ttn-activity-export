@@ -5,6 +5,11 @@ $setupLock=$null; $form=$null; $success=$false; $activated=$false; $previousText
 $planFile=[IO.Path]::GetFullPath($PlanPath); $work=Split-Path -Parent $planFile
 $controller=Split-Path -Parent (Split-Path -Parent $work)
 $pointer=Join-Path $controller '.active-version.json'
+function Get-TtnSha256([string]$Path) {
+    $stream=[IO.File]::OpenRead($Path);$sha=[Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant() }
+    finally { $sha.Dispose();$stream.Dispose() }
+}
 function Write-AtomicJson([string]$Path,$Value) {
     $temporary=$Path+'.tmp'
     [IO.File]::WriteAllText($temporary,($Value | ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
@@ -45,7 +50,7 @@ try {
         $name=$entry.Name
         if ($name -match '(^/|\\|:|(^|/)\.\.(/|$))') { throw 'Invalid package path.' }
         $file=Join-Path $target $name
-        if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -ne $entry.Value.size -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.Value.sha256) { throw 'Update file checksum mismatch.' }
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -ne $entry.Value.size -or (Get-TtnSha256 $file) -ne $entry.Value.sha256) { throw 'Update file checksum mismatch.' }
     }
     if (-not $NoUI) {
         Add-Type -AssemblyName System.Windows.Forms
