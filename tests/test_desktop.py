@@ -19,6 +19,17 @@ from offline import ArchiveExporter,OfflineExporter,ArchiveSync
 
 QT_APP=QApplication.instance() or QApplication([])
 
+
+def wait_gui(predicate,timeout=15):
+    # Let Qt deliver queued signals and explicitly yield Python's GIL to workers.
+    # QTest.qWait polling can starve Python worker threads on Windows runners.
+    deadline=time.monotonic()+timeout
+    while not predicate() and time.monotonic()<deadline:
+        QApplication.processEvents()
+        time.sleep(.01)
+    QApplication.processEvents()
+    return predicate()
+
 @pytest.fixture
 def window(tmp_path,monkeypatch):
     native=QStandardPaths.writableLocation
@@ -27,7 +38,8 @@ def window(tmp_path,monkeypatch):
     w.delay.setValue(0);w.refresh.setValue(0);w.workers.setValue(1)
     w.message=lambda *a:pytest.fail('Unexpected dialog: '+str(a))
     yield w
-    if w.worker and w.worker.isRunning():w.worker.cancel.set();w.worker.wait(5000)
+    if w.worker and w.worker.isRunning():w.worker.cancel.set();w.worker.wait(15000)
+    QApplication.processEvents()
     for dialog in w.findChildren(QDialog):dialog.close()
     w.close();w.deleteLater();QApplication.sendPostedEvents(None,QEvent.Type.DeferredDelete);QApplication.processEvents()
 
@@ -141,8 +153,7 @@ def test_queue_executes_stored_plan_without_later_ui_changes(window):
     w.selected_activity_ids=['2020010101'];w.enqueue_current();j=w.workspace.jobs[0]
     w.start_date.setDate(QDate(2021,1,1));w.selected_activity_ids=[]
     w._queue_active=True;w._run_ids=[j['id']];w.queue_next()
-    deadline=time.monotonic()+5
-    while w._queue_active and time.monotonic()<deadline:QTest.qWait(20)
+    wait_gui(lambda:not w._queue_active)
     assert not w._queue_active and j['status']=='complete'
     from archive import Archive
     with Archive(j['plan']['archive_path'],readonly=True) as db:
@@ -157,8 +168,7 @@ def test_missing_login_job_waits_but_does_not_block_ready_job(window,tmp_path):
     plan=Plan('2020-01-01','2020-01-01',['activities'],str(tmp_path/'other'),other['id'])
     waiting=w.workspace.enqueue(other,plan,'download');w.workspace.jobs.reverse()
     w._queue_active=True;w._run_ids=[waiting['id'],good['id']];w.queue_next()
-    deadline=time.monotonic()+5
-    while w._queue_active and time.monotonic()<deadline:QTest.qWait(20)
+    wait_gui(lambda:not w._queue_active)
     assert waiting['status']=='waiting' and good['status']=='complete'
 
 
@@ -206,8 +216,8 @@ def test_cache_button_finds_database_without_opening_file_picker(window,tmp_path
         db.put('activities','2020-01-01',{'import':'activity-files-v1'},[{'activityId':123,'activityName':'Cached ride','startTimeLocal':'2020-01-01T10:00:00','activityType':{'typeKey':'cycling'}}])
     monkeypatch.setattr(QFileDialog,'getExistingDirectory',lambda *a,**k:pytest.fail('Unexpected manual cache picker'))
     monkeypatch.setattr(QFileDialog,'getSaveFileName',lambda *a,**k:pytest.fail('Unexpected archive picker'))
-    w.data_page.import_cache_dialog();deadline=time.monotonic()+5
-    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    w.data_page.import_cache_dialog()
+    wait_gui(lambda:bool(w.data_page.data['activities']))
     assert w.archive_path.text()==str(path) and len(w.data_page.data['activities'])==1 and not w.request_count
 
 
@@ -216,8 +226,8 @@ def test_cache_button_opens_manual_picker_only_after_no_match(window,tmp_path,mo
     w=window;native=QStandardPaths.writableLocation
     monkeypatch.setattr(QStandardPaths,'writableLocation',lambda key:str(tmp_path/'Downloads') if key==QStandardPaths.StandardLocation.DownloadLocation else native(key))
     called=[];monkeypatch.setattr(QFileDialog,'getExistingDirectory',lambda *a,**k:(called.append(True) or ''))
-    w.data_page.import_cache_dialog();deadline=time.monotonic()+5
-    while not called and time.monotonic()<deadline:QTest.qWait(20)
+    w.data_page.import_cache_dialog()
+    wait_gui(lambda:bool(called))
     assert called==[True] and not w.request_count
 
 
@@ -229,8 +239,8 @@ def test_cache_button_imports_legacy_responses_without_picker(window,tmp_path,mo
     file.write_text(json.dumps({'request':{},'data':[{'activityId':456,'activityName':'Old cache ride','startTimeLocal':'2020-01-01T10:00:00','activityType':{'typeKey':'cycling'}}]}))
     messages=[];w.message=lambda *args:messages.append(args)
     monkeypatch.setattr(QFileDialog,'getExistingDirectory',lambda *a,**k:pytest.fail('Unexpected manual picker'))
-    w.data_page.import_cache_dialog();deadline=time.monotonic()+5
-    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    w.data_page.import_cache_dialog()
+    wait_gui(lambda:bool(w.data_page.data['activities']))
     assert messages and len(w.data_page.data['activities'])==1 and not w.request_count
     assert (root/'garmin-offline.sqlite').is_file() and file.is_file()
 
@@ -246,8 +256,7 @@ def test_komoot_download_is_account_isolated_and_not_blocked_by_garmin_pause(win
     assert 'angemeldet' in w.connection.text()
     w.rate_pause.record({'reason':'rate_limit','retry_after_seconds':60})
     w.start_komoot_download(a,[tour_summary(tour())],True)
-    deadline=time.monotonic()+5
-    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    wait_gui(lambda:bool(w.data_page.data['activities']))
     assert len(w.data_page.data['activities'])==1 and w.data_page.data['account']==a['id']
     assert w.tabs.currentIndex()==2 and w.request_count==0
     assert 'not-persisted' not in w.workspace.path.read_text()
@@ -313,8 +322,7 @@ def test_strava_is_import_only_and_local_import_works_during_garmin_pause(window
     source=package(tmp_path/'strava.zip',[row(filename='')]);messages=[];w.message=lambda *a:messages.append(a)
     w.rate_pause.record({'reason':'rate_limit','retry_after_seconds':60})
     w.start_strava_import(account,str(source),w.strava_database(account))
-    deadline=time.monotonic()+5
-    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    wait_gui(lambda:bool(w.data_page.data['activities']))
     assert len(w.data_page.data['activities'])==1 and w.data_page.data['account']==account['id']
     assert w.tabs.currentIndex()==2 and w.request_count==0 and messages
     w.toggle_language();assert 'local import source' in w.connection.text()
