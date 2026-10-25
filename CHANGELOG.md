@@ -1,3 +1,10 @@
+# 0.6.7-preview · remembered Komoot sessions and reliable inventory completion
+
+- Add opt-in Windows DPAPI storage of account-bound Komoot session tokens. Restore locally when selecting the account, without storing the password or issuing a startup login request. Verify saved tokens; report save failures; support removing saved tokens without authentication, on unchecking remember, signing out and removing the account. No plaintext fallback on other platforms. Invalid HTTP 401 tokens are removed; HTTP 403 export permission failures do not remove them.
+- Query the oldest recorded Komoot activity after login using an ascending metadata-only list. Persist its date per account; retain a custom start date and provide a reset button. Date lookup failures leave a valid login intact and are logged separately.
+- Respect final-page metadata and HAL next-link absence. Accept final empty HAL pages without embedded tours. Track raw tour IDs across pages and filtered load-more steps. Stop repeated pages with a specific incomplete-list warning instead of a generic ValueError; disable load-more until refresh without claiming the list is complete.
+- Add regression coverage for persistence/restart, account separation, date reset, token removal, final/repeated/filtered pages and native Windows DPAPI cross-process encryption/decryption. No new dependencies.
+
 # 0.6.6-preview · Strava TCX import and Komoot inventory
 
 - Accept ASCII whitespace before an XML declaration in TCX/GPX parsing. This handles indented TCX recordings in downloaded Strava archives while preserving original file bytes and the parser-level DTD/entity protection.

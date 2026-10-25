@@ -44,6 +44,9 @@ class StudioMixin:
             self.workspace=Workspace(recovered)
             self.log.appendPlainText(self.tr('Konten-/Auftragsdatei konnte nicht gelesen werden. Original bleibt erhalten; separate Wiederherstellungsdatei wird verwendet.',
                                             'Could not read account/job metadata. Original preserved; using a separate recovery file.'))
+        from secure_sessions import KomootSessions
+        self.komoot_sessions=KomootSessions(self.workspace.path.parent/'komoot-sessions')
+        self._komoot_restore_attempted=set()
         if self.demo:
             record=self.workspace.add_account('garmin','demo@example.invalid',Path(self._demo_workspace.name)/'Garmin')
             self.clients[record['id']]=self.api
@@ -101,14 +104,17 @@ class StudioMixin:
         dv.addWidget(self.strava_panel)
         self.komoot_panel=QWidget();kv=QVBoxLayout(self.komoot_panel)
         kv.addWidget(self.label('Komoot · experimenteller Online-Zugriff','Komoot · experimental online access'))
-        kv.addWidget(self.label('Erst die Tourenübersicht abrufen, dann Touren auswählen. GPX nur über die Exportfunktion; erforderliche Regionen müssen freigeschaltet sein. Anmeldung gilt nur bis zum Beenden der App.',
-                               'Fetch the tour list first, then select tours. GPX uses the export endpoint; required regions must be unlocked. Sign-in lasts only until the app closes.'))
+        kv.addWidget(self.label('Erst die Tourenübersicht abrufen, dann Touren auswählen. GPX nur über die Exportfunktion; erforderliche Regionen müssen freigeschaltet sein. Die Anmeldung kann unter Windows geschützt gemerkt werden.',
+                               'Fetch the tour list first, then select tours. GPX uses the export endpoint; required regions must be unlocked. Windows can securely remember sign-in.'))
         kr=QHBoxLayout();self.komoot_from=QDateEdit(QDate(1990,1,1));self.komoot_to=QDateEdit(QDate.currentDate())
         for de,en,field in [('Von','From',self.komoot_from),('Bis','Through',self.komoot_to)]:
             field.setCalendarPopup(True);field.setDisplayFormat('yyyy-MM-dd');kr.addWidget(self.label(de,en));kr.addWidget(field)
         self.komoot_kind=QComboBox()
         for de,en,key in [('Aufgezeichnet','Recorded','tour_recorded'),('Geplant','Planned','tour_planned'),('Alle Touren','All tours','')]:self.komoot_kind.addItem(self.tr(de,en),key)
-        kr.addWidget(self.komoot_kind);kv.addLayout(kr)
+        kr.addWidget(self.komoot_kind)
+        self.komoot_reset=self.button('Erste Aktivität','First activity',self.reset_komoot_start);self.komoot_reset.setEnabled(False);kr.addWidget(self.komoot_reset);kv.addLayout(kr)
+        self.komoot_first_label=self.label('Erste aufgezeichnete Aktivität: noch nicht ermittelt','First recorded activity: not yet checked');kv.addWidget(self.komoot_first_label)
+        self.komoot_from.dateChanged.connect(self.remember_komoot_date)
         kr=QHBoxLayout();kr.addWidget(self.button('Online-Bestand abrufen','Fetch online inventory',self.fetch_komoot_inventory,primary=True))
         kr.addWidget(self.button('Lokale Komoot-Daten öffnen','Open local Komoot data',self.open_komoot_data));kv.addLayout(kr);dv.addWidget(self.komoot_panel)
         self.garmin_controls=QWidget();settings_layout=QVBoxLayout(self.garmin_controls);settings_layout.setContentsMargins(0,0,0,0);dv.addWidget(self.garmin_controls)
@@ -222,6 +228,9 @@ class StudioMixin:
             self.archive_path.setText(account.get('archive_path',''));self.ensure_archive_path()
             self.apply_account_defaults(account)
         else:self.api=None;self.identity=None
+        if account['provider']=='komoot':
+            self.restore_komoot_dates(account)
+            self.restore_komoot_session(account)
         from engine import account_root
         path=account.get('archive_path') or str(account_root(account['output'],account['id'])/(account['provider']+'-offline.sqlite'))
         self.data_page.select_account_archive(account['id'],path)
@@ -232,8 +241,8 @@ class StudioMixin:
     def provider_note(self,provider):
         if provider=='strava':return self.tr('Strava ist eine lokale Importquelle. Lade das Konto-ZIP selbst auf strava.com unter Einstellungen → Mein Konto → Konto herunterladen herunter und wähle es hier aus. Keine Anmeldung und kein automatischer Strava-Abruf in der App.',
                                             'Strava is a local import source. Download your account ZIP yourself on strava.com under Settings → My Account → Download your account, then select it here. The app does not sign in to or automatically retrieve data from Strava.')
-        return self.tr('Experimentelle Komoot-Anbindung ohne öffentlich unterstützte API. Eigenes Konto per E-Mail/Passwort anmelden, Übersicht laden und Touren auswählen. Keine Google-/Apple-Anmeldung oder CAPTCHA-Umgehung. Passwort und Sitzung werden nicht auf Datenträger gespeichert.',
-                       'Experimental Komoot connector without a publicly supported API. Sign in to your own account with email/password, list tours and select them. No Google/Apple sign-in or CAPTCHA bypass. Password and session are not stored on disk.')
+        return self.tr('Experimentelle Komoot-Anbindung. Eigenes Konto per E-Mail/Passwort anmelden, Übersicht laden und Touren auswählen. Unter Windows kann der Sitzungsschlüssel für dein Windows-Benutzerkonto verschlüsselt gespeichert werden. Das Passwort wird nicht gespeichert. Keine Google-/Apple-Anmeldung oder CAPTCHA-Umgehung.',
+                       'Experimental Komoot connector. Sign in to your own account with email/password, list tours and select them. Windows can encrypt the session token for your Windows user account. The password is not stored. No Google/Apple sign-in or CAPTCHA bypass.')
     def add_account_dialog(self):
         if self.worker and self.worker.isRunning():return
         dialog=QDialog(self);dialog.setWindowTitle(self.tr('Konto hinzufügen','Add account'));f=QFormLayout(dialog)
@@ -261,10 +270,13 @@ class StudioMixin:
         if not a or self._queue_active:return
         if any(j['account']==a['id'] and j['status'] not in ('complete','cancelled') for j in self.workspace.jobs):
             self.message('Zuerst die offenen Aufträge dieses Kontos entfernen.','Remove this account’s pending jobs first.');return
-        dialog=QDialog(self);v=QVBoxLayout(dialog);v.addWidget(self.label('Nur den Kontoeintrag entfernen? Dateien und gespeicherte Garmin-Sitzung bleiben erhalten. Sitzungsschlüssel lassen sich über die Garmin-Anmeldung entfernen.',
-                                                                                     'Remove only the account entry? Files and the saved Garmin session are retained. Session tokens can be removed in Garmin sign-in settings.'))
+        dialog=QDialog(self);v=QVBoxLayout(dialog)
+        v.addWidget(self.label('Komoot-Konto und gespeicherte Anmeldung entfernen? Heruntergeladene Dateien bleiben erhalten.',
+                               'Remove the Komoot account and saved sign-in? Downloaded files are retained.') if a['provider']=='komoot' else self.label('Nur den Kontoeintrag entfernen? Dateien und gespeicherte Garmin-Sitzung bleiben erhalten. Sitzungsschlüssel lassen sich über die Garmin-Anmeldung entfernen.',
+                               'Remove only the account entry? Files and the saved Garmin session are retained. Session tokens can be removed in Garmin sign-in settings.'))
         buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel);v.addWidget(buttons);buttons.accepted.connect(dialog.accept);buttons.rejected.connect(dialog.reject)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
+        if a['provider']=='komoot' and not self.forget_komoot_session(a):return
         self.workspace.data['accounts']=[x for x in self.workspace.accounts if x['id']!=a['id']];self.clients.pop(a['id'],None);self.active_account=None;self.api=None;self.identity=None;self.save_workspace();self.refresh_accounts()
     def open_account(self):
         if not self.active_account:return
@@ -335,6 +347,7 @@ class StudioMixin:
         for i,(de,en) in enumerate([('Nur herunterladen','Download only'),('Download und Dateien exportieren','Download and export files'),('Nur lokal exportieren','Export offline only')]):self.job_action.setItemText(i,self.tr(de,en))
         for i,(de,en) in enumerate([('Aufgezeichnet','Recorded'),('Geplant','Planned'),('Alle Touren','All tours')]):self.komoot_kind.setItemText(i,self.tr(de,en))
         self.refresh_accounts();self.render_jobs();self.refresh_selection_summary()
+        if (self.active_account or {}).get('provider')=='komoot':self.restore_komoot_dates(self.active_account)
     def on_event(self,args):
         if args[0]=='komoot_inventory':
             text=self.tr(f'Komoot-Bestand: {args[1]} Touren aufgelistet',f'Komoot inventory: {args[1]} tours listed');self.status.setText(text);self.log.appendPlainText(text)
@@ -401,6 +414,10 @@ class StudioMixin:
         note=QLabel(f"{result['start']} – {result['end']} · {len(result['items'])} · {complete}\n"+self.tr('Stand: ','Checked: ')+checked+'\n'+self.tr('Keine Aktivitätsdateien oder Messverläufe geladen. Diese Liste sagt nichts über verfügbare Gesundheitsdaten aus.',
                                  'No activity files or measurement streams downloaded. This list does not establish health-data availability.'))
         note.setWordWrap(True);v.addWidget(note)
+        if result.get('stop_reason')=='repeated_page':
+            warning=self.label('Komoot hat eine bereits geladene Seite wiederholt. Der Abruf wurde beendet; die Übersicht bleibt möglicherweise unvollständig. Zum erneuten Prüfen Übersicht aktualisieren wählen.',
+                               'Komoot repeated an already loaded page. Fetching stopped; the inventory may be incomplete. Choose Refresh inventory to check again.')
+            warning.setWordWrap(True);warning.setObjectName('warningText');v.addWidget(warning)
         if result.get('error'):
             detail={**result['error'],'provider':result.get('provider','garmin')};label=QLabel(self.error_description(detail));label.setWordWrap(True);label.setObjectName('warningText');v.addWidget(label)
             if detail['provider']=='garmin':self.register_rate_limit(detail)
@@ -439,7 +456,7 @@ class StudioMixin:
         komoot=result.get('provider')=='komoot'
         refresh=self.fetch_komoot_inventory if komoot else self.fetch_inventory
         row=QHBoxLayout();row.addWidget(self.button('Übersicht aktualisieren','Refresh inventory',lambda:refresh(False)))
-        more=self.button('Weitere Seiten laden','Load more pages',lambda:refresh(True));more.setEnabled(not result.get('complete'));row.addWidget(more)
+        more=self.button('Weitere Seiten laden','Load more pages',lambda:refresh(True));more.setEnabled(not result.get('complete') and not result.get('stop_reason'));row.addWidget(more)
         row.addWidget(self.button('Alle sichtbaren auswählen','Select all visible',table.selectAll));row.addStretch()
         def apply():
             selected=sorted({table.item(i.row(),5).text() for i in table.selectionModel().selectedRows()})
@@ -691,37 +708,126 @@ class StudioMixin:
         from engine import account_root
         return str(account_root(account['output'],account['id'])/'komoot-offline.sqlite')
 
+    def restore_komoot_session(self,account):
+        ident=account['id']
+        if ident in self._komoot_restore_attempted:return
+        self._komoot_restore_attempted.add(ident)
+        try:saved=self.komoot_sessions.load(ident)
+        except (OSError,ValueError,TypeError):
+            self.log.appendPlainText(self.tr('Gespeicherte Komoot-Anmeldung konnte nicht geöffnet werden. Bitte neu anmelden oder lokal entfernen.',
+                                            'Could not open saved Komoot sign-in. Sign in again or remove it locally.'));return
+        if not saved:return
+        from komoot_client import KomootClient
+        client=KomootClient(self.data_dir/'komoot-pauses'/(ident+'.json'));client.user,client.token=saved
+        self.komoot_clients[ident]=client
+        self.log.appendPlainText(self.tr('Gespeicherte Komoot-Anmeldung lokal wiederhergestellt. Gültigkeit wird beim nächsten Abruf geprüft.',
+                                        'Saved Komoot sign-in restored locally. Validity is checked on the next request.'))
+
+    def forget_komoot_session(self,account,disconnect=True):
+        try:self.komoot_sessions.forget(account['id'])
+        except OSError:
+            self.message('Gespeicherte Komoot-Anmeldung konnte nicht entfernt werden. Schreibrechte prüfen.',
+                         'Could not remove saved Komoot sign-in. Check write permissions.');return False
+        if disconnect:self.komoot_clients.pop(account['id'],None)
+        self.update_connection();return True
+
+    def remember_komoot_date(self,*args):
+        a=self.active_account
+        if a and a['provider']=='komoot':self.save_date_values(a['id'],export_from=self.komoot_from.date().toString('yyyy-MM-dd'))
+
+    def restore_komoot_dates(self,account):
+        values=self.date_values(account['id']);first=values.get('first_activity')
+        self.komoot_from.blockSignals(True);self.komoot_from.setDate(QDate.fromString(values.get('export_from') or first or '1990-01-01','yyyy-MM-dd'));self.komoot_from.blockSignals(False)
+        self.komoot_reset.setEnabled(bool(first))
+        self.komoot_first_label.setText(self.tr('Erste aufgezeichnete Aktivität: ','First recorded activity: ')+(first or self.tr('noch nicht ermittelt','not yet checked')))
+
+    def record_komoot_first(self,account,first):
+        day=QDate.fromString(first or '','yyyy-MM-dd')
+        if not day.isValid() or not QDate(1990,1,1)<=day<=QDate.currentDate():return
+        self.save_date_values(account['id'],first_activity=first)
+        if (self.active_account or {}).get('id')==account['id']:
+            self.restore_komoot_dates(account)
+            if self.data_page.date_account==account['id']:self.data_page.restore_date_filter(account['id'])
+
+    def reset_komoot_start(self):
+        a=self.active_account
+        if not a or a['provider']!='komoot':return
+        first=self.date_values(a['id']).get('first_activity')
+        if first:
+            day=QDate.fromString(first,'yyyy-MM-dd')
+            if self.komoot_to.date()<day:self.komoot_to.setDate(day)
+            self.komoot_from.setDate(day)
+
     def open_komoot_account(self):
         if self.worker and self.worker.isRunning():return
         a=self.active_account;dialog=QDialog(self);dialog.setWindowTitle('Komoot · '+self.tr('Anmeldung','Sign-in'));v=QVBoxLayout(dialog)
         note=QLabel(self.provider_note('komoot'));note.setWordWrap(True);v.addWidget(note)
         password=QLineEdit();password.setEchoMode(QLineEdit.EchoMode.Password)
         password.setPlaceholderText(self.tr('Komoot-Passwort','Komoot password'));v.addWidget(QLabel(a['email']));v.addWidget(password)
+        remember=self.check('Anmeldung lokal merken (Windows-verschlüsselt)','Remember sign-in locally (Windows encrypted)',self.komoot_sessions.exists(a['id']))
+        remember.setEnabled(self.komoot_sessions.available);v.addWidget(remember)
+        info=self.label('Gespeichert wird der Sitzungsschlüssel für dein Windows-Benutzerkonto, nicht das Passwort. Abwählen entfernt den gespeicherten Schlüssel sofort.',
+                        'The session token is saved for your Windows user account, not the password. Unchecking immediately removes the saved token.');info.setWordWrap(True);v.addWidget(info)
+        if not self.komoot_sessions.available:v.addWidget(self.label('Geschütztes Merken ist in dieser Version nur unter Windows verfügbar.','Secure remembering is currently available on Windows only.'))
+        def toggle_remember(checked):
+            if checked:return
+            if not self.forget_komoot_session(a,disconnect=False):
+                remember.blockSignals(True);remember.setChecked(True);remember.blockSignals(False)
+        remember.toggled.connect(toggle_remember)
         field=QLineEdit(a['output']);r=QHBoxLayout();r.addWidget(field);r.addWidget(self.button('Zielordner','Destination',lambda:self.pick_account_folder(field)));v.addLayout(r)
         def sign_in():
             secret=password.text();password.clear()
             if not secret or not field.text().strip():return
             a['output']=field.text()
             if not self.save_workspace():return
-            dialog.accept();self.start_komoot_login(deepcopy(a),secret)
+            dialog.accept();self.start_komoot_login(deepcopy(a),secret,remember.isChecked())
         v.addWidget(self.button('Anmelden','Sign in',sign_in,primary=True))
-        def disconnect():self.komoot_clients.pop(a['id'],None);self.refresh_accounts(a['id']);dialog.reject()
-        v.addWidget(self.button('Abmelden','Sign out',disconnect));v.addWidget(self.button('Schließen','Close',dialog.reject));dialog.exec()
+        def keep_current():
+            client=self.komoot_clients.get(a['id'])
+            if client and client.token and remember.isChecked():
+                self.save_komoot_session(a,client)
+        keep=self.button('Aktuelle Anmeldung merken','Remember current sign-in',keep_current);keep.setEnabled(self.komoot_sessions.available and bool(self.komoot_clients.get(a['id'])));v.addWidget(keep)
+        def disconnect():
+            if self.forget_komoot_session(a):self.refresh_accounts(a['id']);dialog.reject()
+        v.addWidget(self.button('Abmelden / lokale Anmeldung entfernen','Sign out / remove saved sign-in',disconnect));v.addWidget(self.button('Schließen','Close',dialog.reject));dialog.exec()
 
-    def start_komoot_login(self,account,password):
+    def save_komoot_session(self,account,client):
+        try:self.komoot_sessions.save(account['id'],client.user,client.token)
+        except (OSError,ValueError,TypeError):
+            self.log.appendPlainText(self.tr('Komoot-Anmeldung konnte nicht gespeichert werden.','Could not save Komoot sign-in.'))
+            self.message('Komoot ist angemeldet, die Anmeldung konnte aber nicht geschützt gespeichert werden. Beim nächsten Start erneut anmelden.',
+                         'Signed in to Komoot, but secure saving failed. Sign in again after restarting.');return False
+        self.log.appendPlainText(self.tr('Komoot-Anmeldung verschlüsselt gespeichert.','Komoot sign-in saved encrypted.'));return True
+
+    def start_komoot_login(self,account,password,remember=False):
         from komoot_client import KomootClient
         from failures import diagnostic
         client=KomootClient(self.data_dir/'komoot-pauses'/(account['id']+'.json'))
         def operation(w):
-            try:return {'account':account,'client':client.login(account['email'],password,w.cancel)}
+            try:client.login(account['email'],password,w.cancel)
             except Exception as exc:return {'account':account,'error':diagnostic(exc)}
+            result={'account':account,'client':client}
+            if not self.date_values(account['id']).get('first_activity') and not w.cancel.is_set():
+                try:result['first_activity']=client.oldest_activity(w.cancel)
+                except Exception as exc:result['date_error']=diagnostic(exc)
+            if not client.token:return {'account':account,'error':result.get('date_error',{'reason':'authentication','http_status':401})}
+            return result
         def done(result):
-            if result.get('error'):self.komoot_error(result['error']);return
-            self.komoot_clients[account['id']]=result['client'];self.refresh_accounts(account['id']);self.tabs.setCurrentIndex(1)
+            if result.get('error'):self.komoot_error(result['error'],account);return
+            self.komoot_clients[account['id']]=result['client']
+            if remember:self.save_komoot_session(account,result['client'])
+            if result.get('first_activity'):self.record_komoot_first(account,result['first_activity'])
+            if result.get('date_error'):self.log.appendPlainText(self.tr('Komoot-Anmeldung erfolgreich; erstes Aktivitätsdatum noch nicht ermittelt: ','Komoot sign-in succeeded; first activity date not yet found: ')+self.error_description({**result['date_error'],'provider':'komoot'}))
+            self.refresh_accounts(account['id']);self.tabs.setCurrentIndex(1)
         self.run_worker(operation,done,network=False)
 
-    def komoot_error(self,detail):
-        if detail.get('http_status')==401 and self.active_account:self.komoot_clients.pop(self.active_account['id'],None);self.update_connection()
+    def komoot_error(self,detail,account=None):
+        account=account or self.active_account
+        if detail.get('http_status')==401 and account and account['provider']=='komoot':
+            self.komoot_clients.pop(account['id'],None)
+            try:self.komoot_sessions.forget(account['id'])
+            except OSError:self.log.appendPlainText(self.tr('Abgelaufene Komoot-Anmeldung konnte lokal nicht entfernt werden.','Could not remove expired Komoot sign-in locally.'))
+            self.update_connection()
         text=self.tr('Komoot-Abruf fehlgeschlagen: ','Komoot request failed: ')+str(detail.get('http_status') or detail.get('error_type','Error'))
         if detail.get('http_status')==429:text+='\n'+self.tr('Komoot begrenzt die Anfragen. Die Abrufpause bleibt auch nach einem Neustart erhalten.','Komoot rate limit reached. The request pause is retained across restarts.')
         if detail.get('http_status') in (401,403):text+='\n'+self.tr('Anmeldung oder Exportberechtigung prüfen. Bei einer gesperrten Region wird kein GPX-Zugriff erzwungen.','Check sign-in or export permission. Locked regions are not bypassed.')
@@ -744,7 +850,8 @@ class StudioMixin:
             except OSError:result['cache_error']=True
             return result
         def done(result):
-            if result.get('error'):self.komoot_error(result['error'])
+            if result.get('error'):self.komoot_error(result['error'],a)
+            if result.get('complete') and result.get('oldest_recorded'):self.record_komoot_first(a,result['oldest_recorded'])
             self.open_inventory_dialog(result)
         self.run_worker(operation,done,network=False)
 
@@ -775,7 +882,7 @@ class StudioMixin:
             report=result['report'];text=self.tr(f"Komoot: {report['imported']} Touren gespeichert · {report['files']} GPX geladen · {report['cached']} aus Cache.",f"Komoot: {report['imported']} tours saved · {report['files']} GPX downloaded · {report['cached']} cached.")
             if report['cancelled']:text+=' '+self.tr('Abgebrochen.','Stopped.')
             self.log.appendPlainText(text)
-            if report['error']:self.komoot_error(report['error'])
+            if report['error']:self.komoot_error(report['error'],account)
         self.run_worker(operation,done,network=False)
 
     def open_komoot_data(self):

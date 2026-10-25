@@ -30,7 +30,7 @@ class NoRedirect(HTTPRedirectHandler):
 def tour_summary(item):
     ident=str(item.get('id',''))
     if not ident.isdigit() or len(ident)>32:raise ValueError('Invalid tour ID')
-    stamp=datetime.fromisoformat(str(item['date']).replace('Z','+00:00')).isoformat()
+    stamp=datetime.fromisoformat(str(item.get('date') or item.get('start_date')).replace('Z','+00:00')).isoformat()
     result={'activityId':-int(hashlib.sha256(('komoot:'+ident).encode()).hexdigest()[:14],16),
         'activityName':str(item.get('name') or ('Komoot '+ident)), 'startTimeLocal':stamp,
         'activityType':{'typeKey':str(item.get('sport') or 'other')},'sourceProvider':'komoot',
@@ -76,16 +76,25 @@ class KomootClient:
         if not ident.isdigit() or not isinstance(token,str) or not token:raise KomootError(401)
         self.user=ident;self.token=token
         return self
+    def oldest_activity(self,cancel=None):
+        query=urlencode({'page':0,'limit':1,'type':'tour_recorded','sort_field':'date','sort_direction':'asc'})
+        data=self.request('/v007/users/'+self.user+'/tours/?'+query,cancel=cancel)
+        batch=data.get('_embedded',{}).get('tours',[])
+        if not isinstance(batch,list):raise ValueError('Unknown tour list format')
+        if not batch:return None
+        return min(tour_summary(t)['startTimeLocal'][:10] for t in batch)
     def inventory(self,start,end,kind='tour_recorded',previous=None,cancel=None,event=lambda *a:None):
         date.fromisoformat(start);date.fromisoformat(end)
         if start>end or kind not in ('','tour_recorded','tour_planned'):raise ValueError('Invalid filters')
         cancel=cancel or threading.Event();previous=previous or {}
         if previous and (previous['start'],previous['end'],previous['kind'])!=(start,end,kind):raise ValueError('Filters changed')
         result={'provider':'komoot','start':start,'end':end,'kind':kind,'items':list(previous.get('items',[])),
-                'offset':previous.get('offset',0),'complete':previous.get('complete',False),'error':None}
-        seen={str(i['activityId']) for i in result['items']}
+                'offset':previous.get('offset',0),'complete':previous.get('complete',False),'error':None,
+                'seen_ids':list(previous.get('seen_ids',[])),'stop_reason':previous.get('stop_reason'),
+                'oldest_recorded':previous.get('oldest_recorded')}
+        seen=set(result['seen_ids'])|{str(i['activityId']) for i in result['items']}
         for _ in range(10):
-            if result['complete'] or cancel.is_set():break
+            if result['complete'] or result['stop_reason'] or cancel.is_set():break
             try:
                 # Keep the server query minimal; dates are filtered locally
                 # below, so endpoint-specific optional filter validation cannot
@@ -94,18 +103,29 @@ class KomootClient:
                 if kind:params['type']=kind
                 query=urlencode(params)
                 data=self.request('/v007/users/'+self.user+'/tours/?'+query,cancel=cancel)
-                batch=data.get('_embedded',{}).get('tours')
+                page=data.get('page',{});links=data.get('_links',{})
+                total=page.get('totalPages') if isinstance(page,dict) else None
+                numbered=isinstance(page,dict) and page.get('number',result['offset'])==result['offset']
+                last=numbered and type(total) is int and total>=0 and result['offset']+1>=total
+                # HAL permits an empty final page to omit _embedded entirely.
+                batch=data.get('_embedded',{}).get('tours',[] if last or (isinstance(links,dict) and 'self' in links and 'next' not in links) else None)
                 if not isinstance(batch,list):raise ValueError('Unknown tour list format')
                 if not batch:result['complete']=True;break
                 normalized=[tour_summary(t) for t in batch]
-                if not any(str(t['activityId']) not in seen for t in normalized):raise ValueError('Repeated tour page')
+                if not any(str(t['activityId']) not in seen for t in normalized):
+                    # A repeated page proves no progress, not that all tours
+                    # were returned. Retain the list without a generic error.
+                    result['stop_reason']='repeated_page';break
                 for item in normalized:
                     ident=str(item['activityId']);day=item['startTimeLocal'][:10]
+                    if item.get('sourceTourType')=='tour_recorded':result['oldest_recorded']=min(result.get('oldest_recorded') or day,day)
                     if ident not in seen:
                         seen.add(ident)
                         if start<=day<=end and (not kind or item['sourceTourType']==kind):result['items'].append(item)
                 result['offset']+=1;event('komoot_inventory',len(result['items']))
-                # Empty pages are authoritative; do not assume a short page means complete.
+                result['seen_ids']=sorted(seen)
+                if last or (isinstance(links,dict) and 'self' in links and 'next' not in links):result['complete']=True
+                # A short page alone does not prove completion.
             except Exception as exc:
                 if not cancel.is_set():result['error']=diagnostic(exc)
                 break

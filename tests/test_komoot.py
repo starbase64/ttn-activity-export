@@ -107,6 +107,50 @@ def test_cancel_and_malformed_responses_never_claim_complete(tmp_path):
     with pytest.raises(ValueError):api.request('https://attacker.invalid')
 
 
+@pytest.mark.parametrize('ending',['page','hal','empty'])
+def test_final_inventory_page_stops_without_requesting_past_end(tmp_path,ending):
+    calls=[]
+    def transport(path,*args):
+        calls.append(path)
+        data={'_embedded':{'tours':[tour()]}}
+        if ending=='page':data['page']={'number':0,'totalPages':1}
+        elif ending=='hal':data['_links']={'self':{'href':'unused'}}
+        elif len(calls)>1:data={'page':{'number':1,'totalPages':1}}
+        return json.dumps(data).encode()
+    api=client(tmp_path,transport);r=api.inventory('2020-01-01','2020-12-31')
+    assert r['complete'] and not r['error'] and len(r['items'])==1
+    count=len(calls);r=api.inventory('2020-01-01','2020-12-31',previous=r)
+    assert r['complete'] and not r['error'] and len(calls)==count
+
+
+def test_repeated_pages_keep_partial_inventory_with_specific_stop_reason(tmp_path):
+    api=client(tmp_path,lambda *a:json.dumps({'_embedded':{'tours':[tour()]}}).encode())
+    r=api.inventory('2020-01-01','2020-12-31')
+    assert not r['complete'] and not r['error'] and r['stop_reason']=='repeated_page' and len(r['items'])==1
+
+
+def test_seen_ids_survive_loading_more_when_previous_pages_are_outside_date_filter(tmp_path):
+    from urllib.parse import urlsplit,parse_qs
+    calls=[]
+    def transport(path,*args):
+        page=int(parse_qs(urlsplit(path).query)['page'][0]);calls.append(page)
+        return json.dumps({'_embedded':{'tours':[tour(100+min(page,9),date='2019-01-01')]}}).encode()
+    api=client(tmp_path,transport);api.last=-100
+    r=api.inventory('2020-01-01','2020-12-31');assert not r['items'] and len(r['seen_ids'])==10 and not r['error']
+    r=api.inventory('2020-01-01','2020-12-31',previous=r)
+    assert r['stop_reason']=='repeated_page' and not r['error'] and len(calls)==11
+    assert r['oldest_recorded']=='2019-01-01'
+
+
+def test_oldest_recorded_activity_uses_sorted_metadata_query(tmp_path):
+    from urllib.parse import urlsplit,parse_qs
+    def transport(path,*args):
+        query=parse_qs(urlsplit(path).query)
+        assert query['limit']==['1'] and query['sort_direction']==['asc'] and query['type']==['tour_recorded']
+        return json.dumps({'_embedded':{'tours':[tour(date='2017-05-17T12:00:00Z')]}}).encode()
+    assert client(tmp_path,transport).oldest_activity()=='2017-05-17'
+
+
 def test_planned_geometry_without_timestamps_uses_metadata_date(tmp_path):
     raw=b'<gpx version="1.1"><rte><rtept lat="51.1" lon="8.1"/><rtept lat="51.2" lon="8.2"/></rte></gpx>'
     api=client(tmp_path,lambda *a:raw);path=tmp_path/'planned.sqlite'
