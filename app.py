@@ -38,13 +38,13 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.8-preview'
+VERSION = '0.6.8'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
 def default_output_folder():
     downloads=QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation)
-    return (Path(downloads) if downloads else Path.home()/'Downloads')/'Garmin_Export'
+    return (Path(downloads) if downloads else Path.home()/'Downloads')/'TTN_Activity_Export'/'Garmin'
 
 class Worker(QThread):
     event = Signal(object)
@@ -90,6 +90,7 @@ class MainWindow(QMainWindow):
         self.worker = None
         self._closing=False
         self._restoring=False
+        self._restore_pending=False
         self.last_output = ''
         self.completed = 0
         self.field_checks = []
@@ -116,10 +117,22 @@ class MainWindow(QMainWindow):
         title = QLabel(APP_NAME); title.setObjectName('title'); heading.addWidget(title)
         self.subtitle = self.label('Deine Aktivitäten. Deine Daten. Alles lokal.', 'Your activities. Your data. All local.')
         self.subtitle.setObjectName('subtitle'); heading.addWidget(self.subtitle); top.addLayout(heading); top.addStretch()
-        self.language = QPushButton('English'); self.language.clicked.connect(self.toggle_language); top.addWidget(self.language)
-        self.theme_button=QPushButton();self.theme_button.clicked.connect(self.toggle_theme);top.addWidget(self.theme_button)
+        from updates import load_auto_check
+        self.update_job=None;self.update_info=None;self._update_automatic=False
+        self._saved_auto_update=load_auto_check(self.data_dir/'update-preferences.json')
+        controls=QVBoxLayout();buttons=QHBoxLayout()
+        self.auto_updates=self.check('Beim Start automatisch prüfen','Check automatically at startup',self._saved_auto_update)
+        self.bind(self.auto_updates,'Beim Programmstart auf GitHub nach neuen App-Versionen suchen. Die Einstellung wird lokal gespeichert.',
+                  'Check GitHub for new app versions at startup. This preference is saved locally.',setter='setToolTip')
+        self.auto_updates.toggled.connect(self.save_update_preference);controls.addWidget(self.auto_updates)
+        self.update_button=self.button('Updates prüfen','Check updates',lambda:self.check_updates());buttons.addWidget(self.update_button)
+        self.language = QPushButton('English'); self.language.clicked.connect(self.toggle_language); buttons.addWidget(self.language)
+        self.theme_button=QPushButton();self.theme_button.clicked.connect(self.toggle_theme);buttons.addWidget(self.theme_button)
+        controls.addLayout(buttons);top.addLayout(controls)
         self.update_theme_button()
         outer.addLayout(top)
+        update_row=QHBoxLayout();self.update_status=QLabel();self.update_status.setWordWrap(True);self.update_status.hide();update_row.addWidget(self.update_status,1)
+        self.update_download=self.button('Download öffnen','Open download',self.open_update_release);self.update_download.hide();update_row.addWidget(self.update_download);outer.addLayout(update_row)
         if demo:
             warning = self.label('DEMO · Nur künstliche Beispieldaten, kein Garmin-Zugriff', 'DEMO · Synthetic samples only, no Garmin access')
             warning.setObjectName('warningBanner'); outer.addWidget(warning)
@@ -143,7 +156,7 @@ class MainWindow(QMainWindow):
         bottom.addWidget(self.download_only_button); bottom.addWidget(self.export_preview_button); bottom.addWidget(self.start_button); bottom.addWidget(self.stop_button); bottom.addStretch(); bottom.addWidget(self.open_button)
         outer.addLayout(bottom)
         self.progress = QProgressBar(); self.progress.setValue(0); outer.addWidget(self.progress)
-        self.status = self.label('Bereit · Vorschauversion', 'Ready · Preview version'); outer.addWidget(self.status)
+        self.status = self.label('Bereit', 'Ready'); outer.addWidget(self.status)
         self.eta_label=QLabel();self.eta_label.setWordWrap(True);self.eta_label.setObjectName('etaText');outer.addWidget(self.eta_label)
         self.eta_snapshot=None;self.eta_received=0.;self.eta_active=False;self.retry_until=0.;self.request_count=0
         self.local_transfer=False
@@ -165,6 +178,7 @@ class MainWindow(QMainWindow):
         else:
             self.load_saved_account()
         self.remember.toggled.connect(self.remember_changed)
+        if self._saved_auto_update and not demo:QTimer.singleShot(1200,lambda:self.check_updates(automatic=True))
 
     @property
     def saved_account_path(self):return self.data_dir/'remembered-account.json'
@@ -230,9 +244,11 @@ class MainWindow(QMainWindow):
         self.remember.setChecked(auto_restore)
         if not auto_restore:return
         self._restore_account=(email,china)
+        self._restore_pending=True
         QTimer.singleShot(0,self.restore_saved_session)
 
     def restore_saved_session(self):
+        self._restore_pending=False
         if self._closing or self.api or not self.remember.isChecked():return
         if self.worker and self.worker.isRunning():return
         if (self.email.text().strip(),self.china.isChecked())!=getattr(self,'_restore_account',None):return
@@ -643,6 +659,66 @@ class MainWindow(QMainWindow):
         self.theme_button.setToolTip(self.tr('Auf helles Farbschema umschalten','Switch to light colors') if dark else self.tr('Auf dunkles Farbschema umschalten','Switch to dark colors'))
         self.theme_button.setAccessibleName(self.tr('Farbschema umschalten','Switch color scheme'))
 
+    def save_update_preference(self,enabled):
+        from updates import save_auto_check
+        try:save_auto_check(self.data_dir/'update-preferences.json',enabled)
+        except OSError:
+            self.auto_updates.blockSignals(True);self.auto_updates.setChecked(self._saved_auto_update);self.auto_updates.blockSignals(False)
+            self.update_info={'status':'error','reason':'preference'};self.render_update_result();return
+        self._saved_auto_update=bool(enabled)
+
+    def check_updates(self,automatic=False):
+        if self._closing or self.update_job is not None:return
+        if automatic and (self.demo or not self.auto_updates.isChecked()):return
+        from updates import ReleaseCheck
+        self._update_automatic=automatic;self.update_info=None;self.update_button.setEnabled(False);self.update_download.hide()
+        self.update_status.setObjectName('');self.update_status.setText(self.tr('Suche nach veröffentlichten Updates …','Checking published updates …'));self.update_status.show()
+        job=ReleaseCheck(VERSION,self);self.update_job=job
+        job.result.connect(self.update_check_done);job.start()
+
+    def update_check_done(self,result):
+        job=self.update_job;self.update_job=None
+        if job is not None:job.deleteLater()
+        if self._closing:return
+        self.update_button.setEnabled(True);self.update_info=result;self.render_update_result()
+        self.log.appendPlainText(self.update_status.text())
+
+    def render_update_result(self):
+        info=self.update_info or {};status=info.get('status');local=info.get('current',VERSION);latest=info.get('latest','')
+        if status=='available':
+            text=self.tr(f'Update verfügbar: {latest} · installiert: {local}. Download und Versionshinweise auf GitHub öffnen.',
+                         f'Update available: {latest} · installed: {local}. Open the download and release notes on GitHub.')
+        elif status=='ahead':
+            text=self.tr(f'Deine Version {local} ist neuer als das passende veröffentlichte GitHub-Release {latest}. Noch kein neueres Update veröffentlicht.',
+                         f'Your version {local} is newer than the matching published GitHub release {latest}. No newer update has been published.')
+        elif status=='current':text=self.tr(f'Keine neuere veröffentlichte Version · installiert: {local}.',f'No newer published version · installed: {local}.')
+        elif status=='no_releases':text=self.tr('Noch keine passende GitHub-Veröffentlichung gefunden. Testpakete und reine Quellcodeänderungen sind keine veröffentlichten Updates.',
+                                               'No matching GitHub release found. Test packages and source-only changes are not published updates.')
+        elif status=='incomplete':text=self.tr('Update-Prüfung unvollständig. Veröffentlichungen bitte auf GitHub prüfen.','Update check incomplete. Please check releases on GitHub.')
+        else:
+            errors={
+                'timeout':('Update-Prüfung: Zeitüberschreitung. Später erneut versuchen.','Update check timed out. Try again later.'),
+                'connection':('Update-Prüfung nicht möglich. Internetverbindung prüfen und später erneut versuchen.','Could not check updates. Check your internet connection and try again later.'),
+                'rate_limit':('GitHub begrenzt derzeit die Update-Anfragen. Bitte später erneut versuchen.','GitHub is currently limiting update requests. Please try again later.'),
+                'http':('GitHub hat die Update-Prüfung abgelehnt. Bitte später erneut versuchen.','GitHub rejected the update check. Please try again later.'),
+                'preference':('Die Einstellung zur Update-Prüfung konnte nicht gespeichert werden. Schreibrechte prüfen.','Could not save the update-check preference. Check write permissions.'),
+            }
+            text=self.tr(*errors.get(info.get('reason'),('Die Update-Antwort konnte nicht sicher ausgewertet werden. Später erneut versuchen.','Could not safely read the update response. Try again later.')))
+            if info.get('http_status'):text+=f" · HTTP {info['http_status']}"
+        if status=='available' and info.get('partial'):text+=' '+self.tr('Die Prüfung weiterer Veröffentlichungen ist unvollständig.','Checking additional releases is incomplete.')
+        self.update_status.setText(text);self.update_status.show()
+        self.update_status.setObjectName('warningText' if status in ('error','incomplete') else '')
+        self.update_status.style().unpolish(self.update_status);self.update_status.style().polish(self.update_status)
+        self.update_download.setVisible(status=='available' and bool(info.get('url')))
+
+    def open_update_release(self):
+        from updates import RELEASES_URL
+        url=(self.update_info or {}).get('url')
+        if not isinstance(url,str) or not url.startswith(RELEASES_URL+'/tag/'):return
+        if not QDesktopServices.openUrl(QUrl(url)):
+            self.message('Die GitHub-Downloadseite konnte nicht geöffnet werden. Standardbrowser prüfen.',
+                         'Could not open the GitHub download page. Check your default browser.')
+
     def toggle_theme(self):
         self.theme='light' if self.theme=='dark' else 'dark'
         apply_theme(QApplication.instance(),self.theme,self.tick_style)
@@ -664,6 +740,8 @@ class MainWindow(QMainWindow):
         self.update_sports_hint()
         self.language.setText('English' if self.lang=='de' else 'Deutsch')
         self.update_theme_button()
+        if self.update_info is not None:self.render_update_result()
+        elif self.update_job is not None:self.update_status.setText(self.tr('Suche nach veröffentlichten Updates …','Checking published updates …'))
         self.help.setHtml(HELP[self.lang]); self.update_connection();self.update_cooldown_label();self.offline_source_changed()
         if hasattr(self,'last_coverage_result'):self.render_coverage(self.last_coverage_result)
         self.data_page.retranslate()
@@ -758,6 +836,10 @@ class MainWindow(QMainWindow):
         self.eta_label.setText(text+self.tr(f' · {self.request_count} Garmin-Abfragen',f' · {self.request_count} Garmin requests'))
 
     def error_description(self,detail):
+        from import_errors import IMPORT_MESSAGES
+        if detail.get('import_code') in IMPORT_MESSAGES:
+            de,en=IMPORT_MESSAGES[detail['import_code']]
+            return self.tr('Strava-Import','Strava import')+' · '+detail['import_code']+'\n'+self.tr(de,en)
         reasons={
             'rate_limit':('Garmin begrenzt die Anfragen. Vorerst nicht erneut anmelden oder abrufen.','Garmin is limiting requests. Do not sign in or fetch again for now.'),
             'challenge':('Garmin verlangt möglicherweise eine Browser-/Sicherheitsprüfung. Keine automatischen Wiederholungen.','Garmin may require a browser/security check. No automatic retries.'),
@@ -777,6 +859,8 @@ class MainWindow(QMainWindow):
             'OfflineArchiveError':('Keine gültige oder unterstützte Offline-Datenbank. Datei und Pfad prüfen.','Invalid or unsupported offline archive. Check the file and path.'),
         }
         de,en=local.get(detail.get('error_type'),reasons.get(detail.get('reason'),reasons['unknown']))
+        if detail.get('provider')=='komoot' or detail.get('error_type')=='KomootError':
+            de=de.replace('Garmin','Komoot');en=en.replace('Garmin','Komoot')
         text=detail.get('error_type','Error')
         if detail.get('http_status'):text+=f" · HTTP {detail['http_status']}"
         return text+'\n'+self.tr(de,en)
@@ -1156,7 +1240,7 @@ class MainWindow(QMainWindow):
     def save_preset(self):
         try: config=vars(self.make_plan()).copy()
         except Exception: self.message('Ungültige Expertenparameter.','Invalid expert parameters.'); return
-        for key in ('account','output'): config.pop(key,None)
+        for key in ('account','output','activity_ids'): config.pop(key,None)
         path,_=QFileDialog.getSaveFileName(self,self.tr('Vorlage speichern','Save preset'),'garmin-export-preset.json','JSON (*.json)')
         if path:
             try: Path(path).write_text(json.dumps({'version':1,'settings':config},ensure_ascii=False,indent=2),encoding='utf-8')
@@ -1181,6 +1265,8 @@ class MainWindow(QMainWindow):
             self.reuse_exports.setChecked(p.reuse_exports)
             if 'workers' in settings:self.workers.setValue(p.workers)  # Older presets keep the current value.
             self.selectors.setPlainText('\n'.join(p.selectors));self.expert_enable.setChecked(bool(p.expert_method));self.method.setCurrentText(p.expert_method or 'get_naps');self.kwargs.setPlainText(json.dumps(p.expert_kwargs,indent=2));self.expert_daily.setChecked(p.expert_daily)
+            if hasattr(self,'selected_activity_ids'):
+                self.selected_activity_ids=[];self.refresh_selection_summary()
         except Exception: self.message('Vorlage ungültig oder nicht lesbar.','Preset is invalid or unreadable.')
 
     def closeEvent(self,event):
@@ -1189,9 +1275,15 @@ class MainWindow(QMainWindow):
             self.message('GPS-Lesen wird beendet. Danach bitte erneut schließen.','Stopping GPS read. Close again when finished.');return
         if self.worker and self.worker.isRunning():
             self.stop();event.ignore();self.message('Abbruch angefordert. Bitte warten, bis der laufende Vorgang beendet ist, dann schließen.','Stop requested. Please wait until the running operation finishes, then close.');return
+        if self.update_job is not None:self.update_job.cancel()
         self._closing=True
         self.log.appendPlainText('TTN Activity Export · session ended');event.accept()
 
+
+from desktop import StudioMixin
+
+class DesktopWindow(StudioMixin,MainWindow):
+    """Current four-tab desktop; MainWindow remains the reusable Garmin controls."""
 
 def main():
     app=QApplication(sys.argv);app.setOrganizationName('TTNTools');app.setApplicationName(STORAGE_PROFILE);app.setApplicationDisplayName(APP_NAME)
@@ -1215,13 +1307,19 @@ def main():
             if import_files(local,[gpx],account_key('smoke-import'))['imported']!=1:sys.exit(6)
             data=load_archive(local);backup_archive(local,Path(folder)/'backup.sqlite')
             if validate_archive(Path(folder)/'backup.sqlite')['integrity']!='ok':sys.exit(7)
-            window=MainWindow(demo=True); window.toggle_language()
+            window=DesktopWindow(demo=True); window.toggle_language()
             if window.start_button.text()!='Start export': sys.exit(2)
             window.data_page.loaded(data);window.data_page.table.selectAll()
             if len(window.data_page.map.routes)!=1:sys.exit(8)
             window.data_page.map.poster(str(Path(folder)/'poster.png'),'Synthetic smoke test','Test')
             window.close()
         sys.exit(0)
-    window=MainWindow('--demo' in sys.argv);window.show();sys.exit(app.exec())
+    if '--demo' not in sys.argv:
+        from PySide6.QtCore import QLockFile
+        profile=Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation));profile.mkdir(parents=True,exist_ok=True)
+        instance_lock=QLockFile(str(profile/'desktop-instance.lock'))
+        if not instance_lock.tryLock(0):
+            QMessageBox.information(None,APP_NAME,'Die App läuft bereits. Bitte das vorhandene Fenster verwenden. / The app is already running. Please use the existing window.');sys.exit(0)
+    window=DesktopWindow('--demo' in sys.argv);window.show();sys.exit(app.exec())
 
 if __name__=='__main__':main()

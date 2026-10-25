@@ -54,7 +54,11 @@ def diagnostic(exc):
             try:delay=parsedate_to_datetime(str(raw)).timestamp()-time.time()
             except (ValueError,TypeError,OverflowError):continue
         if math.isfinite(delay):retry_after=max(1,math.ceil(delay));break
-    return {'error_type':name,'http_status':code,'reason':reason,'retry_after_seconds':retry_after}
+    result={'error_type':name,'http_status':code,'reason':reason,'retry_after_seconds':retry_after}
+    from import_errors import ImportProblem
+    for item in chain:
+        if isinstance(item,ImportProblem):result['import_code']=item.import_code;break
+    return result
 
 
 class RatePause:

@@ -3,7 +3,7 @@ import json
 import threading
 from dataclasses import replace
 from pathlib import Path
-from PySide6.QtCore import Qt,QDate,QItemSelectionModel,QUrl,QTimer,QThread,Signal
+from PySide6.QtCore import Qt,QDate,QItemSelectionModel,QUrl,QTimer,QThread,Signal,QStandardPaths
 from PySide6.QtGui import QDesktopServices,QColor
 from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QLabel,QLineEdit,QPushButton,QComboBox,
  QDateEdit,QDoubleSpinBox,QSpinBox,QTableWidget,QTableWidgetItem,QAbstractItemView,QHeaderView,
@@ -26,7 +26,7 @@ class TrackLoader(QThread):
 class DataPage(QWidget):
     def __init__(self,host):
         super().__init__();self.host=host;self.data={'activities':[],'tracks':{},'health':[]};self.by_key={};self.visible=[];self.summary_rows=[]
-        self.loading=False;self.filter_initialized=False;self.presets_path=host.data_dir/'data-view-presets.json'
+        self.loading=False;self.filter_initialized=False;self.account_load_generation=0;self.presets_path=host.data_dir/'data-view-presets.json'
         self.date_account=None;self.first_activity_date=None
         self.track_worker=None;self.track_generation=0;self.pending_tracks=[]
         self.persisted_columns=[]
@@ -59,7 +59,7 @@ class DataPage(QWidget):
         self.date_from=QDateEdit(QDate(1990,1,1));self.date_to=QDateEdit(QDate.currentDate())
         dates=QHBoxLayout()
         for label,d in ((host.label('Von','From'),self.date_from),(host.label('Bis','Through'),self.date_to)):
-            d.setCalendarPopup(True);d.setDisplayFormat('yyyy-MM-dd');d.setDateRange(QDate(1990,1,1),QDate.currentDate())
+            d.setCalendarPopup(True);d.setDisplayFormat('yyyy-MM-dd');d.setDateRange(QDate(1990,1,1),QDate(9999,12,31))
             dates.addWidget(label);dates.addWidget(d,1)
         v.addLayout(dates)
         self.reset_date_button=host.button('Auf erste Aktivität zurücksetzen','Reset to first activity',self.reset_activity_start)
@@ -79,9 +79,10 @@ class DataPage(QWidget):
         self.table.itemSelectionChanged.connect(self.selection_changed);self.table.itemChanged.connect(self.checkbox_changed)
         self.table.setMinimumHeight(180);v.addWidget(self.table,1)
         self.map_panel=QWidget();mv=QVBoxLayout(self.map_panel);mv.setContentsMargins(8,8,8,8)
-        controls=QHBoxLayout();self.heat=host.check('Heatmap','Heatmap');self.online=host.check('Onlinekarte (OSM)','Online map (OSM)')
+        controls=QHBoxLayout();self.heat=host.check('Heatmap','Heatmap');self.online=host.check('Onlinekarte (OSM)','Online map (OSM)',True)
         controls.addWidget(self.heat);controls.addWidget(self.online);controls.addWidget(host.button('Einpassen','Fit',self.selection_changed));mv.addLayout(controls)
         self.map=TrackMap(host.data_dir/'map-cache');mv.addWidget(self.map,1)
+        self.map.allow_requests=not host.demo
         self.map_hint=host.label('Klick: eine Tour · Strg: einzelne · Shift: Bereich. Mausrad: Zoom, Ziehen: verschieben.','Click: one trip · Ctrl: individual · Shift: range. Wheel: zoom, drag: pan.');mv.addWidget(self.map_hint)
         share=QHBoxLayout();self.privacy=QSpinBox();self.privacy.setRange(0,10000);self.privacy.setSingleStep(100);self.privacy.setSuffix(' m')
         share.addWidget(host.label('Start/Ende verbergen','Hide start/end'));share.addWidget(self.privacy)
@@ -104,6 +105,7 @@ class DataPage(QWidget):
         self.search.textChanged.connect(self.apply_filters);self.sport.currentIndexChanged.connect(self.apply_filters);self.date_from.dateChanged.connect(self.apply_filters);self.date_to.dateChanged.connect(self.apply_filters);self.min_km.valueChanged.connect(self.apply_filters)
         self.date_from.dateChanged.connect(self.remember_date_filter)
         self.period.currentIndexChanged.connect(self.refresh_summaries);self.heat.toggled.connect(self.selection_changed);self.online.toggled.connect(self.map.set_online);self.privacy.valueChanged.connect(self.selection_changed)
+        self.map.set_online(self.online.isChecked())
         host.archive_path.textChanged.connect(self.source.setText)
         self.retranslate();self.read_presets()
 
@@ -145,6 +147,39 @@ class DataPage(QWidget):
         try:path=self.path()
         except Exception as exc:self.error(exc);return
         self.host.run_worker(lambda w:load_archive(path,w.cancel,with_tracks=False),self.loaded,network=False)
+
+    def select_account_archive(self,account,path):
+        """Clear immediately; load only the latest selected account, without online requests."""
+        self.account_load_generation+=1;generation=self.account_load_generation
+        self.host.archive_path.setText(path);self.source.setText(path)
+        self.filter_initialized=False
+        self.search.blockSignals(True);self.search.clear();self.search.blockSignals(False)
+        self.min_km.blockSignals(True);self.min_km.setValue(0);self.min_km.blockSignals(False)
+        self.loaded({'activities':[],'tracks':{},'health':[],'account':account})
+        if not path or not Path(path).is_file():
+            self.note.setText(self.t('Für dieses Konto ist noch keine lokale Datenbank vorhanden. Der vorgesehene Speicherort steht oben.',
+                                     'No local database exists for this account yet. Its intended location is shown above.') if account else self.t('Zuerst ein Konto auswählen.','Select an account first.'))
+            return
+        self.note.setText(self.t('Lokaler Bestand des ausgewählten Kontos wird geladen …','Loading the selected account’s local archive …'))
+        QTimer.singleShot(0,lambda:self.load_selected_account(account,path,generation))
+
+    def load_selected_account(self,account,path,generation):
+        if self.host._closing or generation!=self.account_load_generation or self.source.text()!=path:return
+        active=getattr(self.host,'active_account',None)
+        if not active or active['id']!=account:return
+        if (self.host.worker and self.host.worker.isRunning()) or getattr(self.host,'_queue_active',False) or getattr(self.host,'_restore_pending',False):
+            QTimer.singleShot(50,lambda:self.load_selected_account(account,path,generation));return
+        def operation(w):
+            try:
+                with Archive(path,account,readonly=True):pass
+                return {'data':load_archive(path,w.cancel,with_tracks=False)}
+            except Exception as exc:return {'error':type(exc).__name__}
+        def done(result):
+            if generation!=self.account_load_generation or self.source.text()!=path:return
+            if result.get('data',{}).get('account')==account:self.loaded(result['data'])
+            else:self.note.setText(self.t('Datenbank konnte für dieses Konto nicht geöffnet werden. Datei und Kontozuordnung prüfen.',
+                                          'Could not open this database for the selected account. Check the file and account identity.'))
+        self.host.run_worker(operation,done,network=False)
     def loaded(self,data):
         self.track_generation+=1
         if self.track_worker and self.track_worker.isRunning():self.track_worker.cancel.set()
@@ -209,7 +244,11 @@ class DataPage(QWidget):
         self.map.lang=self.host.lang;self.map.set_routes(routes,self.heat.isChecked())
         unknown=[a for a in selected if a['_key'] not in self.data['tracks']]
         self.pending_tracks=unknown
-        self.selection_note.setText(self.t(f'{len(selected)} ausgewählt · {len(routes)} Strecken · {missing} ohne sichtbare GPS-Strecke',f'{len(selected)} selected · {len(routes)} tracks · {missing} without visible GPS track') if not unknown else self.t(f'{len(unknown)} GPS-Strecken werden lokal gelesen …',f'Reading {len(unknown)} GPS tracks locally …'))
+        total=len(self.data['activities']);visible=len(self.visible)
+        prefix=self.t(f'{total} Aktivitäten insgesamt',f'{total} activities total')
+        if visible!=total:prefix+=self.t(f' · {visible} angezeigt',f' · {visible} shown')
+        detail=self.t(f'{len(selected)} ausgewählt · {len(routes)} Strecken · {missing} ohne sichtbare GPS-Strecke',f'{len(selected)} selected · {len(routes)} tracks · {missing} without visible GPS track') if not unknown else self.t(f'{len(selected)} ausgewählt · {len(unknown)} GPS-Strecken werden lokal gelesen …',f'{len(selected)} selected · Reading {len(unknown)} GPS tracks locally …')
+        self.selection_note.setText(prefix+' · '+detail)
         if unknown:self.start_track_loader()
         self.update_route_colors(selected)
 
@@ -354,26 +393,101 @@ class DataPage(QWidget):
         QTimer.singleShot(150,self.reload)
 
     def import_cache_dialog(self):
-        from datahub import import_cache
-        folder=QFileDialog.getExistingDirectory(self,self.t('cache-v1-Ordner eines vorhandenen Exports auswählen','Choose cache-v1 folder from an existing export'),self.host.output.text())
+        if self.host.worker and self.host.worker.isRunning():return
+        active=getattr(self.host,'active_account',None)
+        if active and active['provider']!='garmin':
+            self.host.message('Für die Cache-Suche zuerst das Garmin-Konto auswählen.','Select the Garmin account before searching its cache.');return
+        account=(active or {}).get('id') or self.host.identity
+        downloads=Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation) or Path.home()/'Downloads')
+        roots=[self.host.output.text(),downloads/'TTN_Activity_Export'/'Garmin',downloads/'TTN Activity Export'/'Garmin',downloads/'Garmin_Export']
+        archives=[self.source.text(),self.host.archive_path.text(),(active or {}).get('archive_path')]
+        if self.host.last_output:roots.append(Path(self.host.last_output).parent.parent)
+        workspace=getattr(self.host,'workspace',None)
+        if workspace:
+            roots.extend(j['plan']['output'] for j in workspace.jobs if j.get('account')==account)
+        from cache_discovery import discover_cache,open_discovered_cache
+        target=self.cache_import_target(account) if account else None
+        self.host.log.appendPlainText(self.t('Suche vorhandene Garmin-Daten in den bekannten Speicherorten …','Searching known storage locations for Garmin data …'))
+        def operation(w):
+            matches=discover_cache(account,roots,archives,w.cancel)
+            opened=open_discovered_cache(matches[0],account,target,w.cancel) if len(matches)==1 and not w.cancel.is_set() else None
+            return {'matches':matches,'opened':opened}
+        self.host.run_worker(operation,lambda result:self.cache_search_done(result,account),network=False)
+
+    def cache_search_done(self,result,account):
+        if self.host.worker and self.host.worker.cancel.is_set():return
+        if isinstance(result,dict):
+            if result.get('opened'):self.cache_opened(result['opened']);return
+            matches=result['matches']
+        else:matches=result
+        if not matches:
+            QTimer.singleShot(0,lambda:self.after_cache_worker(lambda:self.manual_cache_search(account)));return
+        selected=matches[0]
+        if len(matches)>1:
+            labels=[self.t('Datenbank','Database') if m['kind']=='sqlite' else self.t('Export-Cache','Export cache') for m in matches]
+            labels=[f"{label} · {m.get('responses') or '?'} · {m.get('start') or '?'} – {m.get('end') or '?'} · {m['path']}" for label,m in zip(labels,matches)]
+            label,ok=QInputDialog.getItem(self,self.t('Mehrere Datenbestände gefunden','Multiple archives found'),self.t('Welchen Bestand öffnen/übernehmen?','Which archive should be opened/imported?'),labels,0,False)
+            if not ok:return
+            selected=matches[labels.index(label)]
+        QTimer.singleShot(0,lambda:self.after_cache_worker(lambda:self.use_discovered_cache(selected,account)))
+
+    def after_cache_worker(self,callback):
+        if self.host._closing:return
+        if self.host.worker and self.host.worker.isRunning():
+            QTimer.singleShot(25,lambda:self.after_cache_worker(callback));return
+        callback()
+
+    def manual_cache_search(self,account):
+        folder=QFileDialog.getExistingDirectory(self,self.t('Kein passender Bestand gefunden: Cache- oder Kontoordner auswählen','No matching archive found: select cache or account folder'),self.host.output.text())
         if not folder:return
         try:
-            prefix=Path(folder).parent.name
-            if not prefix.startswith('account-'):raise ValueError()
-            account=prefix.removeprefix('account-')
-            import re
-            if not re.fullmatch('[a-f0-9]{20}',account):raise ValueError()
-            path=self.source.text().strip()
-            if not path:
-                path,_=QFileDialog.getSaveFileName(self,self.t('Offline-Datenbank','Offline archive'),'garmin-cache.sqlite','SQLite (*.sqlite)')
-                if not path:return
-                self.host.archive_path.setText(path)
-            self.host.run_worker(lambda w:import_cache(path,folder,account,w.cancel),self.cache_done,network=False)
+            if account is None:
+                parent=Path(folder).parent.name if Path(folder).name=='cache-v1' else Path(folder).name
+                import re
+                if not re.fullmatch('account-[a-f0-9]{20}',parent):raise ValueError('Select an account cache')
+                account=parent.removeprefix('account-')
+            from cache_discovery import discover_cache,open_discovered_cache
+            target=self.cache_import_target(account)
+            def operation(w):
+                matches=discover_cache(account,[folder],cancel=w.cancel)
+                opened=open_discovered_cache(matches[0],account,target,w.cancel) if len(matches)==1 and not w.cancel.is_set() else None
+                return {'matches':matches,'opened':opened}
+            self.host.run_worker(operation,lambda result:self.manual_cache_done(result,account),network=False)
         except Exception as exc:self.error(exc)
-    def cache_done(self,result):
-        self.host.message(f"Cache übernommen: {result['responses']} · Fehler: {result['errors']}",f"Cache imported: {result['responses']} · Errors: {result['errors']}")
-        QTimer.singleShot(150,self.reload)
 
+    def manual_cache_done(self,result,account):
+        if self.host.worker and self.host.worker.cancel.is_set():return
+        if not result['matches']:self.host.message('Kein passender lesbarer Bestand für dieses Konto gefunden.','No matching readable archive found for this account.');return
+        self.cache_search_done(result,account)
+
+    def cache_import_target(self,account):
+        from engine import account_root
+        path=account_root(self.host.output.text(),account)/'garmin-offline.sqlite'
+        active=getattr(self.host,'active_account',None)
+        candidate=(active or {}).get('archive_path') or self.host.archive_path.text()
+        if candidate and Path(candidate).is_file():
+            try:
+                with Archive(candidate,account,readonly=True):path=Path(candidate)
+            except Exception:pass
+        return str(path)
+
+    def use_discovered_cache(self,match,account):
+        from cache_discovery import open_discovered_cache
+        try:
+            active=getattr(self.host,'active_account',None)
+            if active and active['id']!=account:raise ValueError('Account changed; search again')
+            target=self.cache_import_target(account)
+            self.host.run_worker(lambda w:open_discovered_cache(match,account,target,w.cancel),self.cache_opened,network=False)
+        except Exception as exc:self.error(exc)
+
+    def cache_opened(self,result):
+        active=getattr(self.host,'active_account',None)
+        if active and active['id']!=result['account']:return
+        self.host.archive_path.setText(result['path']);self.source.setText(result['path']);self.filter_initialized=False
+        self.loaded(result['data'])
+        self.host.log.appendPlainText(self.t('Vorhandener Bestand geöffnet: ','Existing data opened: ')+result['path'])
+        report=result.get('report')
+        if report:self.host.message(f"Cache übernommen: {report['responses']} · Bereits gespeichert: {report.get('skipped',0)} · Fehler: {report['errors']}",f"Cache imported: {report['responses']} · Already stored: {report.get('skipped',0)} · Errors: {report['errors']}")
     def backup_dialog(self):
         try:source=self.path()
         except Exception as exc:self.error(exc);return

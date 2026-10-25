@@ -11,6 +11,20 @@ from sessionlog import SessionLog
 
 QT_APP=QApplication.instance() or QApplication([])
 
+
+def test_online_map_defaults_and_empty_hint_are_readable_over_tiles(tmp_path):
+    from PySide6.QtGui import QPixmap,QColor
+    window=MainWindow(demo=True);view=window.data_page
+    assert view.online.isChecked() and view.map.online
+    canvas=view.map;canvas.resize(650,400);canvas.timer.stop()
+    tile=QPixmap(256,256);tile.fill(QColor('#ea187c'))
+    canvas.pixmaps={key:tile for key,_ in canvas.tiles()}
+    image=canvas.grab().toImage()
+    box=canvas.fontMetrics().boundingRect('Aktivität mit GPS auswählen').adjusted(-14,-10,14,10)
+    box.moveCenter(canvas.rect().center())
+    assert image.pixelColor(box.left()+4,box.center().y()).name()=='#ffffff'
+    assert image.pixelColor(10,canvas.height()//2).name()=='#ea187c'
+
 @pytest.fixture(autouse=True)
 def cleanup():
     yield
@@ -24,6 +38,15 @@ def sample():
         data['activities'].append({'activityId':i+1,'_key':key,'_day':'2020-01-0'+key,'activityName':'Ride '+key,'activityType':{'typeKey':'cycling'},'startTimeLocal':'2020-01-0'+key+' 10:00:00','distance':(i+1)*10000,'duration':3600})
         data['tracks'][key]=[(51+i*.01,8),(51.05+i*.01,8.05)] if i!=1 else []
     return data
+
+
+def test_selection_summary_starts_with_total_and_distinguishes_filter():
+    window=MainWindow(demo=True);view=window.data_page;view.loaded(sample())
+    assert view.selection_note.text().startswith('3 Aktivitäten insgesamt · 0 ausgewählt')
+    view.search.setText('Ride 1')
+    assert view.selection_note.text().startswith('3 Aktivitäten insgesamt · 1 angezeigt · 0 ausgewählt')
+    window.toggle_language()
+    assert view.selection_note.text().startswith('3 activities total · 1 shown · 0 selected')
 
 def test_real_ctrl_shift_click_selection_map_sync_filters_and_language(monkeypatch):
     window=MainWindow(demo=True);window.resize(1450,1000);window.tabs.setCurrentWidget(window.data_page);window.show();view=window.data_page

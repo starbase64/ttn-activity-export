@@ -1,6 +1,79 @@
+# 0.6.8 · public release
+
+- Publish the user-tested 0.6.8 desktop as a stable release after successful Garmin/Komoot sign-in, retrieval and Strava account archive import testing.
+- Include the compact bilingual desktop, account-specific data stores, offline export, local Strava ZIP/folder import, experimental Komoot connector with protected Windows sessions, first-activity date reset, map browsing and GitHub release checks.
+- Provide a Windows x64 starter ZIP and SHA-256 checksum. A publication workflow only consumes the successful same-repository main-push Windows artifact, verifies its version/checksum and publishes the release after uploading the verified assets.
+- Update installation instructions, release notes, acknowledgements and guides for the public release. Application data and the existing storage profile remain compatible.
+
+# 0.6.8-preview · manual and optional startup update checks
+
+- Add Check updates beside the language/theme controls and a persistent opt-in startup checkbox. Check published public GitHub releases in an independent, cancellable Qt network operation without blocking provider jobs or session restoration.
+- Compare numeric release versions and prerelease stages; preview installations include published prereleases, stable installations exclude them. Ignore drafts and unsupported tags, never offer downgrades, and explain when the installed test build is ahead of published releases.
+- Bound requests by timeout, response size and page count. Use a fixed repository/HTTPS API host, no redirects or provider credentials, and explicit connection/rate-limit/incomplete-check messages. Open canonical GitHub release pages only after the user presses Open download. Startup checks are disabled in demo/smoke runs.
+- Store the startup preference independently of theme preferences. Add offline regression tests for versions/channels, persistence, pagination, failures, cancellation and GUI behavior; no new runtime dependencies.
+
+# 0.6.7-preview · remembered Komoot sessions and reliable inventory completion
+
+- Add opt-in Windows DPAPI storage of account-bound Komoot session tokens. Restore locally when selecting the account, without storing the password or issuing a startup login request. Verify saved tokens; report save failures; support removing saved tokens without authentication, on unchecking remember, signing out and removing the account. No plaintext fallback on other platforms. Invalid HTTP 401 tokens are removed; HTTP 403 export permission failures do not remove them.
+- Query the oldest recorded Komoot activity after login using an ascending metadata-only list. Persist its date per account; retain a custom start date and provide a reset button. Date lookup failures leave a valid login intact and are logged separately.
+- Respect final-page metadata and HAL next-link absence. Accept final empty HAL pages without embedded tours. Track raw tour IDs across pages and filtered load-more steps. Stop repeated pages with a specific incomplete-list warning instead of a generic ValueError; disable load-more until refresh without claiming the list is complete.
+- Add regression coverage for persistence/restart, account separation, date reset, token removal, final/repeated/filtered pages and native Windows DPAPI cross-process encryption/decryption. No new dependencies.
+
+# 0.6.6-preview · Strava TCX import and Komoot inventory
+
+- Accept ASCII whitespace before an XML declaration in TCX/GPX parsing. This handles indented TCX recordings in downloaded Strava archives while preserving original file bytes and the parser-level DTD/entity protection.
+- Re-importing the same package repairs missing recording files without duplicating existing activity summaries.
+- Use provider-aware Komoot inventory errors and keep Komoot failures separate from Garmin rate pauses. Request tour lists with page, limit and an optional nonempty type; apply date filters locally to reduce endpoint filter incompatibilities. HTTP 400 on the user account still requires a live retest.
+- Add a synthetic regression test for an indented TCX file, byte-preserving storage, repeat import and unchanged XML declaration security checks. No user activity data is included in the repository or build.
+
+# 0.6.5-preview · account-specific data views
+
+- Prefix the Data selection summary with the total number of local activities, retaining selection/track counts and showing the visible count when filters narrow the list. Keep the total visible while GPS is loaded; translate both languages.
+- Selecting Garmin, Komoot or Strava immediately switches the Data source to the account’s saved/custom archive or managed default location. Clear the previous table, map and account filters; automatically load an existing matching archive without authentication or network requests. Missing archives show an empty state and intended path, without creating a database.
+- Create each provider/account storage directory when registering an account; reject unwritable targets without saving a broken account entry.
+- Accept German/English Strava CSV headers, comma/semicolon/tab delimiters, decimal commas and explicit German date formats while preserving original columns. Add allowlisted translated import errors for unsupported headers, missing lists, corrupt ZIPs and size/copy limits; do not expose arbitrary exception text.
+- Remember chosen archive paths per account. Validate archive ownership and reject stale results after rapid account switches; existing work finishes before a deferred local read starts.
+
+# 0.6.4-preview · cache discovery and consistent names
+
+- Search known account destinations, prior standard folders and current archive paths for matching Garmin SQLite archives and legacy cache-v1 response folders. Search in a bounded background task without network requests; open/import a single match directly, offer a choice for multiple matches, and show the manual folder picker only when no matching data was found. Never merge another account’s data or overwrite an already stored response when importing an older cache.
+- Remove the obsolete compatibility CMD launcher from source and Windows packages. Use TTN_Activity_Export as the new Downloads directory, with provider/account subfolders. Retain existing saved paths and legacy report readers to preserve previous data and sessions.
+- Document actual platform status: Windows x64 starter tested, source/tests run on Linux, no validated macOS build and no Android/iOS application.
+
+# 0.6.3-preview · OSM defaults, inventory layout and experimental Komoot
+
+- Enable OSM basemaps by default in Data; retain the offline toggle. Draw the empty GPS-selection hint as black text on an opaque white panel over map imagery. Demo maps do not send tile requests.
+- Size online-inventory columns to all loaded contents initially. Preserve manual widths and movable headers, provide pixel-based horizontal scrolling and a native maximize button.
+- Add a read-only experimental Komoot connector: memory-only email/password sign-in, token-only subsequent requests, bounded paged inventory for recorded/planned tours, explicit selected-tour review, metadata-only or GPX download, account-isolated SQLite and GPX files, cached GPX reuse and persistent per-account 429 pauses. No web scraping, region/CAPTCHA bypass or background retries. Keep Komoot separate from Garmin's persistent job queue in this preview.
+- Use Komoot source links in readable exports and allow local Data date filters to include future planned routes. No new runtime dependencies. Synthetic tests only; a live Komoot account and real Strava package still need user validation.
+
+# 0.6.2-preview · Strava folders and source retention
+
+- Accept extracted Strava account folders as well as ZIPs, using the same CSV/recording import path. Read source folders without following symbolic links.
+- Ask whether to leave the source in place or retain a complete copy in the account folder. Copy in a cancellable worker to a new directory; remove partial copies on failure and never merge or overwrite source data. Remember the retained source location separately from the local activity database. Full source copies are limited to 8 GiB.
+- Unify new default destinations under Downloads/TTN Activity Export/provider/account-ID. Preserve saved custom paths and existing archives.
+
+# 0.6.1-preview · Strava is a local import source
+
+- Keep Strava account entries, but replace the connection placeholder with a local-only account-ZIP workflow. No Strava online sign-in, API keys, budgets, scraping or automatic website/API retrieval are offered or planned.
+- Stream a user-selected Strava ZIP: parse activities.csv with duplicate-column preservation, import referenced FIT/GPX/TCX recordings including bounded gzip decoding, keep metadata-only activities, and report missing/corrupt/unsupported records. Never extract archive paths to disk. Ignore non-activity account content.
+- Store source activity IDs/provider and update repeated imports idempotently in an account-isolated SQLite database. Keep the original ZIP untouched. Local import works during a Garmin request pause and opens the existing local filter/map/CSV/XLSX/JSON-selection export tools.
+- Use a provider-neutral Activity link column with the correct Strava source URL; invalidate readable activity-table output signatures once so old Garmin-link headers are rebuilt. Other dataset signatures remain unchanged.
+- Document manual download/import steps, timezone and unit uncertainty, limits and the distinction from a full account backup. Synthetic coverage is not a real-account/package validation.
+
+# 0.6.0-preview · compact desktop and explicit jobs
+
+- Introduce four primary tabs: Accounts, Download, Data, User guide. Move detailed export/retrieval settings, fields, Expert and offline management into an Apply/Cancel dialog; move the full session log into a separate window. Add a persistent global tooltip toggle.
+- Add account metadata and explicit saved defaults, isolated Garmin client sessions, provider-specific default destinations for new accounts and migration of the existing remembered Garmin account without moving old archives. Komoot and Strava entries are clearly marked as not connected/implemented; no live API support is claimed.
+- Add a bounded, resumable Garmin activity metadata inventory with search/sport filters, Ctrl/Shift selection, partial/complete states, timestamps and account/date-scoped local caching. No per-activity details, files or maps are requested by listing.
+- Add activity-ID selection throughout online/offline collection and output signatures. Preserve unfiltered summary caches for later selections. Missing chosen IDs make the result incomplete.
+- Persist immutable job snapshots and their order/status. Interrupted work waits for manual review after restart. Review shows dates, scope, paths, formats, extras, local base-request planning and time-estimation limitations. Rejecting review does not start work. Other ready Garmin jobs can proceed past missing-login jobs.
+- Preserve legacy controls and engine behavior beneath the new shell, use no additional runtime dependency, keep the existing profile identity, and prevent simultaneous new-desktop instances from writing the same job file.
+- This is a test build of the new Garmin workflow. Multi-provider online connectors, Strava API budgets, automatic app updates and a guaranteed pre-start total ETA are not included.
+
 # 0.5.8-preview · TTN Activity Export
 
-- Rename the application from TTN Garmin Export to **TTN Activity Export**. German subtitle: “Deine Aktivitäten. Deine Daten. Alles lokal.” English: “Your activities. Your data. All local.”
+- Rename the application to **TTN Activity Export**. German subtitle: “Deine Aktivitäten. Deine Daten. Alles lokal.” English: “Your activities. Your data. All local.”
 - Update window/dialog titles, session log branding, map export attribution, help, documentation, Windows launcher, package names and build workflows. Retain the previous starter filename as a forwarding launcher. Include GitHub-readable manuals in the starter.
 - Preserve the internal GarminExportStudio profile and current output directory so existing sessions, preferences, remembered dates, request pauses and account archives stay accessible. New export reports use the new identity; both old and new reports remain accepted for verified reuse and managed-file cleanup.
 - This is a rename of the existing Garmin app, not the planned multi-provider release. Strava and Komoot remain planned. Historical changelog entries retain their original names.
@@ -68,7 +141,7 @@
 
 # 0.5.0-preview · 2026-10-23
 
-- Renamed the application to TTN Garmin Export to distinguish it from existing garmin-data-export projects. Retained internal application profile name for existing sessions/logs.
+- Introduced a distinct public application name for the original Garmin-only exporter. Retained internal application profile name for existing sessions/logs.
 - Small Windows x64 starter: private Python runtime, pinned/checksummed PyPI wheels, missing/corrupt-package repair, local download cache, progress and setup.log. No admin or preinstalled Python required.
 - Reproducible starter builder, locked full transitive Windows dependency set and Windows CI for first setup, offline restart and cached missing-file repair.
 - Existing 0.4 export behavior retained, including full-detail archive sync and optional daily statistics. No claim of faster complete archive downloads or live Garmin verification.

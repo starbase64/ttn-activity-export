@@ -52,9 +52,9 @@ def test_downloads_output_uses_system_download_location_and_health_preset_roundt
     native=QStandardPaths.writableLocation
     downloads=tmp_path/'RedirectedDownloads'
     monkeypatch.setattr(QStandardPaths,'writableLocation',lambda kind:str(downloads) if kind==QStandardPaths.StandardLocation.DownloadLocation else native(kind))
-    assert default_output_folder()==downloads/'Garmin_Export'
+    assert default_output_folder()==downloads/'TTN_Activity_Export'/'Garmin'
     window=MainWindow(demo=True)
-    assert window.output.text()==str(downloads/'Garmin_Export')
+    assert window.output.text()==str(downloads/'TTN_Activity_Export'/'Garmin')
     window.health_detail.setCurrentIndex(window.health_detail.findData('daily'));window.health_batch_days.setValue(14)
     window.toggle_language()
     assert window.health_detail.currentData()=='daily' and window.make_plan().health_batch_days==14

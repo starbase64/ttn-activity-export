@@ -170,6 +170,8 @@ class OfflineExporter(Exporter):
         try:return super().run()
         finally:self.archive.close()
     def match_activities(self,activities):
+        if self.plan.activity_ids:
+            ids=set(self.plan.activity_ids);activities=[a for a in activities if str(a.get('activityId')) in ids]
         selected=self.plan.activity_type
         if not selected:return activities
         if not self.type_descendants and 'activity_taxonomy_unavailable_exact_match_only' not in self.warnings:

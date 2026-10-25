@@ -1,8 +1,49 @@
 # TTN Activity Export — user guide
 
-For source version **0.5.8-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For source version **0.6.5-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
-This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava and Komoot are not integrated yet. Older application downloads may not include every feature described here.
+This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava is a local-only import source; Komoot has an experimental online connector. Older application downloads may not include every feature described here.
+
+## Getting started with preview 0.6
+
+This guide covers version 0.6.8. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks are available beside the language control; automatic installation and delta updates remain future work.
+
+The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
+
+### Quick start: create a CSV list
+
+1. Under **Accounts → Add account**, select Garmin and enter your email. An existing remembered Garmin account is imported. Use **Sign in / settings** to connect. Password and two-factor prompts are still handled during sign-in.
+2. Under **Download**, choose the account, dates and **Activity list** preset.
+3. Choose **Download and export files** and enable CSV to create a CSV file. The default **Download only** action stores source responses in the database without creating output files. **Export offline only** creates files from a local archive without sign-in or network retrieval.
+4. Optionally click **Show online inventory**. The initial request is bounded to ten list pages of up to 100 entries each. No individual activity files, measurement streams, photos or maps are requested.
+5. Search names/dates or filter sports. Ctrl adds individual rows; Shift selects a range. **Select all visible** only includes visible, already loaded results. **Use selection** sets the chosen IDs and clears a potentially conflicting sport filter. Without a specific selection, matching activities from the dates and sport filter are used.
+6. Click **Add to job list**. Add further jobs with different settings or Garmin accounts and reorder them with Move up/Move down.
+7. **Review and start jobs** displays each immutable job's settings. Only **Start download / export** executes them; Back starts nothing. To revise a queued job, remove it and add the revised selection.
+8. Open the results folder after exporting files. To browse local tables/maps, open the corresponding database under Data.
+
+### Understanding inventory
+
+Each list belongs to one account and date range. Changing dates or account clears the current selection. **Refresh inventory** starts over; **Load more pages** resumes pagination. The timestamp identifies the observation time. Failed, repeated or interrupted pages keep the result **partially loaded**. Only a final empty list page establishes complete listing for that range. A previously saved inventory may open without another request.
+
+This is neither a complete health-data catalog nor proof of locally saved FIT files. Execution may retrieve the activity list again; extra details/files are requested only for chosen IDs. A missing selected ID makes the result incomplete. Bounded output preview is disabled for an ID selection because those IDs may lie outside the sample. Download that selection first, then export offline.
+
+### Jobs, restart and duration
+
+Account, dates, selection, formats and retrieval options are copied when a job is added. Later edits only affect new jobs. After restart, interrupted jobs remain visible but do not run until reviewed and started again. Missing login or an active Garmin request pause puts a job in a waiting state; other ready jobs may proceed. Stop cancels the current download and prevents further jobs in that run. Successfully stored responses remain available.
+
+Review reads matching base responses from SQLite locally and plans outstanding base queries. Extra list pages, details, old file caches, range fallbacks and retries can change the real workload. Time calculated from request spacing is not a complete download prediction. Duration remains explicitly unknown when there is no reliable basis. During download, actual throughput informs ETA. Excel generation is additional local work after retrieval.
+
+Multiple exports for one account can replace earlier results in the shared `exports/current` directory. To retain each output separately, enable **Keep separate export folders** in Options before adding jobs. Jobs are not backups.
+
+### Accounts, folders and assistance
+
+New accounts use `Downloads/TTN_Activity_Export/Garmin`, `Komoot` or `Strava`, with separate account directories underneath. A previously remembered Garmin account retains the old output folder; no downloaded data is moved. For resumption select your existing SQLite file under Options → Offline archive. Multiple Garmin accounts can be signed in one after another during a session. Startup auto sign-in still uses the most recently explicitly remembered Garmin account; connect other accounts through their sign-in settings as needed.
+
+**Show hover tooltips** in Options is a persistent global toggle. Essential status/errors stay visible. **Log …** opens the log window with Open log and Export current session log. Language and theme remain accessible at the top. Only one new-desktop instance may use a profile at a time; close the older app before testing too.
+
+## Detailed reference
+
+The following explanations cover the detailed controls retained inside Options. The former direct export-start action is replaced by adding, reviewing and starting a job in the compact desktop.
 
 ## Contents
 
@@ -29,7 +70,7 @@ This local desktop app downloads supported Garmin Connect data, keeps a reusable
 
 No existing Python installation or administrator privileges are required. First-time setup needs internet. The starter does not modify your system Python. Its local `runtime/` and `.setup-cache/` folders support startup and repair. If setup is interrupted, run the same starter again. Check the console and `setup.log` in the program folder when setup fails. Company policies may block PowerShell scripts.
 
-The current tabs are **Account**, **Export**, **Options**, **Fields**, **Expert**, **Offline data**, **Data**, and finally **User guide**. Most first-time exports only need Account, Export and sometimes Options. The proposed simplified interface is not implemented yet.
+The current tabs are **Account**, **Export**, **Options**, **Fields**, **Expert**, **Offline data**, **Data**, and finally **User guide**. Most first-time exports only need Account, Export and sometimes Options. These former tabs are now inside Options; the four main tabs are described above.
 
 ## Account and sign-in
 
@@ -50,10 +91,10 @@ Example: export one month's cycling activities as a CSV with date, name, distanc
 1. On **Export**, click **Activity list only (CSV)**. This selects the activity summary and clears additional activity requests.
 2. Choose the first and last date. **Through** includes the final day. Multiple years are supported; the overall date range is not limited to 365 days.
 3. Under **Options → Sport type**, select cycling or the relevant Garmin type. Leave the filter empty/select all for every sport.
-4. Check the output folder on Export. The current default is `Downloads\Garmin_Export`.
+4. Check the output folder on Export. The current default is `Downloads\TTN_Activity_Export\Garmin`.
 5. Keep **Activities: one table row per activity** enabled. Leave year splitting off if you want a single combined list.
 6. Optionally click **Show preview** for a bounded sample. This does not inspect the whole history.
-7. Click **Start export**, then **Open results folder**.
+7. Choose **Download and export files**, add the job and start it after review, then **Open results folder**.
 
 This list does not need original files, weather or metric streams. **Activities – summary** must be selected: choosing a sport alone does not enable that dataset. Not every activity has every field. Manually entered or indoor activities may have no GPS track.
 
@@ -150,7 +191,7 @@ Filters apply across selected categories. A pattern that matches one category ma
 
 Activity summaries do not necessarily contain track geometry. Maps require locally stored tracks from supported details or imported files. An empty map does not mean the activity itself is missing. Indoor and manual activities may have no GPS data at all.
 
-The default track view works without an online basemap. Enabling the online map downloads tiles from an external service. Tile imagery keeps its original colors in dark mode. The Google Maps view needs your own API key and may incur costs under Google's terms. For **Google My Maps**, export KML, import it on Google's site and create the share link there. Local heatmap rendering is not transferred as a heatmap. Check private start/end locations before sharing.
+The OSM online basemap is enabled by default and downloads visible tiles from an external service. You can turn it off for offline track rendering. Tile imagery keeps its original colors in dark mode. The Google Maps view needs your own API key and may incur costs under Google's terms. For **Google My Maps**, export KML, import it on Google's site and create the share link there. Local heatmap rendering is not transferred as a heatmap. Check private start/end locations before sharing.
 
 ## Import, backup and migration
 
@@ -189,4 +230,73 @@ For a useful issue report, include version, action, dates, selected datasets/for
 - **Empty response:** Garmin answered without corresponding values.
 - **Skipped, unverified:** an experimental rule omitted the request; detail availability remains unknown.
 
-A general **online inventory before downloading** is planned, not implemented. It should first show activity metadata without fetching individual FIT/GPX files or measurement streams. This does not provide a reliable inventory of all health-data days. See the [roadmap](../ROADMAP.md).
+**Online inventory before downloading** is available for Garmin activities as described above. It shows metadata without fetching individual FIT/GPX files or measurement streams. This does not provide a reliable inventory of all health-data days. See the [roadmap](../ROADMAP.md).
+
+## Experimental skip rules
+
+The skip option remains off by default. Empty daily statistics do not prove that detailed data is absent. Omitted requests remain unverified, and the Offline archive controls can explicitly retrieve them later.
+
+Presets store dataset/output options, not account-specific inventory ID selections. Select the desired activities again after loading a preset.
+
+## Strava as a local import source
+
+The app does not sign in to Strava, request API keys, track API budgets or automatically retrieve website data.
+
+1. Download your account ZIP yourself on Strava's website: Settings → My Account → Download your account. Wait for the email link. The app does not request the package for you.
+2. Under **Accounts → Add account → Strava**, enter a local label/email and destination. This label separates local data; it is not a Strava login.
+3. Choose **Import / settings → Import Strava data package …**, or use the corresponding button under Download with Strava selected.
+4. Select a ZIP file or an already extracted folder. The source is detected and validated during import. Choose whether to keep it in place or retain a complete copy under `sources` in the account folder. Both modes create the local activity database including imported recordings. A complete source copy needs extra disk space and is limited to 8 GiB. Partial copies are removed after cancellation/failure; originals stay unchanged. Symbolic links are not followed. Supported: `activities.csv` using German or English export headers and its referenced FIT, GPX or TCX recordings, including gzip wrappers. Import makes no network requests.
+5. **Data** opens after import. Filter sports/dates/text, select rows using Ctrl/Shift and use **Selection → Export selection** for CSV, Excel or JSON. Maps require supported GPS recordings.
+
+A separate `strava-offline.sqlite` is stored in the local Strava account directory. **Open local Strava data** reopens it later. Repeated package imports update known Strava IDs instead of adding duplicate rows. Activities without referenced files remain in the table. Missing/corrupt recordings are reported; no GPS route is invented.
+
+The importer reads activity history, not every Strava account feature: photos, comments, contacts and other account content are not imported. Keep your original ZIP backup. It is not changed or deleted. Only data present in the package can be imported.
+
+Duplicate CSV columns are retained in raw metadata. Full-export metric distance columns are used; ambiguous columns without an established unit are not guessed. CSV timestamps without a timezone are retained as unspecified export time, not automatically converted to your local timezone; dates around midnight may therefore need attention.
+
+Initial limits: one matching activities.csv, up to 30,000 ZIP/folder entries, 32 MiB CSV, 128 MiB per expanded recording and 8 GiB total processed activity data. Limits, malformed rows and missing files are reported. Cancellation keeps completed records. Synthetic fixtures have been tested; a real user package still needs validation.
+
+
+## Testing Komoot (experimental since 0.6.3)
+
+1. Choose **Accounts → Add account → Komoot**, enter your account email and destination, then use **Sign in / settings** to enter your Komoot password. Direct Google/Apple sign-in is unsupported. **Remember sign-in locally (Windows encrypted)** optionally stores the session token with Windows DPAPI for your Windows user account. The password is not saved. Selecting the account later restores the session locally; the next request checks its validity. Without this option, sign in again. Other platforms currently keep sessions in memory only. **Remember current sign-in** saves an already active session. Unchecking immediately deletes the saved token, even if you then close the dialog; the active session remains usable. **Sign out / remove saved sign-in** works without a valid login. Removing a Komoot account also removes its saved token. The saved token is not a portable sign-in for another Windows user.
+2. In **Download**, choose the Komoot account, date range and **Recorded**, **Planned** or **All tours**. **Fetch online inventory** loads metadata only, up to ten pages of 50 tours per step. **Load more pages** resumes partial listings. A confirmed final page disables the button. Repeated pages stop with an explicit incomplete-list warning; use **Refresh inventory** to start again. A small metadata request after sign-in finds the oldest recorded activity, saves its date per account and uses it as the default start unless you saved a custom date. **First activity** resets the start to that date. Date lookup failures are logged without discarding an otherwise valid login. A fully loaded inventory containing recorded activities can also supply the first date; an incomplete list cannot. The list does not establish that GPX export is available for every tour.
+3. Columns initially fit every loaded text and header. Resize and reorder them manually afterwards, scroll horizontally or maximize the window. Ctrl/Shift select multiple rows; **Select all visible** applies only to loaded, filtered rows.
+4. **Download selection …** opens a review. Disable **Also download GPX files** for metadata only. Nothing downloads until **Start download**. Komoot runs separately from the persistent Garmin queue in this preview; combined provider jobs remain future work.
+5. Results live under `Komoot/account-ID/komoot-offline.sqlite`; GPX files also appear in `gpx`. Cached GPX data is reused, including restoring missing files from SQLite. Open local data, filter/map it and export selected rows to CSV/XLSX/JSON. No GPX means no map geometry. Local date filters also support future planned tours.
+
+This is an unofficial, publicly unsupported connector covered by synthetic automated tests, with additional user testing of sign-in and inventory on their own PC. Changed login flows, challenges and rejected requests stop the operation. No CAPTCHA or region-unlock bypass is attempted. Routes come only from the GPX export endpoint; the app does not reconstruct routes from other website content. HTTP 429 pauses are stored per Komoot account across restarts. No automatic resumption. The connector never uploads, edits or deletes tours.
+
+Sources: [Komoot API availability](https://support.komoot.com/hc/en-us/articles/10331570510618-komoot-API), [GPX export and region requirements](https://support.komoot.com/hc/en-us/articles/10115477099674-Export-and-import-Routes-and-Activities). Successful website export does not guarantee that this experimental sign-in works with every account.
+
+
+## Automatic Garmin cache discovery (0.6.4)
+
+**Import export cache** first searches the selected Garmin account’s known destinations, configured archives, previous job outputs and current/older standard directories. A single matching SQLite archive is opened directly; a legacy `cache-v1` folder is imported into the local account database. Multiple matches offer a choice; the manual folder picker opens only when no matching data was found. The search is bounded and local, does not scan all drives and never mixes accounts. Importing a legacy cache preserves responses already present in the database. Saved custom paths and prior downloads remain unchanged. The new standard root is `Downloads/TTN_Activity_Export`, followed by provider and account folders.
+
+## Platform status
+
+The self-setup CMD/PowerShell starter and portable build target Windows 10/11 x64 and have native Windows checks. Source and tests also run on Linux; install Python/dependencies from `requirements.txt` in a virtual environment and run `python app.py`. Linux GUI checks here use Qt offscreen mode. No macOS build has been validated; no Android/iOS app exists. Windows launchers are not usable on other platforms.
+
+
+## Switching account data (since 0.6.5)
+
+The summary below the activity table starts with the total number of local activities in the open archive. When filters narrow the list, it also shows the visible count. Selection and GPS counts still refer to selected rows.
+
+Selecting another account changes the Data source, immediately clears the previous table/map and locally loads an existing matching database without sign-in or online requests. If no database exists, the intended file path remains visible with an empty state; no database is created. Custom archive locations are remembered per account. Wrong-account or unreadable archives show an inline warning. Existing work finishes before a deferred local read; stale results from earlier account selections are ignored.
+
+
+## Strava import diagnostics and account folders (since 0.6.5)
+
+Registering an account creates its storage directory; the database is created only when data is saved. Imports also create missing destinations. German/English CSV headers, comma/semicolon/tab delimiters, decimal commas and explicit German date formats are supported; original columns stay preserved.
+
+Recognized local failures show a translated explanation and allowlisted code such as strava_csv_headers, strava_csv_missing, strava_zip_invalid or strava_copy_limit. Unrecognized layouts can be diagnosed from the first activities.csv line without activity rows or the full package. Use the source in place if a complete source copy exceeds 8 GiB. Other languages/layouts are not automatically supported; a generic ValueError screenshot alone cannot prove the cause of a particular user package.
+
+
+## Checking for updates (since 0.6.8)
+
+**Check updates** appears at the top right beside language and theme. It checks this project's published GitHub releases while sign-in, downloads and local browsing remain available. Results appear below the header. A newer matching release provides **Open download**, which opens its GitHub release notes and downloads in your default browser. Download the Windows ZIP, close the old app and extract to a separate program directory. Your existing data/profile directory remains usable.
+
+**Check automatically at startup** saves your preference per user profile and defaults to off. When enabled, a normal app startup checks once. Demo/smoke runs never check automatically. Manual checks remain available. The check needs internet access to GitHub; it does not transmit Garmin/Komoot credentials or activity data. Connection errors and GitHub rate limits are shown explicitly and do not establish that the installed version is current.
+
+Preview installations include published prereleases; stable installations use stable releases only. Older versions are never offered as updates. If your test build is ahead of published releases, the app says so. Source-only changes, Git tags without a release, drafts and privately distributed test packages are not published updates. Automatic installation and incremental/delta updates remain planned.

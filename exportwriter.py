@@ -53,7 +53,8 @@ class OutputWriter:
 
     def signature(self,records,fmt):
         if any(not r.get('source_hash') for r in records):return None
-        config={k:getattr(self.p,k) for k in ('account','layout','delimiter','split_year','activity_summary','language','selectors','activity_type')}
+        config={k:getattr(self.p,k) for k in ('account','layout','delimiter','split_year','activity_summary','language','selectors','activity_type','activity_ids')}
+        if self.p.activity_summary and any(r['dataset']=='activities' for r in records):config['activity_table_version']=2
         # Sport hierarchy can change the effective activity filter without changing raw responses.
         config['taxonomy']={k:sorted(v) for k,v in (self.e.type_descendants or {}).items()} if self.p.activity_type else {}
         h=hashlib.sha256(json.dumps([WRITER_VERSION,fmt,config],sort_keys=True).encode())
