@@ -8,7 +8,7 @@ TTN Activity Export ist eine lokale Desktop-App mit deutscher und englischer Obe
 
 Unabhängiges Community-Projekt; kein offizielles Garmin-Produkt.
 
-[Anleitung auf Deutsch](docs/ANLEITUNG.md) · [English user guide](docs/USER_GUIDE.md) · [Downloads](https://github.com/starbase64/ttn-garmin-export/releases) · [Änderungen](CHANGELOG.md) · [Planung](ROADMAP.md)
+[Anleitung auf Deutsch](docs/ANLEITUNG.md) · [English user guide](docs/USER_GUIDE.md) · [Downloads](https://github.com/starbase64/ttn-activity-export/releases) · [Änderungen](CHANGELOG.md) · [Planung](ROADMAP.md)
 
 ## Namensänderung
 
@@ -18,7 +18,7 @@ Bisher hieß die App **TTN Garmin Export**. Die Umbenennung auf **TTN Activity E
 
 Der Quellstand ist **0.5.8-preview**. **Garmin Connect wird unterstützt. Strava und Komoot sowie die vereinfachte Oberfläche sind geplant und noch nicht eingebaut.**
 
-Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quellstand. Beachte beim Download die Versionsnummer: Eine Anleitung zum aktuellen Stand bedeutet nicht, dass ein älteres Release diese Funktionen bereits enthält. Aktuelle Windows-Starter entstehen als Artefakte erfolgreicher [GitHub-Actions-Prüfläufe](https://github.com/starbase64/ttn-garmin-export/actions). Artefakte können eine GitHub-Anmeldung erfordern und ablaufen.
+Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quellstand. Beachte beim Download die Versionsnummer: Eine Anleitung zum aktuellen Stand bedeutet nicht, dass ein älteres Release diese Funktionen bereits enthält. Aktuelle Windows-Starter entstehen als Artefakte erfolgreicher [GitHub-Actions-Prüfläufe](https://github.com/starbase64/ttn-activity-export/actions). Artefakte können eine GitHub-Anmeldung erfordern und ablaufen.
 
 ## Was die App kann
 
@@ -61,7 +61,7 @@ Große Erstexporte, vollständige Messverläufe und Excel-Dateien brauchen Zeit.
 
 A local Garmin Connect desktop app for downloading selected data or years of history, keeping a reusable SQLite archive, browsing activities and maps, and exporting CSV, Excel or JSON. Includes German/English UI, persistent light/dark mode, bounded previews, download ETA and session logs. The Windows starter installs a private Python runtime and pinned, hash-verified dependencies; no existing Python installation is required.
 
-**Source: 0.5.8-preview. Published release v0.5.0-preview is older. Strava and Komoot integration is planned, not available yet.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-garmin-export/actions) for current Windows starter artifacts.
+**Source: 0.5.8-preview. Published release v0.5.0-preview is older. Strava and Komoot integration is planned, not available yet.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-activity-export/actions) for current Windows starter artifacts.
 
 ## Entwicklung / Development
 
