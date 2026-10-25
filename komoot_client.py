@@ -13,7 +13,7 @@ from urllib.request import Request,build_opener,HTTPRedirectHandler
 from urllib.parse import quote,urlencode
 from urllib.error import HTTPError
 from archive import Archive
-from datahub import activities_from_archive,parse_activity,MAX_FILE
+from datahub import activities_from_archive,parse_xml_activity,MAX_FILE
 from failures import RatePause,diagnostic
 
 
@@ -129,7 +129,8 @@ def download_tours(client,path,account,items,gpx=True,cancel=None,event=lambda *
                     if cached is not None:part=cached['data'];report['cached']+=1
                     else:
                         part=client.request('/v007/tours/'+summary['sourceActivityId']+'.gpx',binary=True,cancel=cancel)
-                        parse_activity(part,'gpx')  # Validate real GPX before retaining it; never synthesize a route.
+                        # Planned GPX routes need no timestamps: their date comes from tour metadata.
+                        parse_xml_activity(part,'gpx')  # Validate real GPX; never synthesize a route.
                         db.put(dataset,day,request,part,True);report['files']+=1
                     folder=Path(path).parent/'gpx';folder.mkdir(parents=True,exist_ok=True)
                     target=folder/(summary['sourceActivityId']+'.gpx');tmp=target.with_suffix('.gpx.tmp');tmp.write_bytes(part);tmp.replace(target)

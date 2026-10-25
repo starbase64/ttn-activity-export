@@ -90,3 +90,14 @@ def test_cancel_and_malformed_responses_never_claim_complete(tmp_path):
     assert r['cancelled'] and not r['complete']
     with pytest.raises(ValueError):tour_summary(tour('../123'))
     with pytest.raises(ValueError):api.request('https://attacker.invalid')
+
+
+def test_planned_geometry_without_timestamps_uses_metadata_date(tmp_path):
+    raw=b'<gpx version="1.1"><rte><rtept lat="51.1" lon="8.1"/><rtept lat="51.2" lon="8.2"/></rte></gpx>'
+    api=client(tmp_path,lambda *a:raw);path=tmp_path/'planned.sqlite'
+    item=tour_summary(tour(type='tour_planned',date='2027-04-02T09:00:00+02:00'))
+    report=download_tours(api,path,account_key('komoot:mine'),[item])
+    assert report['files']==1 and not report['error']
+    data=load_archive(path)
+    assert data['activities'][0]['startTimeLocal']=='2027-04-02T09:00:00+02:00'
+    assert next(iter(data['tracks'].values()))==[(51.1,8.1),(51.2,8.2)]
