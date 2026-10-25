@@ -29,7 +29,7 @@ class Archive:
             self.db.row_factory=sqlite3.Row
             if exists:
                 if self.db.execute('PRAGMA application_id').fetchone()[0]!=APP_ID:
-                    raise OfflineArchiveError('Not a TTN Garmin Export archive')
+                    raise OfflineArchiveError('Not a TTN Activity Export archive')
                 meta=dict(self.db.execute('SELECT key,value FROM app_meta'))
                 if meta.get('schema')!='1':raise OfflineArchiveError('Unsupported archive version')
                 self.account=meta['account']

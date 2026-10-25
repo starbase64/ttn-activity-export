@@ -24,15 +24,15 @@ jobs:
       - name: Verify bundled application without network access
         shell: pwsh
         run: |
-          $proc = Start-Process -FilePath './dist/TTNGarminExport/TTNGarminExport.exe' -ArgumentList '--smoke-test' -Wait -PassThru
+          $proc = Start-Process -FilePath './dist/TTNActivityExport/TTNActivityExport.exe' -ArgumentList '--smoke-test' -Wait -PassThru
           if ($proc.ExitCode -ne 0) { throw 'Bundled smoke test failed' }
         env:
           QT_QPA_PLATFORM: offscreen
       - name: Package EXE, libraries and notices
         shell: pwsh
-        run: Compress-Archive -Path dist/TTNGarminExport -DestinationPath TTNGarminExport-Windows-x64.zip
+        run: Compress-Archive -Path dist/TTNActivityExport -DestinationPath TTNActivityExport-Windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: TTNGarminExport-Windows-x64
-          path: TTNGarminExport-Windows-x64.zip
+          name: TTNActivityExport-Windows-x64
+          path: TTNActivityExport-Windows-x64.zip
           retention-days: 30

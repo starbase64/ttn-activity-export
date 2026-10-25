@@ -2,6 +2,7 @@
 from contextlib import ExitStack
 import csv
 import hashlib
+from branding import REPORT_APP_IDS
 import json
 from pathlib import Path
 import re
@@ -26,7 +27,7 @@ class OutputWriter:
         if self.p.reuse_exports:
             try:
                 report=json.loads(safe_target(self.previous,'report.json').read_text(encoding='utf-8'))
-                if report.get('app')=='ttn-garmin-export' and report.get('config',{}).get('archive_path')==self.p.archive_path:
+                if report.get('app') in REPORT_APP_IDS and report.get('config',{}).get('archive_path')==self.p.archive_path:
                     self.old=report.get('output_assets',{})
                     if not isinstance(self.old,dict):self.old={}
             except (OSError,ValueError,TypeError,AttributeError):pass

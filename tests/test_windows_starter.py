@@ -51,9 +51,9 @@ def test_starter_archive_contains_self_setup_and_no_runtime_or_personal_data(tmp
     output=build(tmp_path/'starter.zip')
     with zipfile.ZipFile(output) as archive:
         names=archive.namelist()
-        for name in ('bootstrap.ps1','Start-TTN-Garmin-Export.cmd','windows_bootstrap.py','windows-dependencies.lock.json','app/app.py'):
-            assert 'TTN-Garmin-Export/'+name in names
+        for name in ('bootstrap.ps1','Start-TTN-Activity-Export.cmd','windows_bootstrap.py','windows-dependencies.lock.json','app/app.py','app/branding.py','Start-TTN-Garmin-Export.cmd','app/docs/ANLEITUNG.md','app/docs/USER_GUIDE.md'):
+            assert 'TTN-Activity-Export/'+name in names
         assert not any('/runtime/' in n or n.endswith(('.log','.sqlite','.db')) for n in names)
-        lock=json.loads(archive.read('TTN-Garmin-Export/windows-dependencies.lock.json'))
+        lock=json.loads(archive.read('TTN-Activity-Export/windows-dependencies.lock.json'))
         assert len(lock['wheels'])>=5 and all(w['url'].startswith('https://files.pythonhosted.org/') for w in lock['wheels'])
     assert output.with_suffix('.zip.sha256').read_text().startswith(hashlib.sha256(output.read_bytes()).hexdigest())

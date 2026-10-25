@@ -89,10 +89,11 @@ def test_account_directory_is_not_nested_and_archive_account_must_match(tmp_path
     assert not api.calls
 
 
-def test_publication_failure_rolls_back_prior_generated_files(tmp_path,monkeypatch):
+@pytest.mark.parametrize('previous_app',['ttn-garmin-export','ttn-activity-export'])
+def test_publication_failure_rolls_back_prior_generated_files(tmp_path,monkeypatch,previous_app):
     import exportfiles
     current=tmp_path/'current';stage=tmp_path/'stage';current.mkdir();stage.mkdir()
-    old={'app':'ttn-garmin-export','generated_files':['old.csv']}
+    old={'app':previous_app,'generated_files':['old.csv']}
     (current/'report.json').write_text(json.dumps(old));(current/'old.csv').write_text('old')
     (stage/'new.csv').write_text('new');(stage/'report.json').write_text('{}')
     original=exportfiles.os.replace

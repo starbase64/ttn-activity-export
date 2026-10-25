@@ -34,8 +34,12 @@ def test_three_formats_share_single_payload_pass(tmp_path,monkeypatch):
     assert json.loads((Path(dest)/'summary-2020.json').read_text(encoding='utf-8'))[0]['source_date']=='2020-01-01'
 
 
-def test_repeat_reuses_files_without_row_conversion_or_replacement(tmp_path,monkeypatch):
+@pytest.mark.parametrize('previous_app',['ttn-garmin-export','ttn-activity-export'])
+def test_repeat_reuses_files_without_row_conversion_or_replacement(tmp_path,monkeypatch,previous_app):
     p=plan(tmp_path);dest,_=ArchiveExporter(DemoGarmin(),p).run();dest=Path(dest)
+    saved=json.loads((dest/'report.json').read_text())
+    saved['app']=previous_app
+    (dest/'report.json').write_text(json.dumps(saved))
     before={f.name:f.stat().st_mtime_ns for f in dest.iterdir() if f.suffix in ('.csv','.xlsx')}
     e=OfflineExporter(replace(p,source='offline'))
     monkeypatch.setattr(e,'iter_payloads',lambda records:(_ for _ in ()).throw(AssertionError('reconverted')))

@@ -55,7 +55,7 @@ try {
         & $python $bootstrap check
         if ($LASTEXITCODE -ne 0) { throw 'Abhaengigkeitspruefung fehlgeschlagen / Dependency check failed. See console and setup.log.' }
     }
-    Write-Host 'TTN Garmin Export startet / Starting TTN Garmin Export...'
+    Write-Host 'TTN Activity Export startet / Starting TTN Activity Export...'
     & $python (Join-Path $PSScriptRoot 'app/app.py') @AppArgs
     if ($LASTEXITCODE -ne 0) { throw 'App beendet mit Fehler / App exited with an error.' }
 } catch {

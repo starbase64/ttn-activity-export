@@ -1,6 +1,6 @@
-# TTN Garmin Export — user guide
+# TTN Activity Export — user guide
 
-For source version **0.5.7-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For source version **0.5.8-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
 This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava and Komoot are not integrated yet. Older application downloads may not include every feature described here.
 
@@ -23,7 +23,7 @@ This local desktop app downloads supported Garmin Connect data, keeps a reusable
 
 1. Download the Windows Starter ZIP for the version you want. Check the release notes: the latest source and published release can differ.
 2. Extract the entire ZIP into a writable folder, for example inside your user folder. Do not run it from inside the ZIP.
-3. Double-click `Start-TTN-Garmin-Export.cmd`. First launch installs a private Python runtime and pinned libraries. Keep the console window open until the app appears.
+3. Double-click `Start-TTN-Activity-Export.cmd`. First launch installs a private Python runtime and pinned libraries. Keep the console window open until the app appears.
 4. Use the language button at the top for German/English. The adjacent button switches light/dark mode; the color choice is remembered locally.
 5. Sign in on **Account**. Start with a few days and the activity list to check the result before requesting years of detailed data.
 

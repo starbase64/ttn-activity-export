@@ -1,6 +1,6 @@
 # Third-party software
 
-TTN Garmin Export is independent of Garmin. Garmin and Garmin Connect are trademarks of Garmin Ltd. or its subsidiaries.
+TTN Activity Export is independent of Garmin. Garmin and Garmin Connect are trademarks of Garmin Ltd. or its subsidiaries.
 
 The project source is MIT licensed. Dependencies have their own licenses. The Windows build collects installed distribution license texts into `THIRD_PARTY_LICENSES.txt` and copies the Python license. Check the actual build before distribution; this short file does not replace the full licenses.
 

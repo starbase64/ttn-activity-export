@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+from branding import APP_ID
 from catalog import DATASETS
 from failures import diagnostic, error_status
 from exportfiles import publish_export
@@ -501,7 +502,7 @@ class Exporter:
             try:self.write_outputs(stage)
             except Exception as exc:export_error=type(exc).__name__
             generated=sorted({f.relative_to(stage).as_posix() for f in stage.rglob('*') if f.is_file()}|self.retained_outputs) if not export_error else []
-            report = {'schema': SCHEMA, 'app':'ttn-garmin-export','generated_files':generated,
+            report = {'schema': SCHEMA, 'app':APP_ID,'generated_files':generated,
                   'completed': not stopped and not fatal and not export_error and not self.stats['errors'] and not self.stats.get('not_requested'),
                   'cancelled': stopped, 'fatal_error_type': fatal, 'fatal_diagnostic': fatal_detail, 'export_error_type': export_error,
                   'stats': self.stats, 'errors': self.errors, 'warnings': self.warnings, 'config': config,

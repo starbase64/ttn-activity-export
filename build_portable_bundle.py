@@ -39,7 +39,7 @@ def build(runtime_zip,wheels,output):
     shutil.copytree(source/'docs',app/'docs')
     for name in ('LICENSE','README.md','THIRD_PARTY_NOTICES.md','CHANGELOG.md','ROADMAP.md','requirements.txt'):
         shutil.copy2(source/name,output/name)
-    (output/'Start-Garmin-Export-Studio.cmd').write_bytes(b'''@echo off\r
+    (output/'Start-TTN-Activity-Export.cmd').write_bytes(b'''@echo off\r
 setlocal\r
 cd /d "%~dp0"\r
 if not exist "%LOCALAPPDATA%\\TTNTools\\GarminExportStudio" mkdir "%LOCALAPPDATA%\\TTNTools\\GarminExportStudio"\r
@@ -50,11 +50,11 @@ if errorlevel 1 (\r
  pause\r
 )\r
 ''')
-    (output/'Demo.cmd').write_bytes(b'@echo off\r\ncall "%~dp0Start-Garmin-Export-Studio.cmd" --demo\r\n')
-    (output/'BITTE-ZUERST-LESEN.txt').write_text('''TTN Garmin Export 0.3.0-preview — Windows x64 portable
+    (output/'Demo.cmd').write_bytes(b'@echo off\r\ncall "%~dp0Start-TTN-Activity-Export.cmd" --demo\r\n')
+    (output/'BITTE-ZUERST-LESEN.txt').write_text('''TTN Activity Export 0.5.8-preview — Windows x64 portable
 
 1. Gesamte ZIP in einen eigenen Ordner entpacken.
-2. Start-Garmin-Export-Studio.cmd doppelklicken.
+2. Start-TTN-Activity-Export.cmd doppelklicken.
 3. Python und die Abhängigkeiten sind enthalten; keine Python-Installation nötig.
    Das Konsolenfenster gehört zur App und bleibt während ihrer Nutzung geöffnet.
 4. Demo.cmd zeigt künstliche Beispieldaten; Start ohne --demo für das echte Konto.
@@ -66,7 +66,7 @@ Die separate GitHub-Buildanleitung erzeugt eine reguläre Windows-EXE.
 Google Maps benötigt optional einen eigenen API-Schlüssel. Die normale
 lokale Datennutzung braucht keinen Schlüssel.
 
-English: Extract everything and double-click Start-Garmin-Export-Studio.cmd.
+English: Extract everything and double-click Start-TTN-Activity-Export.cmd.
 Bundled Python; no installation needed. Console stays open while the app runs.
 Assembled and statically checked on Linux, not executed on Windows here.
 For errors, see %LOCALAPPDATA%/TTNTools/GarminExportStudio/startup.log.
