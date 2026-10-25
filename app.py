@@ -38,7 +38,7 @@ from sessionlog import SessionLog
 
 logging.getLogger('garminconnect').setLevel(logging.CRITICAL)
 logging.getLogger('curl_cffi').setLevel(logging.CRITICAL)
-VERSION = '0.5.8-preview'
+VERSION = '0.6.0-preview'
 # Lower bound for long archive syncs, even with a 0 s interval in the options.
 MIN_SYNC_INTERVAL = 0.25
 
@@ -1156,7 +1156,7 @@ class MainWindow(QMainWindow):
     def save_preset(self):
         try: config=vars(self.make_plan()).copy()
         except Exception: self.message('Ungültige Expertenparameter.','Invalid expert parameters.'); return
-        for key in ('account','output'): config.pop(key,None)
+        for key in ('account','output','activity_ids'): config.pop(key,None)
         path,_=QFileDialog.getSaveFileName(self,self.tr('Vorlage speichern','Save preset'),'garmin-export-preset.json','JSON (*.json)')
         if path:
             try: Path(path).write_text(json.dumps({'version':1,'settings':config},ensure_ascii=False,indent=2),encoding='utf-8')
@@ -1181,6 +1181,8 @@ class MainWindow(QMainWindow):
             self.reuse_exports.setChecked(p.reuse_exports)
             if 'workers' in settings:self.workers.setValue(p.workers)  # Older presets keep the current value.
             self.selectors.setPlainText('\n'.join(p.selectors));self.expert_enable.setChecked(bool(p.expert_method));self.method.setCurrentText(p.expert_method or 'get_naps');self.kwargs.setPlainText(json.dumps(p.expert_kwargs,indent=2));self.expert_daily.setChecked(p.expert_daily)
+            if hasattr(self,'selected_activity_ids'):
+                self.selected_activity_ids=[];self.refresh_selection_summary()
         except Exception: self.message('Vorlage ungültig oder nicht lesbar.','Preset is invalid or unreadable.')
 
     def closeEvent(self,event):
@@ -1192,6 +1194,11 @@ class MainWindow(QMainWindow):
         self._closing=True
         self.log.appendPlainText('TTN Activity Export · session ended');event.accept()
 
+
+from desktop import StudioMixin
+
+class DesktopWindow(StudioMixin,MainWindow):
+    """Current four-tab desktop; MainWindow remains the reusable Garmin controls."""
 
 def main():
     app=QApplication(sys.argv);app.setOrganizationName('TTNTools');app.setApplicationName(STORAGE_PROFILE);app.setApplicationDisplayName(APP_NAME)
@@ -1215,13 +1222,19 @@ def main():
             if import_files(local,[gpx],account_key('smoke-import'))['imported']!=1:sys.exit(6)
             data=load_archive(local);backup_archive(local,Path(folder)/'backup.sqlite')
             if validate_archive(Path(folder)/'backup.sqlite')['integrity']!='ok':sys.exit(7)
-            window=MainWindow(demo=True); window.toggle_language()
+            window=DesktopWindow(demo=True); window.toggle_language()
             if window.start_button.text()!='Start export': sys.exit(2)
             window.data_page.loaded(data);window.data_page.table.selectAll()
             if len(window.data_page.map.routes)!=1:sys.exit(8)
             window.data_page.map.poster(str(Path(folder)/'poster.png'),'Synthetic smoke test','Test')
             window.close()
         sys.exit(0)
-    window=MainWindow('--demo' in sys.argv);window.show();sys.exit(app.exec())
+    if '--demo' not in sys.argv:
+        from PySide6.QtCore import QLockFile
+        profile=Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation));profile.mkdir(parents=True,exist_ok=True)
+        instance_lock=QLockFile(str(profile/'desktop-instance.lock'))
+        if not instance_lock.tryLock(0):
+            QMessageBox.information(None,APP_NAME,'Die App läuft bereits. Bitte das vorhandene Fenster verwenden. / The app is already running. Please use the existing window.');sys.exit(0)
+    window=DesktopWindow('--demo' in sys.argv);window.show();sys.exit(app.exec())
 
 if __name__=='__main__':main()

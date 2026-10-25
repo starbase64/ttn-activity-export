@@ -166,6 +166,7 @@ class Plan:
     delay: float = 1.0
     retries: int = 2
     activity_type: str = ''
+    activity_ids: list[str] = field(default_factory=list)
     activity_details: list[str] = field(default_factory=list)
     activity_files: list[str] = field(default_factory=list)
     selectors: list[str] = field(default_factory=list)
@@ -188,6 +189,7 @@ class Plan:
     reuse_exports: bool = True
 
     def validate(self):
+        if not isinstance(self.activity_ids,list) or len(self.activity_ids)>100000 or any(not isinstance(i,str) or not i.isdigit() for i in self.activity_ids):raise ValueError('Invalid activity selection')
         if type(self.reuse_exports) is not bool:raise ValueError('Invalid reuse setting')
         if type(self.skip_empty) is not bool:raise ValueError('Invalid skip setting')
         if type(self.export_history) is not bool:raise ValueError('Invalid export history setting')
@@ -267,6 +269,7 @@ class Exporter:
         self.type_descendants = None
         self.warnings = []
         if plan.health_detail=='daily':self.warnings.append('daily_statistics_without_timelines')
+        self._selected_activity_seen=set()
         self._staged={};self.eta=None;self.transfer={'requests':0,'range_calls':0,'fallback_days':0,'parallel_requests':0}
         self.range_disabled=set()
         self._summary_evidence={}
@@ -491,7 +494,7 @@ class Exporter:
         # Write only data actually retrieved in this run, never unrelated cache entries.
         config = {k: v for k, v in vars(p).items() if k not in ('account', 'output')}
         exports=self.root/'exports';exports.mkdir(parents=True,exist_ok=True)
-        signature={k:config[k] for k in ('start','end','datasets','formats','layout','delimiter','split_year','activity_type',
+        signature={k:config[k] for k in ('start','end','datasets','formats','layout','delimiter','split_year','activity_type','activity_ids',
                     'activity_details','activity_files','selectors','expert_method','expert_kwargs','expert_daily','activity_summary','language','health_detail')}
         destination=exports/(p.start+'_'+p.end+'_'+fingerprint(signature) if p.export_history else 'current')
         self.previous_output=destination
@@ -574,6 +577,13 @@ class Exporter:
                 self.retrieve('expert-' + p.expert_method, day, p.expert_method, kwargs=kwargs)
                 self.event('progress')
                 if self.eta:self.eta.finish()
+
+        if p.activity_ids and 'activities' in p.datasets:
+            missing=set(p.activity_ids)-self._selected_activity_seen
+            if missing:
+                self.stats['errors']+=len(missing)
+                self.errors.append({'dataset':'activities','date':p.start,'error_type':'SelectedActivityMissing','http_status':None,'missing_count':len(missing)})
+                self.event('error','activities',p.start,'SelectedActivityMissing')
 
     @staticmethod
     def request_args(ds,day):
@@ -684,6 +694,8 @@ class Exporter:
         raise ActivityPaginationError('Activity pagination limit exceeded')
 
     def match_activities(self,activities):
+        if self.plan.activity_ids:
+            ids=set(self.plan.activity_ids);activities=[a for a in activities if str(a.get('activityId')) in ids]
         selected=self.plan.activity_type
         if not selected:return activities
         if self.type_descendants is None:
@@ -704,6 +716,7 @@ class Exporter:
         return [a for a in activities if isinstance(a.get('activityType'),dict) and a['activityType'].get('typeKey') in keys]
 
     def activity_exports(self, day, activities):
+        self._selected_activity_seen.update(str(a.get('activityId')) for a in activities)
         from garminconnect import Garmin
         requests=[]
         for activity in activities:

@@ -9,9 +9,9 @@ def build(output):
     source=Path(__file__).resolve().parent;output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
     prefix='TTN-Activity-Export/'
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
-        for name in ('Start-TTN-Activity-Export.cmd','Start-TTN-Garmin-Export.cmd','bootstrap.ps1','windows_bootstrap.py','windows-dependencies.lock.json','LICENSE','THIRD_PARTY_NOTICES.md','README.md','CHANGELOG.md'):
+        for name in ('Start-TTN-Activity-Export.cmd','Start-TTN-Garmin-Export.cmd','bootstrap.ps1','windows_bootstrap.py','windows-dependencies.lock.json','LICENSE','THIRD_PARTY_NOTICES.md','README.md','CHANGELOG.md','RELEASE_NOTES.md','ROADMAP.md'):
             archive.write(source/name,prefix+name)
-        excluded={'build_portable_bundle.py','build_starter.py','generate_windows_lock.py','windows_bootstrap.py'}
+        excluded={'build_portable_bundle.py','build_starter.py','generate_windows_lock.py','windows_bootstrap.py','generate_help.py'}
         for path in sorted(source.glob('*.py')):
             if path.name not in excluded:archive.write(path,prefix+'app/'+path.name)
         for name in ('ANLEITUNG.md','USER_GUIDE.md'):
@@ -29,7 +29,10 @@ def build(output):
             'Einrichtungsfehler: Konsolenmeldung und setup.log pruefen. Nicht parallel starten.\n'
             'Windows kann bei heruntergeladenen unsignierten Skripten einen Hinweis anzeigen.\n'
             'Bisherigen Ausgabeordner/dieselbe Datenbank waehlen, um alte Downloads fortzusetzen.\n'
-            'Standard: Downloads\\Garmin_Export. Bisherige Daten werden nicht verschoben.\n\n'
+            'Neue Konten: Downloads\\TTN Activity Export\\Garmin. Alte Daten werden nicht verschoben.\n'
+            'Vier Reiter: Konten, Download, Daten, Anleitung. Standardaktion: Nur herunterladen.\n'
+            'Fuer CSV/Excel Download und Dateien exportieren waehlen, Auftrag hinzufuegen und pruefen/starten.\n'
+            'Garmin ist nutzbar. Strava und Komoot haben noch keinen Online-Zugriff.\n\n'
             'English: extract everything to a writable folder and double-click the CMD file.\n'
             'First-time setup downloads a private Python runtime and pinned dependencies.\n'
             'No admin rights, system Python changes or Garmin login during setup.\n'

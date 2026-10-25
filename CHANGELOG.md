@@ -1,3 +1,13 @@
+# 0.6.0-preview · compact desktop and explicit jobs
+
+- Introduce four primary tabs: Accounts, Download, Data, User guide. Move detailed export/retrieval settings, fields, Expert and offline management into an Apply/Cancel dialog; move the full session log into a separate window. Add a persistent global tooltip toggle.
+- Add account metadata and explicit saved defaults, isolated Garmin client sessions, provider-specific default destinations for new accounts and migration of the existing remembered Garmin account without moving old archives. Komoot and Strava entries are clearly marked as not connected/implemented; no live API support is claimed.
+- Add a bounded, resumable Garmin activity metadata inventory with search/sport filters, Ctrl/Shift selection, partial/complete states, timestamps and account/date-scoped local caching. No per-activity details, files or maps are requested by listing.
+- Add activity-ID selection throughout online/offline collection and output signatures. Preserve unfiltered summary caches for later selections. Missing chosen IDs make the result incomplete.
+- Persist immutable job snapshots and their order/status. Interrupted work waits for manual review after restart. Review shows dates, scope, paths, formats, extras, local base-request planning and time-estimation limitations. Rejecting review does not start work. Other ready Garmin jobs can proceed past missing-login jobs.
+- Preserve legacy controls and engine behavior beneath the new shell, use no additional runtime dependency, keep the existing profile identity, and prevent simultaneous new-desktop instances from writing the same job file.
+- This is a test build of the new Garmin workflow. Multi-provider online connectors, Strava API budgets, automatic app updates and a guaranteed pre-start total ETA are not included.
+
 # 0.5.8-preview · TTN Activity Export
 
 - Rename the application from TTN Garmin Export to **TTN Activity Export**. German subtitle: “Deine Aktivitäten. Deine Daten. Alles lokal.” English: “Your activities. Your data. All local.”

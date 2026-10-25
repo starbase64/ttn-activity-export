@@ -1,8 +1,49 @@
 # TTN Activity Export – Anleitung
 
-Für den Quellstand **0.5.8-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
+Für den Quellstand **0.6.0-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
 
 Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava und Komoot sind noch nicht integriert. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
+
+## Einstieg in die Testversion 0.6
+
+Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava und Komoot haben vorbereitete Kontoeinträge und Zielordner, aber noch keinen Onlinezugriff.** Eine Anmeldung bei allen drei Anbietern ist mit dieser Testversion deshalb noch nicht möglich. Strava-API-Budgetanzeige und automatische App-Updates folgen separat.
+
+Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
+
+### Schnellstart mit einer CSV-Liste
+
+1. Unter **Konten → Konto hinzufügen** Garmin und deine E-Mail-Adresse wählen. Bereits gemerkte Garmin-Konten werden übernommen. Über **Anmelden / Einstellungen** anmelden. Passwort und Zwei-Faktor-Code werden weiterhin nur beim Anmelden benötigt.
+2. Unter **Download** das Konto, Von/Bis und die Vorgabe **Aktivitätenliste** wählen.
+3. Für eine CSV-Datei die Aktion **Download und Dateien exportieren** auswählen und CSV einschalten. Die Standardaktion **Nur herunterladen** speichert ausschließlich die Quelldaten in der Datenbank. **Nur lokal exportieren** erzeugt Dateien aus der vorhandenen Datenbank ohne Anmeldung und ohne Netzabruf.
+4. Optional **Online-Bestand anzeigen** drücken. Die App lädt zunächst höchstens zehn Listenseiten mit je bis zu 100 Einträgen. Sie fragt keine einzelnen Aktivitätsdateien, Messverläufe, Fotos oder Karten ab.
+5. In der Übersicht nach Name/Datum oder Sportart filtern. Mit Strg einzelne Zeilen ergänzen, mit Shift einen Bereich markieren. **Alle sichtbaren auswählen** bezieht sich auf die sichtbaren, bereits geladenen Treffer. **Auswahl übernehmen** setzt die gewählten IDs und leert einen möglicherweise widersprechenden Sportartenfilter. Ohne spezielle Auswahl gelten alle zum Zeitraum und Sportfilter passenden Aktivitäten.
+6. **Zur Auftragsliste hinzufügen** drücken. Du kannst weitere Aufträge mit anderen Einstellungen oder Garmin-Konten ergänzen und per Nach oben/Nach unten sortieren.
+7. **Aufträge prüfen und starten** zeigt die endgültigen Einstellungen pro Auftrag. Erst **Download / Export starten** führt sie aus. Zurück startet nichts. Zum Ändern eines vorgemerkten Auftrags diesen entfernen und mit geänderter Auswahl neu hinzufügen.
+8. Nach dem Dateiexport den Ergebnisordner öffnen. Für lokale Tabellen und Karten die passende Datenbank unter Daten laden.
+
+### Bestandsübersicht richtig lesen
+
+Die Übersicht gehört zu genau einem Konto und Zeitraum. Datum oder Konto wechseln setzt die aktuelle Auswahl zurück. **Übersicht aktualisieren** beginnt neu; **Weitere Seiten laden** setzt die Paginierung fort. Der Zeitstempel zeigt den Stand der Liste. Ein wiederholter, fehlerhafter oder unterbrochener Abruf bleibt **teilweise geladen**. Erst eine abschließende leere Listenseite bestätigt, dass dieser Zeitraum vollständig aufgelistet wurde. Eine gespeicherte Übersicht kann beim erneuten Öffnen ohne weitere Anfrage angezeigt werden.
+
+Diese Liste ist kein vollständiger Gesundheitsdatenkatalog und kein Nachweis lokal gespeicherter FIT-Dateien. Für den Download kann die Aktivitätenliste erneut abgefragt werden; zusätzliche Details und Dateien werden nur für die gewählten IDs angefordert. Ein fehlender ausgewählter Eintrag wird als unvollständiger Lauf gemeldet. Die begrenzte Ausgabevorschau ist bei einer ID-Auswahl deaktiviert, weil die gewählten IDs außerhalb der Stichprobe liegen können. Lade die Auswahl zuerst herunter und exportiere sie danach lokal.
+
+### Aufträge, Neustart und Aufwand
+
+Konto, Zeitraum, Auswahl, Formate und Abrufoptionen werden beim Hinzufügen als Kopie gespeichert. Spätere Änderungen wirken nur auf neue Aufträge. Nach einem Neustart bleibt ein unterbrochener Auftrag sichtbar; ohne erneute Prüfung und Startbestätigung läuft nichts automatisch. Bei fehlender Anmeldung oder aktiver Garmin-Abrufpause erhält der Auftrag einen Wartestatus. Andere bereite Aufträge können weiterlaufen. Abbrechen stoppt den aktuellen Download und die weitere Abarbeitung dieser Liste; erfolgreich gespeicherte Antworten bleiben erhalten.
+
+Die Zusammenfassung prüft vorhandene passende Grundantworten in der SQLite-Datei lokal und schätzt offene Grundabfragen. Zusätzliche Listenseiten, Details, ältere Datei-Caches, Bereichs-Fallbacks und Wiederholungen können den tatsächlichen Aufwand ändern. Eine aus dem Mindestabstand berechnete Zeit ist keine vollständige Downloadprognose. Ohne verlässliche Messgrundlage bleibt die Dauer ausdrücklich unbekannt. Während des Downloads wird die Restzeit gemessen. Excel-Erzeugung braucht zusätzliche Zeit nach dem Download.
+
+Mehrere Exporte desselben Kontos können im gemeinsamen `exports/current` spätere Ergebnisse ersetzen. Wenn du jeden Auftrag separat behalten möchtest, vor dem Hinzufügen unter Optionen **Separate Exportordner behalten** aktivieren. Aufträge sind keine Datensicherung.
+
+### Konten, Ordner und Bedienhilfen
+
+Neue Konten verwenden `Downloads\TTN Activity Export\Garmin`, `Komoot` oder `Strava`, darunter getrennte Kontobereiche. Ein vorhandenes gemerktes Garmin-Konto übernimmt den bisherigen Ausgabeordner; alte Daten werden nicht verschoben. Wähle beim Fortsetzen deine bisherige SQLite-Datei über Optionen → Offline-Bestand. Mehrere Garmin-Konten können in einer Sitzung nacheinander angemeldet werden. Für die automatische Anmeldung beim Programmstart bleibt zunächst das zuletzt ausdrücklich gemerkte Garmin-Konto maßgeblich. Weitere Konten bei Bedarf über deren Anmeldung verbinden.
+
+Unter Optionen lassen sich **Hilfetexte beim Darüberfahren** global an-/ausschalten. Wichtige Status- und Fehlermeldungen bleiben sichtbar. **Protokoll …** öffnet das Protokollfenster mit **Log öffnen** und **Log der heutigen Sitzung exportieren**. Sprache und Farbschema bleiben oben erreichbar. Die neue Oberfläche kann pro Benutzerprofil nur einmal gleichzeitig laufen; schließe vor dem Test auch die alte App.
+
+## Detailreferenz
+
+Die folgenden Erklärungen beziehen sich auf die weiterhin verfügbaren Detailbereiche im Optionen-Fenster. Der frühere direkte Export-Start wird in der neuen Oberfläche durch Hinzufügen, Prüfen und Starten des Auftrags ersetzt.
 
 ## Inhalt
 
@@ -29,7 +70,7 @@ Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connec
 
 Du musst Python nicht selbst installieren. Der Starter verändert keine vorhandene Python-Installation und benötigt keine Administratorrechte. Die Erstinstallation braucht Internet. Die lokalen Ordner `runtime/` und `.setup-cache/` gehören zur Einrichtung; der Cache kann für spätere Reparaturen verwendet werden. Wird die Einrichtung unterbrochen, starte denselben Starter erneut. Bei Problemen findest du Meldungen im Konsolenfenster und in `setup.log` im Programmordner. Unternehmensrichtlinien können den Start von PowerShell-Skripten verhindern.
 
-Die Reiter heißen derzeit **Konto**, **Export**, **Optionen**, **Felder**, **Experten**, **Offline-Daten**, **Daten** und zuletzt **Anleitung**. Für den Einstieg brauchst du normalerweise nur Konto, Export und gegebenenfalls Optionen. Die geplante vereinfachte Oberfläche ist noch nicht enthalten.
+Die Reiter heißen derzeit **Konto**, **Export**, **Optionen**, **Felder**, **Experten**, **Offline-Daten**, **Daten** und zuletzt **Anleitung**. Für den Einstieg brauchst du normalerweise nur Konto, Export und gegebenenfalls Optionen. Diese früheren Bereiche liegen jetzt im Optionen-Fenster; die vier Hauptreiter sind oben beschrieben.
 
 ## Konto und Anmeldung
 
@@ -53,7 +94,7 @@ Beispiel: Du möchtest alle Fahrradtouren eines Monats in einer CSV-Datei mit Da
 4. Prüfe auf Export den Zielordner. Standard ist `Downloads\Garmin_Export`.
 5. Lass **Aktivitäten: eine Tabellenzeile pro Aktivität** eingeschaltet. Für eine einzige zusammenhängende Datei lass die Trennung nach Jahr ausgeschaltet.
 6. Klicke bei Bedarf **Vorschau anzeigen**. Die Vorschau lädt nur eine begrenzte Stichprobe; sie prüft nicht den gesamten Zeitraum.
-7. Klicke **Export starten**, anschließend **Ergebnisordner öffnen**.
+7. Wähle **Download und Dateien exportieren**, füge den Auftrag hinzu und starte ihn nach der Prüfung. Anschließend **Ergebnisordner öffnen**.
 
 Für diese Tabelle brauchst du keine Originaldateien, Wetterdaten oder Messverläufe. Die Kategorie **Aktivitäten – Übersicht** muss ausgewählt sein; allein ein Sportartenfilter aktiviert sie nicht. Garmin liefert nicht bei jeder Aktivität jedes Feld. Eine manuelle Aktivität kann beispielsweise keine GPS-Strecke enthalten.
 
@@ -191,4 +232,10 @@ Bei einem Fehlerbericht sind App-Version, Aktion, Zeitraum, gewählte Kategorien
 - **Leere Antwort:** Garmin hat geantwortet, aber keine entsprechenden Werte geliefert.
 - **Ungeprüft übersprungen:** Eine experimentelle Regel hat den Abruf ausgelassen. Vorhandensein von Details bleibt offen.
 
-Eine allgemeine **Online-Bestandsübersicht vor dem Download** ist geplant, aber noch nicht enthalten. Sie soll Aktivitäten zunächst als Metadatenliste zeigen, ohne einzelne FIT-/GPX-Dateien oder Messverläufe abzurufen. Für Gesundheitsdaten gibt es damit noch keinen verlässlichen Nachweis aller verfügbaren Tage. Weitere Planung: [Roadmap](../ROADMAP.md).
+Die **Online-Bestandsübersicht vor dem Download** ist für Garmin-Aktivitäten enthalten und oben beschrieben. Sie zeigt zunächst Metadaten, ohne einzelne FIT-/GPX-Dateien oder Messverläufe abzurufen. Für Gesundheitsdaten gibt es damit noch keinen verlässlichen Nachweis aller verfügbaren Tage. Weitere Planung: [Roadmap](../ROADMAP.md).
+
+## Experimentelles Überspringen
+
+Die Überspringen-Option bleibt standardmäßig aus. Leere Tageskennzahlen beweisen nicht, dass detaillierte Daten fehlen. Ausgelassene Abfragen bleiben ungeprüft und lassen sich über die Offline-Verwaltung ausdrücklich nachladen.
+
+Vorlagen speichern die Daten-/Ausgabeoptionen, keine kontoabhängige ID-Auswahl aus der Bestandsliste. Nach dem Laden einer Vorlage die gewünschten Aktivitäten erneut auswählen.

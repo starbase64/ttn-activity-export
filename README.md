@@ -16,9 +16,19 @@ Bisher hieß die App **TTN Garmin Export**. Die Umbenennung auf **TTN Activity E
 
 ## Aktueller Stand
 
-Der Quellstand ist **0.5.8-preview**. **Garmin Connect wird unterstützt. Strava und Komoot sowie die vereinfachte Oberfläche sind geplant und noch nicht eingebaut.**
+Der Quellstand ist **0.6.0-preview**. **Garmin Connect wird unterstützt. Die vereinfachte Oberfläche ist als Testversion enthalten. Strava und Komoot sind noch nicht online angebunden.**
 
 Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quellstand. Beachte beim Download die Versionsnummer: Eine Anleitung zum aktuellen Stand bedeutet nicht, dass ein älteres Release diese Funktionen bereits enthält. Aktuelle Windows-Starter entstehen als Artefakte erfolgreicher [GitHub-Actions-Prüfläufe](https://github.com/starbase64/ttn-activity-export/actions). Artefakte können eine GitHub-Anmeldung erfordern und ablaufen.
+
+## Neu in der Testversion 0.6
+
+Vier Hauptreiter: **Konten, Download, Daten, Anleitung**. Zusätzliche Einstellungen liegen unter **Optionen …** mit Übernehmen/Abbrechen. Das Protokoll öffnet sich in einem eigenen Fenster.
+
+**Garmin:** Bestandsliste ohne Detail-/Dateidownload, einzelne Aktivitäten auswählen, getrennte Kontovorgaben, gespeicherte und sortierbare Aufträge und eine Zusammenfassung vor dem Start. Standardaktion ist **Nur herunterladen**. Für CSV/Excel/JSON die Aktion **Download und Dateien exportieren** beziehungsweise **Nur lokal exportieren** wählen.
+
+**Komoot und Strava:** Kontoeinträge und getrennte Zielordner können vorbereitet werden. Online-Anmeldung, Bestandsliste, Download und Strava-Budgetverwaltung sind noch nicht implementiert. Automatische App-Updates fehlen ebenfalls noch. Diese Version macht diese Einschränkungen sichtbar.
+
+Neue Konten verwenden `Downloads\TTN Activity Export\Garmin` beziehungsweise `Komoot`/`Strava`. Bestehende Garmin-Verzeichnisse und der interne Profilname bleiben erhalten. Es werden keine alten Daten automatisch verschoben. [Testhinweise](RELEASE_NOTES.md).
 
 ## Was die App kann
 
@@ -42,8 +52,9 @@ Das veröffentlichte Release `v0.5.0-preview` ist älter als der aktuelle Quells
 1. Ein **Windows-Starter-ZIP** für die gewünschte Version herunterladen.
 2. Vollständig in einen eigenen, beschreibbaren Ordner entpacken. Nicht im ZIP starten.
 3. `Start-TTN-Activity-Export.cmd` doppelklicken.
-4. Beim ersten Start die Einrichtung abwarten. Anschließend unter **Konto** anmelden.
-5. Für eine einfache Aktivitätstabelle unter **Export** auf **Nur Aktivitätsliste (CSV)** klicken, Zeitraum und gegebenenfalls Sportart unter **Optionen** wählen und den Export starten.
+4. Beim ersten Start die Einrichtung abwarten. Anschließend unter **Konten** ein Garmin-Konto hinzufügen und über **Anmelden / Einstellungen** anmelden.
+5. Unter **Download** die Vorgabe **Aktivitätenliste**, den Zeitraum und die Aktion **Download und Dateien exportieren** wählen; CSV eingeschaltet lassen.
+6. Bei Bedarf **Online-Bestand anzeigen**, einzelne Aktivitäten markieren und die Auswahl übernehmen. Zur Auftragsliste hinzufügen, anschließend **Aufträge prüfen und starten** drücken.
 
 Der Starter richtet eine eigene Python-Laufzeit und festgelegte Abhängigkeiten ein. Keine Administratorrechte und keine eigene Python-Installation nötig. Der erste Start braucht Internet; Python kommt von python.org, Pakete von PyPI/files.pythonhosted.org. Versionen und SHA-256-Prüfsummen sind in `windows-dependencies.lock.json` festgelegt. Fehlende oder beschädigte Komponenten werden beim Start bei Bedarf repariert. Dabei wird kein App-Update von GitHub installiert.
 
@@ -51,9 +62,9 @@ Bei Einrichtungsproblemen: Konsolenmeldung und `setup.log` im Programmordner pr�
 
 ## Downloads, Offline-Bestand und Exportdateien
 
-**Nur herunterladen** speichert die Auswahl von Export/Optionen in der Kontodatenbank, ohne anschließend CSV/Excel/JSON-Dateien zu erzeugen. **Export starten** beschafft benötigte Daten und erstellt die ausgewählten Dateien. Mit **Nur Offline-Daten verwenden** erfolgt der Export ausschließlich aus dem lokalen Bestand.
+**Nur herunterladen** speichert die Auswahl von Export/Optionen in der Kontodatenbank, ohne anschließend CSV/Excel/JSON-Dateien zu erzeugen. Die Aktion **Download und Dateien exportieren** beschafft benötigte Daten und erstellt die ausgewählten Dateien. Mit **Nur Offline-Daten verwenden** erfolgt der Export ausschließlich aus dem lokalen Bestand.
 
-Standardziel ist derzeit **Downloads\Garmin_Export**. Darunter liegen getrennte Kontobereiche mit SQLite-Datenbank und standardmäßig `exports/current`. Neue Ergebnisordner bedeuten nicht automatisch neue Downloads. Verwende zum Fortsetzen denselben Datenbestand. Die letzten Tage können entsprechend der eingestellten Aktualisierung erneut geladen werden.
+Bestehende Konten behalten ihren bisherigen Standard **Downloads\Garmin_Export**; neue Konten verwenden die oben beschriebene Ordnerstruktur. Darunter liegen getrennte Kontobereiche mit SQLite-Datenbank und standardmäßig `exports/current`. Neue Ergebnisordner bedeuten nicht automatisch neue Downloads. Verwende zum Fortsetzen denselben Datenbestand. Die letzten Tage können entsprechend der eingestellten Aktualisierung erneut geladen werden.
 
 Große Erstexporte, vollständige Messverläufe und Excel-Dateien brauchen Zeit. Mehr parallele Abfragen heben den gemeinsamen Mindestabstand zwischen Anfragen nicht auf. Garmin kann Anfragen begrenzen; bei HTTP 429 stoppt der Lauf und die App zeigt eine Abrufpause. Bereits geladene Antworten bleiben erhalten. Eine feste Beschleunigung oder Dauer wird nicht zugesichert.
 
@@ -61,7 +72,7 @@ Große Erstexporte, vollständige Messverläufe und Excel-Dateien brauchen Zeit.
 
 A local Garmin Connect desktop app for downloading selected data or years of history, keeping a reusable SQLite archive, browsing activities and maps, and exporting CSV, Excel or JSON. Includes German/English UI, persistent light/dark mode, bounded previews, download ETA and session logs. The Windows starter installs a private Python runtime and pinned, hash-verified dependencies; no existing Python installation is required.
 
-**Source: 0.5.8-preview. Published release v0.5.0-preview is older. Strava and Komoot integration is planned, not available yet.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-activity-export/actions) for current Windows starter artifacts.
+**Source: 0.6.0-preview. Published release v0.5.0-preview is older. The compact UI is a test preview. Strava and Komoot have placeholder account settings but no live online integration yet.** See the [English user guide](docs/USER_GUIDE.md) for installation, examples, settings and troubleshooting, and [Actions](https://github.com/starbase64/ttn-activity-export/actions) for current Windows starter artifacts.
 
 ## Entwicklung / Development
 
@@ -83,7 +94,7 @@ python build_starter.py dist/TTN-Activity-Export-Windows-Starter.zip
 
 Regenerate dependency locks only after reviewing updates. Download Windows wheels with `pip download --only-binary=:all: --platform win_amd64 --python-version 3.13 --implementation cp --abi cp313 -r requirements.txt -d windows-wheels`, then run `python generate_windows_lock.py windows-wheels`. The generator checks PyPI SHA-256 values. Do not commit downloaded wheels or runtimes. `.github/workflows/starter.yml` checks native Windows setup, offline startup and cached dependency repair. A separate manual Windows workflow can build the full PyInstaller package.
 
-The GitHub-readable manuals describe the current application. The built-in help and its HTML versions remain in [German](docs/guide-de.html) and [English](docs/guide-en.html). Update both forms when application behavior changes.
+The GitHub-readable manuals describe the current application. The built-in help and its HTML versions remain in [German](docs/guide-de.html) and [English](docs/guide-en.html). After editing the Markdown manuals, run `python generate_help.py` to regenerate embedded help and HTML copies.
 
 ## Datenschutz, Herkunft und Lizenz / Privacy and credits
 

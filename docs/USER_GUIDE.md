@@ -1,8 +1,49 @@
 # TTN Activity Export — user guide
 
-For source version **0.5.8-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For source version **0.6.0-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
 This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava and Komoot are not integrated yet. Older application downloads may not include every feature described here.
+
+## Getting started with preview 0.6
+
+This guide covers the new desktop. **Garmin is operational. Strava and Komoot have prepared account entries and destinations but no live online connector yet.** This build cannot sign in to all three providers. Strava API budget displays and automatic application updates remain future work.
+
+The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
+
+### Quick start: create a CSV list
+
+1. Under **Accounts → Add account**, select Garmin and enter your email. An existing remembered Garmin account is imported. Use **Sign in / settings** to connect. Password and two-factor prompts are still handled during sign-in.
+2. Under **Download**, choose the account, dates and **Activity list** preset.
+3. Choose **Download and export files** and enable CSV to create a CSV file. The default **Download only** action stores source responses in the database without creating output files. **Export offline only** creates files from a local archive without sign-in or network retrieval.
+4. Optionally click **Show online inventory**. The initial request is bounded to ten list pages of up to 100 entries each. No individual activity files, measurement streams, photos or maps are requested.
+5. Search names/dates or filter sports. Ctrl adds individual rows; Shift selects a range. **Select all visible** only includes visible, already loaded results. **Use selection** sets the chosen IDs and clears a potentially conflicting sport filter. Without a specific selection, matching activities from the dates and sport filter are used.
+6. Click **Add to job list**. Add further jobs with different settings or Garmin accounts and reorder them with Move up/Move down.
+7. **Review and start jobs** displays each immutable job's settings. Only **Start download / export** executes them; Back starts nothing. To revise a queued job, remove it and add the revised selection.
+8. Open the results folder after exporting files. To browse local tables/maps, open the corresponding database under Data.
+
+### Understanding inventory
+
+Each list belongs to one account and date range. Changing dates or account clears the current selection. **Refresh inventory** starts over; **Load more pages** resumes pagination. The timestamp identifies the observation time. Failed, repeated or interrupted pages keep the result **partially loaded**. Only a final empty list page establishes complete listing for that range. A previously saved inventory may open without another request.
+
+This is neither a complete health-data catalog nor proof of locally saved FIT files. Execution may retrieve the activity list again; extra details/files are requested only for chosen IDs. A missing selected ID makes the result incomplete. Bounded output preview is disabled for an ID selection because those IDs may lie outside the sample. Download that selection first, then export offline.
+
+### Jobs, restart and duration
+
+Account, dates, selection, formats and retrieval options are copied when a job is added. Later edits only affect new jobs. After restart, interrupted jobs remain visible but do not run until reviewed and started again. Missing login or an active Garmin request pause puts a job in a waiting state; other ready jobs may proceed. Stop cancels the current download and prevents further jobs in that run. Successfully stored responses remain available.
+
+Review reads matching base responses from SQLite locally and plans outstanding base queries. Extra list pages, details, old file caches, range fallbacks and retries can change the real workload. Time calculated from request spacing is not a complete download prediction. Duration remains explicitly unknown when there is no reliable basis. During download, actual throughput informs ETA. Excel generation is additional local work after retrieval.
+
+Multiple exports for one account can replace earlier results in the shared `exports/current` directory. To retain each output separately, enable **Keep separate export folders** in Options before adding jobs. Jobs are not backups.
+
+### Accounts, folders and assistance
+
+New accounts use `Downloads/TTN Activity Export/Garmin`, `Komoot` or `Strava`, with separate account directories underneath. A previously remembered Garmin account retains the old output folder; no downloaded data is moved. For resumption select your existing SQLite file under Options → Offline archive. Multiple Garmin accounts can be signed in one after another during a session. Startup auto sign-in still uses the most recently explicitly remembered Garmin account; connect other accounts through their sign-in settings as needed.
+
+**Show hover tooltips** in Options is a persistent global toggle. Essential status/errors stay visible. **Log …** opens the log window with Open log and Export current session log. Language and theme remain accessible at the top. Only one new-desktop instance may use a profile at a time; close the older app before testing too.
+
+## Detailed reference
+
+The following explanations cover the detailed controls retained inside Options. The former direct export-start action is replaced by adding, reviewing and starting a job in the compact desktop.
 
 ## Contents
 
@@ -29,7 +70,7 @@ This local desktop app downloads supported Garmin Connect data, keeps a reusable
 
 No existing Python installation or administrator privileges are required. First-time setup needs internet. The starter does not modify your system Python. Its local `runtime/` and `.setup-cache/` folders support startup and repair. If setup is interrupted, run the same starter again. Check the console and `setup.log` in the program folder when setup fails. Company policies may block PowerShell scripts.
 
-The current tabs are **Account**, **Export**, **Options**, **Fields**, **Expert**, **Offline data**, **Data**, and finally **User guide**. Most first-time exports only need Account, Export and sometimes Options. The proposed simplified interface is not implemented yet.
+The current tabs are **Account**, **Export**, **Options**, **Fields**, **Expert**, **Offline data**, **Data**, and finally **User guide**. Most first-time exports only need Account, Export and sometimes Options. These former tabs are now inside Options; the four main tabs are described above.
 
 ## Account and sign-in
 
@@ -53,7 +94,7 @@ Example: export one month's cycling activities as a CSV with date, name, distanc
 4. Check the output folder on Export. The current default is `Downloads\Garmin_Export`.
 5. Keep **Activities: one table row per activity** enabled. Leave year splitting off if you want a single combined list.
 6. Optionally click **Show preview** for a bounded sample. This does not inspect the whole history.
-7. Click **Start export**, then **Open results folder**.
+7. Choose **Download and export files**, add the job and start it after review, then **Open results folder**.
 
 This list does not need original files, weather or metric streams. **Activities – summary** must be selected: choosing a sport alone does not enable that dataset. Not every activity has every field. Manually entered or indoor activities may have no GPS track.
 
@@ -189,4 +230,10 @@ For a useful issue report, include version, action, dates, selected datasets/for
 - **Empty response:** Garmin answered without corresponding values.
 - **Skipped, unverified:** an experimental rule omitted the request; detail availability remains unknown.
 
-A general **online inventory before downloading** is planned, not implemented. It should first show activity metadata without fetching individual FIT/GPX files or measurement streams. This does not provide a reliable inventory of all health-data days. See the [roadmap](../ROADMAP.md).
+**Online inventory before downloading** is available for Garmin activities as described above. It shows metadata without fetching individual FIT/GPX files or measurement streams. This does not provide a reliable inventory of all health-data days. See the [roadmap](../ROADMAP.md).
+
+## Experimental skip rules
+
+The skip option remains off by default. Empty daily statistics do not prove that detailed data is absent. Omitted requests remain unverified, and the Offline archive controls can explicitly retrieve them later.
+
+Presets store dataset/output options, not account-specific inventory ID selections. Select the desired activities again after loading a preset.
