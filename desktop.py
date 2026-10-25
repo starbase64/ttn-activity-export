@@ -392,7 +392,11 @@ class StudioMixin:
         dialog.setWindowTitle(self.tr('Online-Bestand · nur Aktivitäten-Metadaten','Online inventory · activity metadata only'));dialog.resize(1000,650)
         v=QVBoxLayout(dialog)
         from datetime import datetime
-        checked=datetime.fromtimestamp(result.get('checked_at',0)).astimezone().strftime('%Y-%m-%d %H:%M')
+        checked=self.tr('unbekannt','unknown')
+        try:
+            if result.get('checked_at'):
+                checked=datetime.fromtimestamp(result['checked_at']).astimezone().strftime('%Y-%m-%d %H:%M')
+        except (ValueError,TypeError,OSError,OverflowError):pass
         complete=self.tr('Zeitraum vollständig aufgelistet','Date range fully listed') if result.get('complete') else self.tr('Teilweise geladen – weitere Seiten können vorhanden sein','Partially loaded – more pages may exist')
         note=QLabel(f"{result['start']} – {result['end']} · {len(result['items'])} · {complete}\n"+self.tr('Stand: ','Checked: ')+checked+'\n'+self.tr('Keine Aktivitätsdateien oder Messverläufe geladen. Diese Liste sagt nichts über verfügbare Gesundheitsdaten aus.',
                                  'No activity files or measurement streams downloaded. This list does not establish health-data availability.'))
