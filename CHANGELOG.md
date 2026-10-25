@@ -1,3 +1,10 @@
+# 0.6.11-preview · confirmed updater handoff
+
+- Reproduce the 0.6.10 failure in a native Windows regression: the detached app-created PowerShell helper never enters its script and leaves an empty log.
+- Launch the system Windows PowerShell with CREATE_NO_WINDOW and noninteractive arguments instead of DETACHED_PROCESS. Record launch attempts, child PID and launch errors.
+- Wait for a token/PID-matched helper startup acknowledgement before closing the app. A failed, cancelled or unconfirmed handoff keeps the app open; failure logs and the prepared update remain available for diagnosis.
+- Exercise the production launcher in the offline installation/fallback scenario and verify that it survives the launching Python process.
+
 # 0.6.10 · confirmed Windows starter self-updates
 
 - Show the Garmin export-cache import button only for a selected Garmin account; hide it for Komoot, Strava and no account. Document when legacy cache files are no longer needed.

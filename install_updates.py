@@ -1,9 +1,11 @@
 """Confirmation, preparation and Windows helper handoff for starter updates."""
 import os
+import json
 from pathlib import Path
 import subprocess
 import sys
 import threading
+import time
 from urllib.error import URLError
 from PySide6.QtCore import QThread,QTimer,Signal,Qt
 from PySide6.QtWidgets import QApplication,QMessageBox,QProgressDialog
@@ -12,25 +14,64 @@ from updater import installation_context,prepare_update,discard_prepared,UpdateE
 
 class Preparation(QThread):
     progress=Signal(int,int)
+    phase=Signal(str)
     def __init__(self,context,asset,language,parent=None):
         super().__init__(parent);self.context=context;self.asset=dict(asset);self.language=language
-        self.cancel=threading.Event();self.plan=None;self.error=None
+        self.cancel=threading.Event();self.plan=None;self.error=None;self.helper=None
     def run(self):
-        try:self.plan=prepare_update(self.context,self.asset,self.language,self.cancel,lambda a,b:self.progress.emit(a,b))
+        try:
+            self.plan=prepare_update(self.context,self.asset,self.language,self.cancel,lambda a,b:self.progress.emit(a,b))
+            if self.cancel.is_set():raise UpdateCancelled('cancelled')
+            self.phase.emit('starting')
+            try:self.helper=start_helper(self.plan)
+            except OSError as exc:raise UpdateError('helper_launch') from exc
+            wait_helper_ready(self.plan,self.helper,self.cancel)
         except UpdateCancelled:self.error='cancelled'
         except UpdateError as exc:self.error=str(exc)
         except URLError:self.error='connection'
         except OSError:self.error='files'
         except Exception:self.error='package'
+        finally:
+            if self.error and self.helper is not None:stop_helper(self.helper)
 
 
-def start_helper(plan_path):
-    plan=Path(plan_path);helper=plan.parent/'windows_update.ps1'
+def start_helper(plan_path,*,parent_process_id=None,no_restart=False,no_ui=False):
+    plan=Path(plan_path).resolve();helper=plan.parent/'windows_update.ps1'
+    powershell=Path(os.environ.get('SystemRoot',r'C:\Windows'))/'System32/WindowsPowerShell/v1.0/powershell.exe'
+    arguments=[str(powershell),'-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',str(helper),
+               '-PlanPath',str(plan),'-ParentProcessId',str(os.getpid() if parent_process_id is None else parent_process_id)]
+    if no_restart:arguments.append('-NoRestart')
+    if no_ui:arguments.append('-NoUI')
     with (plan.parent/'helper-output.log').open('ab') as output:
-        return subprocess.Popen(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(helper),
-                          '-PlanPath',str(plan),'-ParentProcessId',str(os.getpid())],cwd=str(plan.parent),
+        output.write(b'Launching Windows update helper.\n');output.flush()
+        try:
+            process=subprocess.Popen(arguments,cwd=str(plan.parent),
                          stdin=subprocess.DEVNULL,stdout=output,stderr=subprocess.STDOUT,close_fds=True,
-                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP|subprocess.DETACHED_PROCESS)
+                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP|subprocess.CREATE_NO_WINDOW)
+        except OSError as exc:
+            output.write(('Helper launch failed: '+str(exc)+'\n').encode('utf-8'));output.flush();raise
+        output.write(('Helper process created: '+str(process.pid)+'\n').encode('ascii'));output.flush()
+        return process
+
+
+def stop_helper(process):
+    if process.poll() is None:
+        try:process.terminate();process.wait(timeout=5)
+        except (OSError,subprocess.TimeoutExpired):pass
+
+
+def wait_helper_ready(plan_path,process,cancel,timeout=20):
+    plan=Path(plan_path);token=json.loads(plan.read_text(encoding='utf-8'))['token']
+    ready=plan.parent/'helper-ready.json';deadline=time.monotonic()+timeout
+    while True:
+        if cancel.is_set():raise UpdateCancelled('cancelled')
+        if process.poll() is not None:raise UpdateError('helper_exited')
+        try:
+            data=json.loads(ready.read_text(encoding='utf-8-sig'))
+            if data.get('schema')==1 and data.get('token')==token and data.get('pid')==process.pid:return
+        except (OSError,ValueError,TypeError):pass
+        if time.monotonic()>=deadline:raise UpdateError('helper_timeout')
+        cancel.wait(.1)
 
 
 class UpdateInstallMixin:
@@ -75,13 +116,22 @@ class UpdateInstallMixin:
         self._begin_install(asset)
 
     def _begin_install(self,asset):
+        if self.update_install_busy():self._offer_timer.start(1000);return
+        remember=getattr(self,'remember_active_archive',None)
+        if remember:remember()
+        if hasattr(self,'workspace') and not self.save_workspace():
+            self.message('Einstellungen konnten nicht gespeichert werden. Die App bleibt geöffnet.','Could not save settings. The app will remain open.');return
         worker=Preparation(self._install_context,asset,self.lang,self);self.install_worker=worker
         dialog=QProgressDialog(self.tr('Update wird heruntergeladen …','Downloading update …'),self.tr('Abbrechen','Cancel'),0,100,self)
         dialog.setWindowTitle('TTN Activity Export');dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
         dialog.setAutoClose(False);dialog.setAutoReset(False);dialog.setMinimumDuration(0);self.install_dialog=dialog
         dialog.canceled.connect(worker.cancel.set)
         worker.progress.connect(self._install_progress);worker.finished.connect(self._installation_prepared)
+        worker.phase.connect(self._install_phase)
         self.update_button.setEnabled(False);self.update_download.setEnabled(False);dialog.show();worker.start()
+
+    def _install_phase(self,phase):
+        if self.install_dialog:self.install_dialog.setLabelText(self.tr('Update-Helfer wird gestartet …','Starting update helper …'))
 
     def _install_progress(self,received,total):
         if self.install_dialog:
@@ -94,26 +144,26 @@ class UpdateInstallMixin:
         if self.install_dialog:
             self.install_dialog.blockSignals(True);self.install_dialog.close();self.install_dialog.deleteLater();self.install_dialog=None
         self.update_button.setEnabled(True);self.update_download.setEnabled(True)
-        plan=worker.plan;error=worker.error;worker.deleteLater()
+        plan=worker.plan;error=worker.error;helper=worker.helper;worker.deleteLater()
         if cancelled or error=='cancelled':
+            if helper is not None:stop_helper(helper)
             if plan:discard_prepared(plan)
             self.update_status.setText(self.tr('Update abgebrochen. Die bisherige Version bleibt aktiv.','Update cancelled. The current version remains active.'))
             if self._close_after_preparation:QTimer.singleShot(0,self.close)
             return
         if error:
             messages={'space':('Nicht genügend freier Speicher für das Update.','Not enough free disk space for the update.'),
+                      'helper_launch':('Der Update-Helfer konnte nicht gestartet werden. Die App bleibt geöffnet.','Could not launch the update helper. The app will remain open.'),
+                      'helper_exited':('Der Update-Helfer wurde vorzeitig beendet. Die App bleibt geöffnet.','The update helper exited early. The app will remain open.'),
+                      'helper_timeout':('Der Update-Helfer hat seinen Start nicht bestätigt. Die App bleibt geöffnet.','The update helper did not confirm startup. The app will remain open.'),
                       'connection':('Update konnte nicht heruntergeladen werden. Internetverbindung prüfen.','Could not download the update. Check your internet connection.'),
                       'files':('Update-Dateien konnten nicht gespeichert werden. Schreibrechte und Speicherplatz prüfen.','Could not save update files. Check write permissions and free space.')}
             text=self.tr(*messages.get(error,('Update-Prüfung fehlgeschlagen. Die bisherige Version bleibt unverändert.','Update verification failed. The current version is unchanged.')))
+            if plan:text+='\n'+self.tr('Update-Protokolle: ','Update logs: ')+str(Path(plan).parent)
             self.log.appendPlainText(text+' · '+error);self.message(text,text);return
-        try:
-            remember=getattr(self,'remember_active_archive',None)
-            if remember:remember()
-            if hasattr(self,'workspace') and not self.save_workspace():raise OSError('preferences')
-            if self.update_install_busy():raise OSError('busy')
-            helper=start_helper(plan)
-        except OSError:
-            discard_prepared(plan);self.message('Der Update-Helfer konnte nicht gestartet werden. Die bisherige Version bleibt aktiv.','Could not start the update helper. The current version remains active.');return
+        if helper is None or helper.poll() is not None or self.update_install_busy():
+            if helper is not None:stop_helper(helper)
+            self.message('Update-Übergabe abgebrochen. Die App bleibt geöffnet. Die Update-Protokolle liegen neben plan.json.','Update handoff cancelled. The app remains open. Update logs are beside plan.json.');return
         self.log.appendPlainText(self.tr('Update-Helfer gestartet; App wird beendet und neu gestartet.','Update helper started; closing and restarting the app.'))
         if self.close():QTimer.singleShot(0,QApplication.instance().quit)
-        else:helper.terminate()
+        else:stop_helper(helper)

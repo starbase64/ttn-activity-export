@@ -1,12 +1,12 @@
 # TTN Activity Export — user guide
 
-For version **0.6.10**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
+For version **0.6.11-preview**. [Deutsch](ANLEITUNG.md) · [Project overview](../README.md) · [Planned features](../ROADMAP.md)
 
 This local desktop app downloads supported Garmin Connect data, keeps a reusable local archive and creates export files. You choose the dates, datasets and output formats. Strava is a local-only import source; Komoot has an experimental online connector. Older application downloads may not include every feature described here.
 
 ## Getting started with preview 0.6
 
-This guide covers version 0.6.10. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks and OK/Cancel installation are available beside the language control; delta updates remain future work.
+This guide covers version 0.6.11-preview. **Garmin is operational. Strava only imports files downloaded manually by the user. Komoot has an experimental online connector.** Strava sign-in and automated Strava retrieval are not planned. Release checks and OK/Cancel installation are available beside the language control; delta updates remain future work.
 
 The four main tabs are **Accounts**, **Download**, **Data**, and **User guide**. The detailed reference below still applies; its former Export/Output, Options, Fields, Expert and Offline data areas are now inside **Download → Options …**. Apply keeps edits for new jobs; Cancel restores the prior selection. Existing queued jobs never change. **Save as account defaults** explicitly saves your current selection for that account.
 
@@ -321,3 +321,10 @@ Failed installation/startup checks leave the previous version active; the launch
 **Import export cache** appears only with a Garmin account selected. It finds older Garmin raw responses or a matching existing database. Supported `cache-v1` responses are copied into the offline database without another download. Strava and Komoot use their own import/download actions.
 
 Successfully imported records can be browsed and exported locally without the original cache or another import. Remove old cache files only after a complete error-free import and a database backup; unsupported or not-yet-imported files may still exist only in the cache. The app does not delete cache files automatically.
+
+
+### Confirmed helper startup (since 0.6.11)
+
+After download and verification, the app displays “Starting update helper” and stays open until the helper acknowledges startup. Startup failures keep the app open and display the update-log directory. `helper-output.log` records launch attempts, child PID and launch errors. Failed handoffs retain their prepared files. `helper-ready.json` acknowledges the helper; `result.json` confirms successful installation.
+
+When launching `windows_update.ps1` manually, `PlanPath` is the full path to `.updates/<operation>/plan.json`, not the program directory. Close the app before manual installation. Version 0.6.10 still has the automatic helper-launch defect, so install this corrected preview manually in a new program directory once.
