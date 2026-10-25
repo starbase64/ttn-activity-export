@@ -1,4 +1,8 @@
-# TTN Activity Export · 0.6.1-preview · Testversion
+# TTN Activity Export · 0.6.3-preview · Testversion
+
+Neu: OSM-Onlinekarte standardmäßig aktiv, Auswahlhinweis mit deckendem Hintergrund, Online-Bestand mit passenden Spaltenbreiten, manueller Anordnung, horizontalem Scrollbalken und Maximieren. Komoot kann experimentell per E-Mail/Passwort angemeldet werden: Tourenübersicht abrufen, Touren auswählen, Download prüfen und Metadaten/GPX speichern. Noch getrennt von der Garmin-Auftragsliste; Sitzung nur bis App-Ende; kein echter Kontotest durchgeführt.
+
+ZIP-Dateien und entpackte Strava-Ordner werden unterstützt. Beim Import kann die Quelle am bisherigen Ort bleiben oder vollständig in den Kontobereich kopiert werden. Neue Standardpfade: `Downloads\TTN Activity Export\Anbieter\account-ID`; bestehende Pfade bleiben erhalten.
 
 **Deine Aktivitäten. Deine Daten. Alles lokal.**
 
@@ -8,7 +12,7 @@ Neu: mehrere getrennte Kontoeinträge und Zielordner, ausdrücklich speicherbare
 
 **Strava ist jetzt ausschließlich eine lokale Importquelle.** Der Nutzer lädt das Strava-Konto-ZIP selbst herunter und wählt es unter Strava → Datenpaket importieren aus. Die App liest `activities.csv` und referenzierte FIT-/GPX-/TCX-Dateien, einschließlich GZIP. CSV-Einträge ohne Datei bleiben als Aktivitätsübersicht erhalten. Wiederholte Paketimporte werden anhand der Strava-ID erkannt. Fehler und Größenlimits werden ausgewiesen. Keine Anmeldung, API-Schlüssel, API-Budgets oder automatisierten Strava-Abfragen in der App. Original-ZIP unverändert aufbewahren; Fotos, Kommentare und weitere Kontoinhalte werden nicht importiert.
 
-**Garmin bleibt nutzbar; Komoot ist noch nicht online angebunden.** Automatische App-Updates sind noch nicht enthalten.
+**Garmin bleibt nutzbar; Komoot hat eine experimentelle Online-Anbindung.** Automatische App-Updates sind noch nicht enthalten.
 
 Erste Schritte: ZIP vollständig entpacken, `Start-TTN-Activity-Export.cmd` starten. Bestehende Garmin-Anmeldung wird soweit möglich übernommen. Unter Konten anmelden, unter Download Zeitraum/Vorgabe/Aktion wählen, zur Auftragsliste hinzufügen und „Aufträge prüfen und starten“ drücken. Die Vorgabe „Nur herunterladen“ erzeugt keine CSV/Excel-Dateien; dafür „Download und Dateien exportieren“ oder „Nur lokal exportieren“ wählen.
 
@@ -16,4 +20,4 @@ Bisheriger Profilname GarminExportStudio und bestehende SQLite-Datenbanken bleib
 
 Die Zeit vor dem Start ist eine lokale Planung. Zusätzliche Listenseiten, Bereichs-Fallbacks, Wiederholungen und unbekannte Aktivitätsdetails können den Aufwand ändern. Die tatsächliche Restzeit wird während des Downloads gemessen. Excel-Erzeugung bleibt ein eigener Schritt.
 
-English: this preview introduces the four-tab desktop, account settings, metadata-only Garmin inventory, selected activity IDs, persistent/reorderable jobs, pre-start review and optional tooltips. Garmin is operational. Strava is a local-only importer for a user-downloaded account ZIP, including activities.csv and supported recordings/gzip files. No Strava sign-in/API key/automatic retrieval. Komoot remains a configured placeholder with no online sign-in/list/download yet. No automatic app updater. Existing profile and archives stay compatible; new accounts use Downloads/TTN Activity Export/provider. Download only is the default action; choose download-and-export or offline export to create output files. Close the older app and back up the archive before testing.
+English: this preview introduces the four-tab desktop, account settings, metadata-only Garmin inventory, selected activity IDs, persistent/reorderable jobs, pre-start review and optional tooltips. Garmin is operational. Strava is a local-only importer for a user-downloaded account ZIP, including activities.csv and supported recordings/gzip files. No Strava sign-in/API key/automatic retrieval. Komoot now has an experimental own-account email/password sign-in, paged recorded/planned tour inventory and selected GPX export with local caching. Its session is memory-only and it does not join the persistent Garmin job queue yet. No automatic app updater. Existing profile and archives stay compatible; new accounts use Downloads/TTN Activity Export/provider. Download only is the default action; choose download-and-export or offline export to create output files. Close the older app and back up the archive before testing.

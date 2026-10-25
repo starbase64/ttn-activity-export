@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 import pytest
-from PySide6.QtCore import QEvent,QDate,Qt
+from PySide6.QtCore import QEvent,QDate,Qt,QStandardPaths
 from PySide6.QtWidgets import QApplication,QDialog,QLineEdit,QTableWidget
 from PySide6.QtTest import QTest
 from app import DesktopWindow
@@ -19,7 +19,9 @@ from offline import ArchiveExporter,OfflineExporter,ArchiveSync
 QT_APP=QApplication.instance() or QApplication([])
 
 @pytest.fixture
-def window():
+def window(tmp_path,monkeypatch):
+    native=QStandardPaths.writableLocation
+    monkeypatch.setattr(QStandardPaths,'writableLocation',lambda key:str(tmp_path/'profile') if key==QStandardPaths.StandardLocation.AppLocalDataLocation else native(key))
     w=DesktopWindow(demo=True)
     w.delay.setValue(0);w.refresh.setValue(0);w.workers.setValue(1)
     w.message=lambda *a:pytest.fail('Unexpected dialog: '+str(a))
@@ -179,6 +181,38 @@ def test_inventory_selection_applies_only_chosen_ids(window):
     button=next(b for b in dialog.findChildren(QPushButton) if b.text()=='Auswahl übernehmen');button.click()
     assert w.selected_activity_ids==['2020010104']
     assert w.make_plan().activity_ids==['2020010104']
+
+
+def test_inventory_fits_all_content_and_keeps_manual_layout(window):
+    from PySide6.QtWidgets import QHeaderView
+    w=window;r=read_inventory(DemoGarmin(),'2020-01-01','2020-01-01',interval=0,pages=1);r['account']=w.active_account['id']
+    r['items'][-1]['activityName']='A very long activity name '+('X'*220)
+    w.open_inventory_dialog(r);dialog=w.inventory_dialog;QApplication.processEvents();table=dialog.findChild(QTableWidget)
+    header=table.horizontalHeader()
+    assert dialog.windowFlags() & Qt.WindowType.WindowMaximizeButtonHint
+    assert header.sectionsMovable() and header.sectionResizeMode(1)==QHeaderView.ResizeMode.Interactive
+    assert table.columnWidth(1)>1000 and table.horizontalScrollBar().maximum()>0
+    header.resizeSection(1,350);header.moveSection(1,0)
+    search=dialog.findChild(QLineEdit);search.setText('2020')
+    assert table.columnWidth(1)==350 and header.visualIndex(1)==0
+
+
+def test_komoot_download_is_account_isolated_and_not_blocked_by_garmin_pause(window,tmp_path):
+    from komoot_client import KomootClient,tour_summary
+    from tests.test_komoot import tour
+    from tests.test_datahub import GPX
+    w=window;a=w.workspace.add_account('komoot','test@example.invalid',tmp_path/'Komoot');w.refresh_accounts(a['id'])
+    assert not w.komoot_panel.isHidden() and w.garmin_controls.isHidden()
+    client=KomootClient(tmp_path/'komoot-pause.json',lambda *args:GPX);client.user='42';client.token='not-persisted'
+    w.komoot_clients[a['id']]=client;w.refresh_accounts(a['id'])
+    assert 'angemeldet' in w.connection.text()
+    w.rate_pause.record({'reason':'rate_limit','retry_after_seconds':60})
+    w.start_komoot_download(a,[tour_summary(tour())],True)
+    deadline=time.monotonic()+5
+    while not w.data_page.data['activities'] and time.monotonic()<deadline:QTest.qWait(20)
+    assert len(w.data_page.data['activities'])==1 and w.data_page.data['account']==a['id']
+    assert w.tabs.currentIndex()==2 and w.request_count==0
+    assert 'not-persisted' not in w.workspace.path.read_text()
 
 
 def test_preflight_reads_cache_without_requests_and_missing_selection_is_reported(tmp_path):

@@ -1,3 +1,16 @@
+# 0.6.3-preview · OSM defaults, inventory layout and experimental Komoot
+
+- Enable OSM basemaps by default in Data; retain the offline toggle. Draw the empty GPS-selection hint as black text on an opaque white panel over map imagery. Demo maps do not send tile requests.
+- Size online-inventory columns to all loaded contents initially. Preserve manual widths and movable headers, provide pixel-based horizontal scrolling and a native maximize button.
+- Add a read-only experimental Komoot connector: memory-only email/password sign-in, token-only subsequent requests, bounded paged inventory for recorded/planned tours, explicit selected-tour review, metadata-only or GPX download, account-isolated SQLite and GPX files, cached GPX reuse and persistent per-account 429 pauses. No web scraping, region/CAPTCHA bypass or background retries. Keep Komoot separate from Garmin's persistent job queue in this preview.
+- Use Komoot source links in readable exports and allow local Data date filters to include future planned routes. No new runtime dependencies. Synthetic tests only; a live Komoot account and real Strava package still need user validation.
+
+# 0.6.2-preview · Strava folders and source retention
+
+- Accept extracted Strava account folders as well as ZIPs, using the same CSV/recording import path. Read source folders without following symbolic links.
+- Ask whether to leave the source in place or retain a complete copy in the account folder. Copy in a cancellable worker to a new directory; remove partial copies on failure and never merge or overwrite source data. Remember the retained source location separately from the local activity database. Full source copies are limited to 8 GiB.
+- Unify new default destinations under Downloads/TTN Activity Export/provider/account-ID. Preserve saved custom paths and existing archives.
+
 # 0.6.1-preview · Strava is a local import source
 
 - Keep Strava account entries, but replace the connection placeholder with a local-only account-ZIP workflow. No Strava online sign-in, API keys, budgets, scraping or automatic website/API retrieval are offered or planned.

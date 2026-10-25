@@ -1,12 +1,12 @@
 # Roadmap
 
-Planungsstand zur Testversion **0.6.1-preview**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
+Planungsstand zur Testversion **0.6.3-preview**. Diese Seite unterscheidet vorhandene Funktionen von Entwürfen; sie ist kein Veröffentlichungsversprechen. [README](README.md) · [Anleitung](docs/ANLEITUNG.md) · [English guide](docs/USER_GUIDE.md)
 
 ## In der Testversion 0.6 umgesetzt
 
 Vier Hauptreiter und Optionen-Fenster mit Übernehmen/Abbrechen, eigenes Logfenster, Kontoeinträge mit getrennten Zielordnern und ausdrücklich gespeicherten Vorgaben, begrenzte Garmin-Bestandsliste mit Teilstatus/Weiterladen und ID-Auswahl sowie gespeicherte/sortierbare Aufträge mit manueller Startprüfung. Tooltips sind global abschaltbar. Vor dem Start gibt es eine lokale Planung offener Grundabfragen; eine verlässliche Gesamtdauer bleibt ohne Messgrundlage unbekannt.
 
-**Noch offen:** Online-Anbindung für Komoot, Anbieterreihenfolge über tatsächlich ausführbare Mehranbieteraufträge und automatische App-Updates. Strava bleibt ausdrücklich eine lokale Importquelle; keine Online-Anmeldung, kein automatischer Website-/API-Abruf und keine API-Budgetverwaltung sind vorgesehen. Die folgende Zielbeschreibung bleibt für diese offenen Teile gültig.
+**Noch offen:** Stabilisierung der experimentellen Komoot-Anbindung, Anbieterreihenfolge über tatsächlich ausführbare Mehranbieteraufträge und automatische App-Updates. Strava bleibt ausdrücklich eine lokale Importquelle; keine Online-Anmeldung, kein automatischer Website-/API-Abruf und keine API-Budgetverwaltung sind vorgesehen. Die folgende Zielbeschreibung bleibt für diese offenen Teile gültig.
 
 ## Bereits vorhanden
 
@@ -16,7 +16,7 @@ Die experimentelle Erkennung vermutlich leerer Abfragen ist standardmäßig aus.
 
 ## 1. Bestandsübersicht vor dem Download — neu aufgenommen
 
-Ziel: Erst sehen, welche Aktivitäten vorhanden sind, dann gezielt auswählen. **Für Garmin in 0.6 enthalten; für Komoot noch offen; Strava zeigt ausschließlich lokal importierte Daten.**
+Ziel: Erst sehen, welche Aktivitäten vorhanden sind, dann gezielt auswählen. **Für Garmin in 0.6 enthalten; für Komoot in 0.6.3 experimentell enthalten; Strava zeigt ausschließlich lokal importierte Daten.**
 
 - Button **Online-Bestand anzeigen**, anschließend **Übersicht aktualisieren**. Kein automatischer vollständiger Historienabruf bei jedem App-Start.
 - Zunächst ausschließlich verfügbare Listenmetadaten: Anbieter, Konto, ID, Titel, Datum, Sportart, Distanz, Dauer und gegebenenfalls Höhenmeter. Fehlende Felder als unbekannt anzeigen.

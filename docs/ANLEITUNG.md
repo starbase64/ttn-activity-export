@@ -1,12 +1,12 @@
 # TTN Activity Export – Anleitung
 
-Für den Quellstand **0.6.1-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
+Für den Quellstand **0.6.3-preview**. [English](USER_GUIDE.md) · [Projektübersicht](../README.md) · [Geplante Funktionen](../ROADMAP.md)
 
-Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava ist ausschließlich eine lokale Importquelle; Komoot ist noch nicht online integriert. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
+Die App arbeitet lokal auf deinem Computer. Sie kann unterstützte Garmin-Connect-Daten herunterladen, in einer lokalen Datenbank aufbewahren und daraus Dateien erstellen. Du entscheidest über Zeitraum, Datenarten und Ausgabeformat. Strava ist ausschließlich eine lokale Importquelle; Komoot hat eine experimentelle Online-Anbindung. Ältere Downloads der App können weniger Funktionen enthalten als hier beschrieben.
 
 ## Einstieg in die Testversion 0.6
 
-Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat noch keinen Onlinezugriff.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Automatische App-Updates folgen separat.
+Diese Anleitung beschreibt die neue Oberfläche. **Garmin ist nutzbar. Strava dient ausschließlich zum lokalen Import selbst heruntergeladener Dateien. Komoot hat eine experimentelle Online-Anbindung.** Eine Strava-Anmeldung und automatische Strava-Abfragen sind nicht vorgesehen. Automatische App-Updates folgen separat.
 
 Die vier Hauptreiter sind **Konten**, **Download**, **Daten** und **Anleitung**. Die Detailreferenz unten bleibt gültig; ihre Bereiche Export/Ausgabe, Optionen, Felder, Experten und Offline-Daten findest du nun gesammelt über **Download → Optionen …**. Übernehmen behält deine Änderungen für neue Aufträge, Abbrechen stellt die vorherige Auswahl wieder her. Bereits vorgemerkte Aufträge ändern sich dadurch nicht. Mit **Als Kontovorgabe speichern** speicherst du die aktuelle Auswahl ausdrücklich für dieses Konto.
 
@@ -91,7 +91,7 @@ Beispiel: Du möchtest alle Fahrradtouren eines Monats in einer CSV-Datei mit Da
 1. Öffne **Export** und klicke **Nur Aktivitätsliste (CSV)**. Damit wird die Aktivitätenübersicht ausgewählt und zusätzliche Aktivitätsabfragen werden abgewählt.
 2. Wähle den ersten und letzten Tag. **Bis einschließlich** bedeutet, dass auch dieser Tag berücksichtigt wird. Mehrere Jahre sind möglich; es gibt kein allgemeines 365-Tage-Limit für den Gesamtzeitraum.
 3. Wähle unter **Optionen → Sportart** den gewünschten Typ. Für alle Sportarten lass den Filter leer beziehungsweise wähle alle.
-4. Prüfe auf Export den Zielordner. Standard ist `Downloads\Garmin_Export`.
+4. Prüfe auf Export den Zielordner. Standard ist `Downloads\TTN Activity Export\Garmin`.
 5. Lass **Aktivitäten: eine Tabellenzeile pro Aktivität** eingeschaltet. Für eine einzige zusammenhängende Datei lass die Trennung nach Jahr ausgeschaltet.
 6. Klicke bei Bedarf **Vorschau anzeigen**. Die Vorschau lädt nur eine begrenzte Stichprobe; sie prüft nicht den gesamten Zeitraum.
 7. Wähle **Download und Dateien exportieren**, füge den Auftrag hinzu und starte ihn nach der Prüfung. Anschließend **Ergebnisordner öffnen**.
@@ -193,7 +193,7 @@ Die Filter gelten für CSV/Excel und für alle gewählten Kategorien. Ein Muster
 
 Eine Aktivitätenübersicht enthält nicht zwingend einen Streckenverlauf. Für Karten werden lokal vorhandene Tracks aus unterstützten Details oder importierten Originaldateien benötigt. Fehlen Tracks, ist eine leere Karte kein Beleg dafür, dass die Aktivität fehlt. Indoor- und manuelle Aktivitäten können grundsätzlich ohne GPS sein.
 
-Standardmäßig funktioniert die Streckenansicht ohne Online-Kartenhintergrund. Eine eingeschaltete Onlinekarte lädt Kartenkacheln von einem externen Anbieter. Deren Bildfarben ändern sich nicht automatisch mit dem dunklen App-Schema. Die Google-Maps-Ansicht benötigt einen eigenen API-Schlüssel und kann nach Googles Bedingungen Kosten verursachen. Für **Google My Maps** exportierst du KML, importierst es dort und erstellst die Freigabe auf der Google-Seite. Die lokale Heatmap wird dabei nicht als Heatmap übertragen. Prüfe vor einer Freigabe private Start-/Zielpunkte.
+Die OSM-Onlinekarte ist standardmäßig eingeschaltet und lädt sichtbare Kartenkacheln von einem externen Anbieter. Über die Checkbox lässt sie sich für die reine Offline-Streckenansicht ausschalten. Der Auswahlhinweis hat einen deckenden, kontrastreichen Hintergrund. Deren Bildfarben ändern sich nicht automatisch mit dem dunklen App-Schema. Die Google-Maps-Ansicht benötigt einen eigenen API-Schlüssel und kann nach Googles Bedingungen Kosten verursachen. Für **Google My Maps** exportierst du KML, importierst es dort und erstellst die Freigabe auf der Google-Seite. Die lokale Heatmap wird dabei nicht als Heatmap übertragen. Prüfe vor einer Freigabe private Start-/Zielpunkte.
 
 ## Sichern, importieren und auf einen anderen PC umziehen
 
@@ -247,7 +247,7 @@ Für Strava gibt es in der App keine Anmeldung, API-Schlüssel, API-Budgetanzeig
 1. Lade dein Konto-ZIP selbst auf der Strava-Website unter Einstellungen → Mein Konto → Konto herunterladen herunter. Warte auf die E-Mail mit dem Downloadlink. Die App fordert das Paket nicht automatisch an.
 2. Unter **Konten → Konto hinzufügen → Strava** einen lokalen Namen oder deine E-Mail-Adresse und einen Zielordner festlegen. Diese Bezeichnung dient nur der lokalen Trennung, nicht der Anmeldung bei Strava.
 3. **Import / Einstellungen → Strava-Datenpaket importieren …** wählen. Alternativ findest du den Importbutton im Reiter Download, sobald Strava ausgewählt ist.
-4. Das vollständige ZIP auswählen; nicht vorher entpacken. Unterstützt werden die Aktivitätenliste `activities.csv` mit den üblichen englischen Exportspalten und darin referenzierte FIT-, GPX- oder TCX-Dateien, auch gzip-komprimiert. Die App liest das Paket ohne Netzverbindung.
+4. ZIP-Datei oder bereits entpackten Ordner auswählen. Die App erkennt und prüft die Quelle beim Import. Anschließend wählen, ob die Quelle am bisherigen Ort bleiben oder vollständig im Kontobereich unter `sources` gesichert werden soll. In beiden Fällen entsteht eine lokale Aktivitätsdatenbank mit den importierten Aufzeichnungen. Die vollständige Kopie benötigt zusätzlichen Speicher und ist auf 8 GiB begrenzt. Unterbrochene Kopien werden entfernt; Originaldateien bleiben unverändert. Symbolische Verknüpfungen werden nicht übernommen. Unterstützt werden die Aktivitätenliste `activities.csv` mit den üblichen englischen Exportspalten und darin referenzierte FIT-, GPX- oder TCX-Dateien, auch gzip-komprimiert. Die App liest das Paket ohne Netzverbindung.
 5. Nach dem Import öffnet sich **Daten**. Nach Sportart, Datum oder Suchtext filtern und Zeilen mit Strg/Shift markieren. Unter **Auswahl → Auswahl exportieren** die gewünschte Tabelle als CSV, Excel oder JSON speichern. Karten funktionieren nur, wenn eine unterstützte Aufzeichnung GPS enthält.
 
 Die Daten liegen in einer getrennten `strava-offline.sqlite` im lokalen Strava-Kontobereich. **Lokale Strava-Daten öffnen** lädt diesen Bestand später erneut. Bereits importierte Strava-IDs werden beim erneuten Paketimport aktualisiert, statt zusätzliche Zeilen anzulegen. Eine Aktivität ohne referenzierte Datei bleibt als Tabellenzeile erhalten. Defekte oder fehlende Aufzeichnungen werden gemeldet; sie erzeugen keine erfundene GPS-Strecke.
@@ -256,4 +256,17 @@ Es wird die Aktivitätshistorie importiert, nicht das gesamte Strava-Konto: Foto
 
 Doppelte CSV-Spalten werden in den Rohmetadaten erhalten. Beim vollständigen Strava-CSV wird die metrische Distanzspalte genutzt; bei abweichenden/eindeutigen Spalten ohne belegte Einheit wird keine Distanz geraten. CSV-Zeitstempel ohne Zeitzonenangabe werden als nicht näher spezifizierte Exportzeit übernommen, nicht automatisch als deutsche Ortszeit umgerechnet. Das kann für Aktivitäten um Mitternacht relevant sein.
 
-Grenzen dieses ersten Importers: eine passende `activities.csv`, höchstens 30.000 ZIP-Einträge, 32 MiB CSV, 128 MiB je entpackter Aufzeichnung und 8 GiB insgesamt verarbeitete Aktivitätsdaten. Größenfehler, ungültige Zeilen und fehlende Dateien erscheinen im Importbericht. Bei Abbruch bleiben bereits importierte Einträge erhalten. Das Format wurde mit synthetischen Beispielen geprüft; ein echtes Nutzerpaket muss im Praxistest bestätigt werden.
+Grenzen dieses ersten Importers: eine passende `activities.csv`, höchstens 30.000 ZIP-/Ordnereinträge, 32 MiB CSV, 128 MiB je entpackter Aufzeichnung und 8 GiB insgesamt verarbeitete Aktivitätsdaten. Größenfehler, ungültige Zeilen und fehlende Dateien erscheinen im Importbericht. Bei Abbruch bleiben bereits importierte Einträge erhalten. Das Format wurde mit synthetischen Beispielen geprüft; ein echtes Nutzerpaket muss im Praxistest bestätigt werden.
+
+
+## Komoot testen (experimentell ab 0.6.3)
+
+1. Unter **Konten → Konto hinzufügen → Komoot** die E-Mail-Adresse und den gewünschten Zielordner festlegen. Über **Anmelden / Einstellungen** das Komoot-Passwort eingeben. Unterstützt wird die E-Mail-/Passwort-Anmeldung, nicht die direkte Anmeldung über Google oder Apple. Passwort und Sitzung werden nicht auf Datenträger gespeichert; nach dem Beenden erneut anmelden.
+2. Im Reiter **Download** das Komoot-Konto auswählen, Zeitraum sowie **Aufgezeichnet**, **Geplant** oder **Alle Touren** festlegen. **Online-Bestand abrufen** lädt zunächst ausschließlich Listenmetadaten. Pro Schritt werden höchstens zehn Seiten mit je 100 Touren angefragt. **Weitere Seiten laden** setzt eine unvollständige Liste fort.
+3. Die Spalten passen sich beim Öffnen an den breitesten geladenen Text an, einschließlich Überschrift. Danach lassen sich Breite und Reihenfolge manuell ändern. Ein horizontaler Scrollbalken und die Maximieren-Schaltfläche im Fenstertitel helfen bei breiten Listen. Strg ergänzt einzelne Touren, Shift markiert einen Bereich; **Alle sichtbaren auswählen** betrifft nur die geladenen und gefilterten Zeilen.
+4. **Auswahl herunterladen …** öffnet die Zusammenfassung. **GPX-Dateien zusätzlich herunterladen** abwählen, wenn nur die Übersicht gebraucht wird. Erst **Download starten** beginnt den Abruf. Die Komoot-Funktion läuft in dieser Testversion separat von der gespeicherten Garmin-Auftragsliste; kombinierte Mehranbieteraufträge folgen später.
+5. Touren landen in `Komoot/account-ID/komoot-offline.sqlite`, GPX-Dateien zusätzlich in `gpx`. Bereits geladene GPX-Daten werden wiederverwendet und bei fehlender Datei aus der Datenbank rekonstruiert. Im Reiter **Daten** auswählen, filtern und als CSV/XLSX/JSON exportieren. Ohne GPX gibt es keine Kartenstrecke. Geplante Touren können in der Zukunft liegen; den Datenfilter entsprechend setzen.
+
+Der Anschluss nutzt eine inoffizielle, nicht öffentlich unterstützte Schnittstelle. Er ist mit synthetischen Antworten geprüft, noch nicht mit deinem Konto. Bei einem geänderten Anmeldeweg, CAPTCHA oder einer verweigerten Anfrage stoppt die App; Schutzmaßnahmen und Regionenfreischaltungen werden nicht umgangen. GPX wird ausschließlich über den Export-Endpunkt geladen, keine Route aus anderen Website-Inhalten nachgebaut. Bei HTTP 429 wird die Pause pro Komoot-Konto gespeichert und gilt auch nach einem Neustart. Kein automatischer Wiederanlauf. Verfügbare Touren werden dabei weder hochgeladen, verändert noch gelöscht.
+
+Quellen: [Komoot zur API](https://support.komoot.com/hc/en-us/articles/10331570510618-komoot-API), [GPX-Export und nötige Regionenfreischaltung](https://support.komoot.com/hc/en-us/articles/10115477099674-Export-and-import-Routes-and-Activities). Ein funktionierender GPX-Export auf der Website bedeutet nicht automatisch, dass der experimentelle Login der App mit jedem Konto funktioniert.

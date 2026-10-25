@@ -59,7 +59,7 @@ class DataPage(QWidget):
         self.date_from=QDateEdit(QDate(1990,1,1));self.date_to=QDateEdit(QDate.currentDate())
         dates=QHBoxLayout()
         for label,d in ((host.label('Von','From'),self.date_from),(host.label('Bis','Through'),self.date_to)):
-            d.setCalendarPopup(True);d.setDisplayFormat('yyyy-MM-dd');d.setDateRange(QDate(1990,1,1),QDate.currentDate())
+            d.setCalendarPopup(True);d.setDisplayFormat('yyyy-MM-dd');d.setDateRange(QDate(1990,1,1),QDate(9999,12,31))
             dates.addWidget(label);dates.addWidget(d,1)
         v.addLayout(dates)
         self.reset_date_button=host.button('Auf erste Aktivität zurücksetzen','Reset to first activity',self.reset_activity_start)
@@ -79,9 +79,10 @@ class DataPage(QWidget):
         self.table.itemSelectionChanged.connect(self.selection_changed);self.table.itemChanged.connect(self.checkbox_changed)
         self.table.setMinimumHeight(180);v.addWidget(self.table,1)
         self.map_panel=QWidget();mv=QVBoxLayout(self.map_panel);mv.setContentsMargins(8,8,8,8)
-        controls=QHBoxLayout();self.heat=host.check('Heatmap','Heatmap');self.online=host.check('Onlinekarte (OSM)','Online map (OSM)')
+        controls=QHBoxLayout();self.heat=host.check('Heatmap','Heatmap');self.online=host.check('Onlinekarte (OSM)','Online map (OSM)',True)
         controls.addWidget(self.heat);controls.addWidget(self.online);controls.addWidget(host.button('Einpassen','Fit',self.selection_changed));mv.addLayout(controls)
         self.map=TrackMap(host.data_dir/'map-cache');mv.addWidget(self.map,1)
+        self.map.allow_requests=not host.demo
         self.map_hint=host.label('Klick: eine Tour · Strg: einzelne · Shift: Bereich. Mausrad: Zoom, Ziehen: verschieben.','Click: one trip · Ctrl: individual · Shift: range. Wheel: zoom, drag: pan.');mv.addWidget(self.map_hint)
         share=QHBoxLayout();self.privacy=QSpinBox();self.privacy.setRange(0,10000);self.privacy.setSingleStep(100);self.privacy.setSuffix(' m')
         share.addWidget(host.label('Start/Ende verbergen','Hide start/end'));share.addWidget(self.privacy)
@@ -104,6 +105,7 @@ class DataPage(QWidget):
         self.search.textChanged.connect(self.apply_filters);self.sport.currentIndexChanged.connect(self.apply_filters);self.date_from.dateChanged.connect(self.apply_filters);self.date_to.dateChanged.connect(self.apply_filters);self.min_km.valueChanged.connect(self.apply_filters)
         self.date_from.dateChanged.connect(self.remember_date_filter)
         self.period.currentIndexChanged.connect(self.refresh_summaries);self.heat.toggled.connect(self.selection_changed);self.online.toggled.connect(self.map.set_online);self.privacy.valueChanged.connect(self.selection_changed)
+        self.map.set_online(self.online.isChecked())
         host.archive_path.textChanged.connect(self.source.setText)
         self.retranslate();self.read_presets()
 

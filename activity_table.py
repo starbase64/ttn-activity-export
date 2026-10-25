@@ -45,6 +45,7 @@ def table_row(activity,source_date,language='de'):
     ident=activity.get('activityId')
     url=f'https://connect.garmin.com/modern/activity/{ident}' if str(ident).isdigit() else ''
     if activity.get('sourceProvider')=='strava' and str(activity.get('sourceActivityId','')).isdigit():url='https://www.strava.com/activities/'+str(activity['sourceActivityId'])
+    if activity.get('sourceProvider')=='komoot' and str(activity.get('sourceActivityId','')).isdigit():url='https://www.komoot.com/tour/'+str(activity['sourceActivityId'])
     values={
         'date':day,'time':clock,'name':activity.get('activityName') or '',
         'sport':sport,'location':activity.get('locationName') or '',

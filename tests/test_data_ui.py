@@ -11,6 +11,20 @@ from sessionlog import SessionLog
 
 QT_APP=QApplication.instance() or QApplication([])
 
+
+def test_online_map_defaults_and_empty_hint_are_readable_over_tiles(tmp_path):
+    from PySide6.QtGui import QPixmap,QColor
+    window=MainWindow(demo=True);view=window.data_page
+    assert view.online.isChecked() and view.map.online
+    canvas=view.map;canvas.resize(650,400);canvas.timer.stop()
+    tile=QPixmap(256,256);tile.fill(QColor('#ea187c'))
+    canvas.pixmaps={key:tile for key,_ in canvas.tiles()}
+    image=canvas.grab().toImage()
+    box=canvas.fontMetrics().boundingRect('Aktivität mit GPS auswählen').adjusted(-14,-10,14,10)
+    box.moveCenter(canvas.rect().center())
+    assert image.pixelColor(box.left()+4,box.center().y()).name()=='#ffffff'
+    assert image.pixelColor(10,canvas.height()//2).name()=='#ea187c'
+
 @pytest.fixture(autouse=True)
 def cleanup():
     yield

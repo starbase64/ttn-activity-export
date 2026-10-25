@@ -1,4 +1,4 @@
-"""Qt map: local track rendering; optional, explicitly enabled online OSM tiles."""
+"""Qt map: local track rendering with an optional OSM basemap."""
 import math
 import time
 from collections import Counter
@@ -58,7 +58,7 @@ class TrackMap(QWidget):
         super().__init__(parent)
         self.setMinimumSize(280,240);self.setMouseTracking(True)
         self.cache=Path(cache_dir);self.cache.mkdir(parents=True,exist_ok=True)
-        self.network=QNetworkAccessManager(self);self.online=False
+        self.network=QNetworkAccessManager(self);self.online=False;self.allow_requests=True
         self.tile_url='https://tile.openstreetmap.org/{z}/{x}/{y}.png'
         self.pixmaps={};self.pending={};self.failed=set();self.visible_keys=set()
         self.center=(.51,.33);self.zoom=5;self.routes=[];self.heat=False;self.density=({},1);self.drag=None
@@ -104,7 +104,7 @@ class TrackMap(QWidget):
         return self.cache/(source+'-'+'-'.join(map(str,key))+'.png')
 
     def fetch_visible(self):
-        if not self.online or not self.isVisible():return
+        if not self.online or not self.allow_requests or not self.isVisible():return
         self.visible_keys={key for key,_ in self.tiles()}
         for key in list(self.visible_keys):
             if key in self.pixmaps or key in self.pending or key in self.failed:continue
@@ -114,7 +114,7 @@ class TrackMap(QWidget):
                 if not pix.isNull():self.pixmaps[key]=pix;continue
             if len(self.pending)>=2:break
             z,x,y=key;request=QNetworkRequest(QUrl(self.tile_url.format(z=z,x=x,y=y)))
-            request.setRawHeader(b'User-Agent',b'TTNActivityExport/0.5.8 (local desktop map)')
+            request.setRawHeader(b'User-Agent',b'TTNActivityExport/0.6.3 (local desktop map)')
             request.setTransferTimeout(15000)
             reply=self.network.get(request);self.pending[key]=reply
             reply.finished.connect(lambda key=key,reply=reply:self.tile_done(key,reply))
@@ -172,7 +172,12 @@ class TrackMap(QWidget):
             for i,(name,_) in enumerate(self.routes[:5]):
                 p.fillRect(5,32+i*19,min(290,self.width()-10),19,self.palette().color(QPalette.ColorRole.Base));p.setPen(route_color(i,self.palette()))
                 p.drawText(10,46+i*19,p.fontMetrics().elidedText(name,Qt.TextElideMode.ElideRight,min(275,self.width()-20)))
-        if not self.routes:p.drawText(self.rect(),Qt.AlignmentFlag.AlignCenter,'Aktivität mit GPS auswählen' if self.lang=='de' else 'Select an activity with GPS')
+        if not self.routes:
+            text='Aktivität mit GPS auswählen' if self.lang=='de' else 'Select an activity with GPS'
+            box=p.fontMetrics().boundingRect(text).adjusted(-14,-10,14,10)
+            box.moveCenter(self.rect().center())
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor('#ffffff'));p.drawRoundedRect(box,6,6)
+            p.setPen(QColor('#111111'));p.drawText(box,Qt.AlignmentFlag.AlignCenter,text)
         bottom='© OpenStreetMap contributors · openstreetmap.org/copyright' if self.online else ('Offline · GPS ohne Kartenhintergrund' if self.lang=='de' else 'Offline · GPS without basemap')
         if self.online and self.tile_errors:bottom+=' · '+('Kartenabruf teilweise fehlgeschlagen' if self.lang=='de' else 'Some tiles unavailable')
         p.fillRect(0,self.height()-26,self.width(),26,self.palette().color(QPalette.ColorRole.Base));p.setPen(self.palette().color(QPalette.ColorRole.Text));p.drawText(7,self.height()-9,bottom)

@@ -9,7 +9,7 @@ import zipfile
 from dataclasses import replace
 from pathlib import Path
 import pytest
-from strava_import import import_strava_archive,row_summary
+from strava_import import import_strava_archive,row_summary,prepare_source
 from datahub import load_archive
 from archive import Archive,OfflineAccountMismatch
 from engine import Plan,account_key
@@ -27,6 +27,53 @@ def package(path,rows,files=None,prefix=''):
         z.writestr(prefix+'activities.csv',text.getvalue())
         for name,data in (files or {}).items():z.writestr(prefix+name,data)
     return path
+
+
+def test_folder_and_zip_produce_same_data_and_keep_sources(tmp_path):
+    source=package(tmp_path/'strava.zip',[row()],{'activities/123.fit.gz':gzip.compress(make_fit())})
+    folder=tmp_path/'unpacked'
+    with zipfile.ZipFile(source) as z:z.extractall(folder)  # Trusted synthetic fixture only.
+    account=account_key('strava:mine')
+    for name,src in [('zip',source),('folder',folder)]:
+        selected=prepare_source(src,tmp_path/'sources',False)
+        assert selected==src and not (tmp_path/'sources').exists()
+        report=import_strava_archive(tmp_path/(name+'.sqlite'),selected,account)
+        assert report['imported']==1 and report['files']==1 and not report['failed']
+    a=load_archive(tmp_path/'zip.sqlite');b=load_archive(tmp_path/'folder.sqlite')
+    assert a['activities']==b['activities'] and a['tracks']==b['tracks']
+    assert (folder/'activities.csv').is_file() and source.is_file()
+
+
+def test_source_copy_is_complete_isolated_and_cancellable(tmp_path,monkeypatch):
+    import strava_import
+    source=package(tmp_path/'source.zip',[row(filename='')],{'photos/example.jpg':b'photo'})
+    folder=tmp_path/'folder'
+    with zipfile.ZipFile(source) as z:z.extractall(folder)
+    for src in (source,folder):
+        retained=prepare_source(src,tmp_path/'app-sources',True)
+        assert retained!=src and retained.exists()
+        if src.is_file():assert retained.read_bytes()==src.read_bytes()
+        else:assert (retained/'photos/example.jpg').read_bytes()==b'photo'
+    before=set((tmp_path/'app-sources').iterdir());cancel=threading.Event();cancel.set()
+    with pytest.raises(InterruptedError):prepare_source(folder,tmp_path/'app-sources',True,cancel)
+    assert set((tmp_path/'app-sources').iterdir())==before
+    with pytest.raises(ValueError):prepare_source(folder,folder/'nested',True)
+    monkeypatch.setattr(strava_import,'MAX_TOTAL',1)
+    with pytest.raises(ValueError):prepare_source(source,tmp_path/'app-sources',True)
+    assert set((tmp_path/'app-sources').iterdir())==before
+
+
+def test_folder_does_not_follow_linked_recordings(tmp_path):
+    source=package(tmp_path/'source.zip',[row(filename='activities/link.gpx')])
+    folder=tmp_path/'folder'
+    with zipfile.ZipFile(source) as z:z.extractall(folder)
+    (folder/'activities').mkdir();outside=tmp_path/'outside.gpx';outside.write_bytes(GPX)
+    try:(folder/'activities/link.gpx').symlink_to(outside)
+    except OSError:pytest.skip('Symbolic links unavailable')
+    result=import_strava_archive(tmp_path/'db.sqlite',folder,account_key('strava:mine'))
+    assert result['imported']==1 and result['failed']==1 and result['files']==0
+    copied=prepare_source(folder,tmp_path/'retained',True)
+    assert not (copied/'activities/link.gpx').exists()
 
 
 def test_full_zip_gzip_and_manual_metadata_are_imported_offline(tmp_path,monkeypatch):

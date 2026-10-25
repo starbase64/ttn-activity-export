@@ -9,8 +9,8 @@ import tempfile
 from PySide6.QtCore import Qt,QTimer,QDate,QEvent,QObject,QStandardPaths
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QWidget,QVBoxLayout,QHBoxLayout,QFormLayout,QLabel,QPushButton,
-    QComboBox,QLineEdit,QCheckBox,QListWidget,QTableWidget,QTableWidgetItem,QDialog,
-    QDialogButtonBox,QTabWidget,QAbstractItemView,QHeaderView,QApplication,QFileDialog,QGroupBox,QScrollArea,QLayout)
+    QComboBox,QLineEdit,QCheckBox,QListWidget,QTableWidget,QTableWidgetItem,QDialog,QDateEdit,
+    QDialogButtonBox,QTabWidget,QAbstractItemView,QHeaderView,QApplication,QFileDialog,QGroupBox,QScrollArea,QLayout,QMessageBox)
 from engine import Plan,account_key,atomic_json
 from catalog import DATASETS,ACTIVITY_DETAILS
 from archive import Archive
@@ -33,7 +33,7 @@ class StudioMixin:
         return result
     def __init__(self,*args,**kwargs):
         self._studio_ready=False;self._job=None;self._queue_active=False;self._queue_stop=False
-        self.clients={};self.selected_activity_ids=[];self.inventory_result=None
+        self.clients={};self.komoot_clients={};self.selected_activity_ids=[];self.inventory_result=None
         super().__init__(*args,**kwargs)
         self._demo_workspace=tempfile.TemporaryDirectory(prefix='ttn-demo-') if self.demo else None
         state_path=Path(self._demo_workspace.name)/'workspace.json' if self.demo else self.data_dir/'workspace.json'
@@ -99,6 +99,18 @@ class StudioMixin:
         sr=QHBoxLayout();sr.addWidget(self.button('Strava-Datenpaket importieren …','Import Strava data package …',self.import_strava_dialog,primary=True))
         sr.addWidget(self.button('Lokale Strava-Daten öffnen','Open local Strava data',self.open_strava_data));sv.addLayout(sr)
         dv.addWidget(self.strava_panel)
+        self.komoot_panel=QWidget();kv=QVBoxLayout(self.komoot_panel)
+        kv.addWidget(self.label('Komoot · experimenteller Online-Zugriff','Komoot · experimental online access'))
+        kv.addWidget(self.label('Erst die Tourenübersicht abrufen, dann Touren auswählen. GPX nur über die Exportfunktion; erforderliche Regionen müssen freigeschaltet sein. Anmeldung gilt nur bis zum Beenden der App.',
+                               'Fetch the tour list first, then select tours. GPX uses the export endpoint; required regions must be unlocked. Sign-in lasts only until the app closes.'))
+        kr=QHBoxLayout();self.komoot_from=QDateEdit(QDate(1990,1,1));self.komoot_to=QDateEdit(QDate.currentDate())
+        for de,en,field in [('Von','From',self.komoot_from),('Bis','Through',self.komoot_to)]:
+            field.setCalendarPopup(True);field.setDisplayFormat('yyyy-MM-dd');kr.addWidget(self.label(de,en));kr.addWidget(field)
+        self.komoot_kind=QComboBox()
+        for de,en,key in [('Aufgezeichnet','Recorded','tour_recorded'),('Geplant','Planned','tour_planned'),('Alle Touren','All tours','')]:self.komoot_kind.addItem(self.tr(de,en),key)
+        kr.addWidget(self.komoot_kind);kv.addLayout(kr)
+        kr=QHBoxLayout();kr.addWidget(self.button('Online-Bestand abrufen','Fetch online inventory',self.fetch_komoot_inventory,primary=True))
+        kr.addWidget(self.button('Lokale Komoot-Daten öffnen','Open local Komoot data',self.open_komoot_data));kv.addLayout(kr);dv.addWidget(self.komoot_panel)
         self.garmin_controls=QWidget();settings_layout=QVBoxLayout(self.garmin_controls);settings_layout.setContentsMargins(0,0,0,0);dv.addWidget(self.garmin_controls)
         dates=QHBoxLayout();dates.addWidget(self.label('Von','From'));dates.addWidget(self.start_date);dates.addWidget(self.label('Bis einschließlich','Through'));dates.addWidget(self.end_date)
         dates.addWidget(self.reset_start_button);dates.addStretch();settings_layout.addLayout(dates)
@@ -173,7 +185,7 @@ class StudioMixin:
             connected=a['id'] in self.clients or (a['provider']=='garmin' and self.identity==a['id'] and bool(self.api))
             status=self.tr('angemeldet','connected') if connected else self.tr('nicht angemeldet','not connected')
             if a['provider']=='strava':status=self.tr('Lokale Importquelle','Local import source')
-            elif a['provider']!='garmin':status=self.tr('Anbindung noch nicht verfügbar','connection not available yet')
+            elif a['provider']=='komoot':status=self.tr('angemeldet · experimentell','connected · experimental') if a['id'] in self.komoot_clients else self.tr('nicht angemeldet · experimentell','not connected · experimental')
             self.account_list.addItem(a['provider'].capitalize()+' · '+a['email']+'\n'+status)
             self.account_picker.addItem(a['provider'].capitalize()+' · '+a['email'],a['id'])
         idx=next((i for i,a in enumerate(self.workspace.accounts) if a['id']==ident),0 if self.workspace.accounts else -1)
@@ -181,7 +193,8 @@ class StudioMixin:
         self.account_list.blockSignals(False);self.account_picker.blockSignals(False)
         self.activate_account(self.workspace.accounts[idx] if idx>=0 else None)
         is_strava=bool(self.active_account and self.active_account['provider']=='strava')
-        self.strava_panel.setVisible(is_strava);self.garmin_controls.setVisible(not is_strava)
+        is_komoot=bool(self.active_account and self.active_account['provider']=='komoot')
+        self.strava_panel.setVisible(is_strava);self.komoot_panel.setVisible(is_komoot);self.garmin_controls.setVisible(not is_strava and not is_komoot)
         self.account_settings_button.setText(self.tr('Import / Einstellungen','Import / settings') if is_strava else self.tr('Anmelden / Einstellungen','Sign in / settings'))
     def account_row_changed(self,index):
         if 0<=index<len(self.workspace.accounts):self.refresh_accounts(self.workspace.accounts[index]['id'])
@@ -214,8 +227,8 @@ class StudioMixin:
     def provider_note(self,provider):
         if provider=='strava':return self.tr('Strava ist eine lokale Importquelle. Lade das Konto-ZIP selbst auf strava.com unter Einstellungen → Mein Konto → Konto herunterladen herunter und wähle es hier aus. Keine Anmeldung und kein automatischer Strava-Abruf in der App.',
                                             'Strava is a local import source. Download your account ZIP yourself on strava.com under Settings → My Account → Download your account, then select it here. The app does not sign in to or automatically retrieve data from Strava.')
-        return self.tr('Komoot ist in dieser Testversion vorbereitet, aber noch nicht angebunden. Der inoffizielle Zugriff muss separat implementiert und mit einem Konto geprüft werden. Unterstützte GPX-Dateien können bereits importiert werden.',
-                       'Komoot account settings are prepared, but this test build has no live connector. Unofficial access needs a separate implementation and account test. Supported GPX files can already be imported.')
+        return self.tr('Experimentelle Komoot-Anbindung ohne öffentlich unterstützte API. Eigenes Konto per E-Mail/Passwort anmelden, Übersicht laden und Touren auswählen. Keine Google-/Apple-Anmeldung oder CAPTCHA-Umgehung. Passwort und Sitzung werden nicht auf Datenträger gespeichert.',
+                       'Experimental Komoot connector without a publicly supported API. Sign in to your own account with email/password, list tours and select them. No Google/Apple sign-in or CAPTCHA bypass. Password and session are not stored on disk.')
     def add_account_dialog(self):
         if self.worker and self.worker.isRunning():return
         dialog=QDialog(self);dialog.setWindowTitle(self.tr('Konto hinzufügen','Add account'));f=QFormLayout(dialog)
@@ -225,8 +238,8 @@ class StudioMixin:
         provider.currentIndexChanged.connect(lambda:china.setVisible(provider.currentText()=='Garmin'))
         f.addRow(self.tr('Anbieter','Provider'),provider);f.addRow(self.tr('Konto / E-Mail','Account / email'),email);f.addRow(china)
         row=QHBoxLayout();row.addWidget(folder);choose=self.button('Wählen','Choose',lambda:self.pick_account_folder(folder));row.addWidget(choose);f.addRow(self.tr('Zielordner','Destination'),row)
-        hint=self.label('Garmin ist nutzbar. Strava ist eine lokale Importquelle ohne Online-Anmeldung. Komoot kann vorgemerkt werden; dessen Onlinezugriff ist noch nicht verfügbar.',
-                        'Garmin is available. Strava is a local import source without online sign-in. Komoot can be configured, but its online connector is not available yet.');f.addRow(hint)
+        hint=self.label('Garmin ist nutzbar. Strava ist eine lokale Importquelle ohne Online-Anmeldung. Komoot bietet eine experimentelle Online-Anmeldung.',
+                        'Garmin is available. Strava is a local import source without online sign-in. Komoot offers experimental online sign-in.');f.addRow(hint)
         buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel);f.addRow(buttons)
         buttons.accepted.connect(dialog.accept);buttons.rejected.connect(dialog.reject)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
@@ -251,6 +264,7 @@ class StudioMixin:
     def open_account(self):
         if not self.active_account:return
         if self.active_account['provider']=='garmin':self.account_dialog.show();self.account_dialog.raise_();return
+        if self.active_account['provider']=='komoot':self.open_komoot_account();return
         a=self.active_account;dialog=QDialog(self);dialog.setWindowTitle(a['provider'].capitalize());v=QVBoxLayout(dialog)
         note=QLabel(self.provider_note(a['provider']));note.setWordWrap(True);v.addWidget(note)
         field=QLineEdit(a['output']);row=QHBoxLayout();row.addWidget(field);row.addWidget(self.button('Ordner wählen','Choose folder',lambda:self.pick_account_folder(field)));v.addLayout(row)
@@ -314,7 +328,15 @@ class StudioMixin:
         for i,(de,en) in enumerate([('Aktivitätenliste','Activity list'),('Gesundheit: Tageskennzahlen','Health: daily statistics'),('Alle unterstützten Daten','All supported datasets'),('Eigene Auswahl unter Optionen','Custom selection in Options')]):self.simple_preset.setItemText(i,self.tr(de,en))
         self.options_dialog.setWindowTitle(self.tr('Download- und Exportoptionen','Download and export options'));self.account_dialog.setWindowTitle(self.tr('Garmin-Anmeldung','Garmin sign-in'))
         for i,(de,en) in enumerate([('Nur herunterladen','Download only'),('Download und Dateien exportieren','Download and export files'),('Nur lokal exportieren','Export offline only')]):self.job_action.setItemText(i,self.tr(de,en))
+        for i,(de,en) in enumerate([('Aufgezeichnet','Recorded'),('Geplant','Planned'),('Alle Touren','All tours')]):self.komoot_kind.setItemText(i,self.tr(de,en))
         self.refresh_accounts();self.render_jobs();self.refresh_selection_summary()
+    def on_event(self,args):
+        if args[0]=='komoot_inventory':
+            text=self.tr(f'Komoot-Bestand: {args[1]} Touren aufgelistet',f'Komoot inventory: {args[1]} tours listed');self.status.setText(text);self.log.appendPlainText(text)
+        elif args[0]=='komoot_download':
+            self.progress.setRange(0,args[2]);self.progress.setValue(args[1])
+            text=self.tr(f'Komoot: {args[1]} / {args[2]} Touren verarbeitet',f'Komoot: {args[1]} / {args[2]} tours processed');self.status.setText(text);self.log.appendPlainText(text)
+        else:super().on_event(args)
     def set_busy(self,busy):
         super().set_busy(busy)
         if self._studio_ready:
@@ -361,6 +383,7 @@ class StudioMixin:
     def open_inventory_dialog(self,result):
         self.inventory_result=result
         dialog=QDialog(self);self.inventory_dialog=dialog
+        dialog.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint,True)
         dialog.setWindowTitle(self.tr('Online-Bestand · nur Aktivitäten-Metadaten','Online inventory · activity metadata only'));dialog.resize(1000,650)
         v=QVBoxLayout(dialog)
         from datetime import datetime
@@ -380,7 +403,11 @@ class StudioMixin:
         row.addWidget(search,2);row.addWidget(sport,1);v.addLayout(row)
         table=QTableWidget(0,6);table.setHorizontalHeaderLabels([self.tr('Datum','Date'),self.tr('Aktivität','Activity'),self.tr('Sportart','Sport'),self.tr('Distanz (km)','Distance (km)'),self.tr('Dauer','Duration'),'ID'])
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows);table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers);table.horizontalHeader().setSectionResizeMode(1,QHeaderView.ResizeMode.Stretch);v.addWidget(table,1)
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        header=table.horizontalHeader();header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive);header.setSectionsMovable(True)
+        header.setStretchLastSection(False);header.setResizeContentsPrecision(-1)
+        table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        table.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel);v.addWidget(table,1)
         def populate():
             table.setRowCount(0)
             for item in result['items']:
@@ -397,17 +424,25 @@ class StudioMixin:
                     from PySide6.QtCore import QItemSelectionModel
                     table.selectionModel().select(table.model().index(r,0),QItemSelectionModel.SelectionFlag.Select|QItemSelectionModel.SelectionFlag.Rows)
         search.textChanged.connect(populate);sport.currentIndexChanged.connect(populate);populate()
+        table.resizeColumnsToContents()
         v.addWidget(self.label('Strg: einzelne Zeilen ergänzen · Shift: Bereich auswählen. Die Auswahl gilt nur für Aktivitäten; Gesundheitskategorien bleiben separat gewählt.',
                               'Ctrl: add individual rows · Shift: select a range. Selection only affects activities; health datasets remain separately selected.'))
-        row=QHBoxLayout();row.addWidget(self.button('Übersicht aktualisieren','Refresh inventory',lambda:self.fetch_inventory(False)))
-        more=self.button('Weitere Seiten laden','Load more pages',lambda:self.fetch_inventory(True));more.setEnabled(not result.get('complete'));row.addWidget(more)
+        komoot=result.get('provider')=='komoot'
+        refresh=self.fetch_komoot_inventory if komoot else self.fetch_inventory
+        row=QHBoxLayout();row.addWidget(self.button('Übersicht aktualisieren','Refresh inventory',lambda:refresh(False)))
+        more=self.button('Weitere Seiten laden','Load more pages',lambda:refresh(True));more.setEnabled(not result.get('complete'));row.addWidget(more)
         row.addWidget(self.button('Alle sichtbaren auswählen','Select all visible',table.selectAll));row.addStretch()
         def apply():
             selected=sorted({table.item(i.row(),5).text() for i in table.selectionModel().selectedRows()})
             if not selected:self.message('Bitte mindestens eine Aktivität auswählen. Für den gesamten Zeitraum Auswahl zurücksetzen verwenden.',
                                          'Select at least one activity. Use Clear activity selection for the whole date range.');return
+            if komoot:
+                if not self.active_account or self.active_account['id']!=result.get('account'):
+                    self.message('Konto wurde gewechselt. Übersicht erneut öffnen.','Account changed. Reopen inventory.');return
+                items=[i for i in result['items'] if str(i['activityId']) in selected]
+                dialog.close();QTimer.singleShot(0,lambda:self.review_komoot_download(items));return
             self.selected_activity_ids=selected;self.set_sport('');self.dataset_checks['activities'].setChecked(True);self.refresh_selection_summary();dialog.accept()
-        row.addWidget(self.button('Auswahl übernehmen','Use selection',apply,primary=True));v.addLayout(row)
+        row.addWidget(self.button('Auswahl herunterladen …' if komoot else 'Auswahl übernehmen','Download selection …' if komoot else 'Use selection',apply,primary=True));v.addLayout(row)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose,True);dialog.show();dialog.raise_()
 
     def enqueue_current(self,checked=False,action=None):
@@ -636,9 +671,109 @@ class StudioMixin:
         for control in self.format_checks.values():control.setEnabled(enabled)
 
     def update_connection(self):
+        if getattr(self,'_studio_ready',False) and (self.active_account or {}).get('provider')=='komoot':
+            signed=self.active_account['id'] in self.komoot_clients
+            self.connection.setText(self.tr('Komoot · experimentell · ','Komoot · experimental · ')+self.tr('angemeldet' if signed else 'nicht angemeldet','connected' if signed else 'not connected'));return
         if getattr(self,'_studio_ready',False) and (self.active_account or {}).get('provider')=='strava':
             self.connection.setText(self.tr('Strava · lokale Importquelle · keine Anmeldung erforderlich','Strava · local import source · no sign-in required'));return
         super().update_connection()
+
+    def komoot_database(self,account):
+        from engine import account_root
+        return str(account_root(account['output'],account['id'])/'komoot-offline.sqlite')
+
+    def open_komoot_account(self):
+        if self.worker and self.worker.isRunning():return
+        a=self.active_account;dialog=QDialog(self);dialog.setWindowTitle('Komoot · '+self.tr('Anmeldung','Sign-in'));v=QVBoxLayout(dialog)
+        note=QLabel(self.provider_note('komoot'));note.setWordWrap(True);v.addWidget(note)
+        password=QLineEdit();password.setEchoMode(QLineEdit.EchoMode.Password)
+        password.setPlaceholderText(self.tr('Komoot-Passwort','Komoot password'));v.addWidget(QLabel(a['email']));v.addWidget(password)
+        field=QLineEdit(a['output']);r=QHBoxLayout();r.addWidget(field);r.addWidget(self.button('Zielordner','Destination',lambda:self.pick_account_folder(field)));v.addLayout(r)
+        def sign_in():
+            secret=password.text();password.clear()
+            if not secret or not field.text().strip():return
+            a['output']=field.text()
+            if not self.save_workspace():return
+            dialog.accept();self.start_komoot_login(deepcopy(a),secret)
+        v.addWidget(self.button('Anmelden','Sign in',sign_in,primary=True))
+        def disconnect():self.komoot_clients.pop(a['id'],None);self.refresh_accounts(a['id']);dialog.reject()
+        v.addWidget(self.button('Abmelden','Sign out',disconnect));v.addWidget(self.button('Schließen','Close',dialog.reject));dialog.exec()
+
+    def start_komoot_login(self,account,password):
+        from komoot_client import KomootClient
+        from failures import diagnostic
+        client=KomootClient(self.data_dir/'komoot-pauses'/(account['id']+'.json'))
+        def operation(w):
+            try:return {'account':account,'client':client.login(account['email'],password,w.cancel)}
+            except Exception as exc:return {'account':account,'error':diagnostic(exc)}
+        def done(result):
+            if result.get('error'):self.komoot_error(result['error']);return
+            self.komoot_clients[account['id']]=result['client'];self.refresh_accounts(account['id']);self.tabs.setCurrentIndex(1)
+        self.run_worker(operation,done,network=False)
+
+    def komoot_error(self,detail):
+        if detail.get('http_status')==401 and self.active_account:self.komoot_clients.pop(self.active_account['id'],None);self.update_connection()
+        text=self.tr('Komoot-Abruf fehlgeschlagen: ','Komoot request failed: ')+str(detail.get('http_status') or detail.get('error_type','Error'))
+        if detail.get('http_status')==429:text+='\n'+self.tr('Komoot begrenzt die Anfragen. Die Abrufpause bleibt auch nach einem Neustart erhalten.','Komoot rate limit reached. The request pause is retained across restarts.')
+        if detail.get('http_status') in (401,403):text+='\n'+self.tr('Anmeldung oder Exportberechtigung prüfen. Bei einer gesperrten Region wird kein GPX-Zugriff erzwungen.','Check sign-in or export permission. Locked regions are not bypassed.')
+        self.log.appendPlainText(text);self.message(text,text)
+
+    def fetch_komoot_inventory(self,more=False):
+        if self.worker and self.worker.isRunning():return
+        a=deepcopy(self.active_account)
+        if not a or a['provider']!='komoot':return
+        client=self.komoot_clients.get(a['id'])
+        if not client:self.open_komoot_account();return
+        start=self.komoot_from.date().toString('yyyy-MM-dd');end=self.komoot_to.date().toString('yyyy-MM-dd');kind=self.komoot_kind.currentData()
+        if start>end:self.message('Zeitraum prüfen.','Check date range.');return
+        previous=deepcopy(self.inventory_result) if more and (self.inventory_result or {}).get('account')==a['id'] else None
+        if previous and (previous.get('start'),previous.get('end'),previous.get('kind'))!=(start,end,kind):previous=None
+        if hasattr(self,'inventory_dialog'):self.inventory_dialog.close()
+        def operation(w):
+            result=client.inventory(start,end,kind,previous,w.cancel,lambda *x:w.event.emit(x));result['account']=a['id']
+            try:atomic_json(self.workspace.path.parent/'inventories'/(a['id']+'.json'),result)
+            except OSError:result['cache_error']=True
+            return result
+        def done(result):
+            if result.get('error'):self.komoot_error(result['error'])
+            self.open_inventory_dialog(result)
+        self.run_worker(operation,done,network=False)
+
+    def review_komoot_download(self,items):
+        a=deepcopy(self.active_account)
+        if not a or a['provider']!='komoot':return
+        dialog=QDialog(self);dialog.setWindowTitle(self.tr('Komoot-Download prüfen','Review Komoot download'));v=QVBoxLayout(dialog)
+        note=QLabel(self.tr(f"{len(items)} ausgewählte Touren werden in den lokalen Kontobestand übernommen.\nZiel: {self.komoot_database(a)}\nDie Übersicht ist eventuell noch unvollständig. Eine verlässliche Restzeit ist vor dem ersten Abruf nicht bekannt. GPX-Anfragen erfolgen nacheinander mit mindestens 0,5 s Abstand.",
+                           f"{len(items)} selected tours will be stored in the local account archive.\nDestination: {self.komoot_database(a)}\nThe inventory may still be partial. Remaining time is unknown before the first request. GPX requests run sequentially, at least 0.5 s apart."));note.setWordWrap(True);v.addWidget(note)
+        gpx=self.check('GPX-Dateien zusätzlich herunterladen','Also download GPX files',True);v.addWidget(gpx)
+        v.addWidget(self.label('Ohne GPX wird nur die Aktivitätenübersicht gespeichert; die Karte enthält dann keine Strecke. Vorhandene GPX-Dateien im Cache werden wiederverwendet.',
+                              'Without GPX, only activity metadata is saved; no route appears on the map. Existing cached GPX files are reused.'))
+        r=QHBoxLayout();r.addWidget(self.button('Abbrechen','Cancel',dialog.reject));r.addWidget(self.button('Download starten','Start download',dialog.accept,primary=True));v.addLayout(r)
+        if dialog.exec()==QDialog.DialogCode.Accepted:self.start_komoot_download(a,items,gpx.isChecked())
+
+    def start_komoot_download(self,account,items,gpx=True):
+        from komoot_client import download_tours
+        from datahub import load_archive
+        client=self.komoot_clients.get(account['id'])
+        if not client:self.open_komoot_account();return
+        path=self.komoot_database(account)
+        def operation(w):
+            report=download_tours(client,path,account['id'],items,gpx,w.cancel,lambda *x:w.event.emit(x))
+            return {'report':report,'data':load_archive(path,with_tracks=False),'path':path}
+        def done(result):
+            self.archive_path.setText(result['path']);self.data_page.filter_initialized=False;self.data_page.loaded(result['data']);self.tabs.setCurrentIndex(2)
+            self.last_output=str(Path(result['path']).parent);self.open_button.setEnabled(True)
+            report=result['report'];text=self.tr(f"Komoot: {report['imported']} Touren gespeichert · {report['files']} GPX geladen · {report['cached']} aus Cache.",f"Komoot: {report['imported']} tours saved · {report['files']} GPX downloaded · {report['cached']} cached.")
+            if report['cancelled']:text+=' '+self.tr('Abgebrochen.','Stopped.')
+            self.log.appendPlainText(text)
+            if report['error']:self.komoot_error(report['error'])
+        self.run_worker(operation,done,network=False)
+
+    def open_komoot_data(self):
+        if not self.active_account or self.active_account['provider']!='komoot':return
+        path=self.komoot_database(self.active_account)
+        if not Path(path).is_file():self.message('Noch keine Komoot-Touren gespeichert.','No Komoot tours stored yet.');return
+        self.archive_path.setText(path);self.data_page.filter_initialized=False;self.tabs.setCurrentIndex(2);self.data_page.reload()
 
     def strava_database(self,account):
         from engine import account_root
@@ -647,17 +782,38 @@ class StudioMixin:
     def import_strava_dialog(self):
         account=deepcopy(self.active_account)
         if not account or account['provider']!='strava' or (self.worker and self.worker.isRunning()):return
-        source,_=QFileDialog.getOpenFileName(self,self.tr('Selbst heruntergeladenes Strava-Konto-ZIP auswählen','Select your downloaded Strava account ZIP'),'', 'ZIP (*.zip)')
+        choice=QMessageBox(self);choice.setWindowTitle(self.tr('Strava-Quelle auswählen','Select Strava source'))
+        choice.setText(self.tr('Ist dein Strava-Datenpaket eine ZIP-Datei oder bereits ein entpackter Ordner?',
+                               'Is your Strava data package a ZIP file or an extracted folder?'))
+        zip_button=choice.addButton(self.tr('ZIP-Datei','ZIP file'),QMessageBox.ButtonRole.ActionRole)
+        folder_button=choice.addButton(self.tr('Ordner','Folder'),QMessageBox.ButtonRole.ActionRole)
+        choice.addButton(QMessageBox.StandardButton.Cancel);choice.exec()
+        if choice.clickedButton()==zip_button:
+            source,_=QFileDialog.getOpenFileName(self,self.tr('Strava-Datenpaket auswählen','Select Strava data package'),'', 'ZIP (*.zip)')
+        elif choice.clickedButton()==folder_button:
+            source=QFileDialog.getExistingDirectory(self,self.tr('Entpackten Strava-Datenordner auswählen','Select extracted Strava data folder'))
+        else:return
         if not source:return
+        policy=QMessageBox(self);policy.setWindowTitle(self.tr('Strava-Quelle speichern','Store Strava source'))
+        policy.setText(self.tr('Die App erkennt und prüft die Quelle beim Import. Soll die vollständige Quelle am bisherigen Ort bleiben oder zusätzlich im Datenordner dieses Kontos gesichert werden?',
+                              'The app detects and validates the source during import. Keep the complete source in its current location or also back it up in this account’s data folder?'))
+        policy.setInformativeText(self.tr('In beiden Fällen erstellt die App ihre lokale Aktivitätsdatenbank einschließlich der importierten Aufzeichnungen. Die Quelle wird nicht verändert. Eine vollständige Kopie benötigt zusätzlichen Speicherplatz (höchstens 8 GiB pro Import).',
+                                         'In both cases the app creates its local activity database including imported recordings. The source is unchanged. A complete copy needs additional disk space (up to 8 GiB per import).'))
+        use=policy.addButton(self.tr('Quelle am bisherigen Ort nutzen','Use source in current location'),QMessageBox.ButtonRole.AcceptRole)
+        copy=policy.addButton(self.tr('In App-Ordner kopieren','Copy into app folder'),QMessageBox.ButtonRole.ActionRole)
+        policy.addButton(QMessageBox.StandardButton.Cancel);policy.exec()
+        if policy.clickedButton() not in (use,copy):return
         path=self.strava_database(account)
-        self.start_strava_import(account,source,path)
+        self.start_strava_import(account,source,path,copy_source=policy.clickedButton()==copy)
 
-    def start_strava_import(self,account,source,path):
-        from strava_import import import_strava_archive
+    def start_strava_import(self,account,source,path,copy_source=False):
+        from strava_import import import_strava_archive,prepare_source
         from datahub import load_archive
         # Account identity is derived locally; a Garmin database cannot be overwritten accidentally.
         def operation(w):
-            report=import_strava_archive(path,source,account['id'],w.cancel,lambda *a:w.event.emit(a))
+            retained=prepare_source(source,Path(path).parent/'sources',copy_source,w.cancel)
+            report=import_strava_archive(path,retained,account['id'],w.cancel,lambda *a:w.event.emit(a))
+            report.update(source_path=str(retained),source_copied=copy_source,source_type='folder' if retained.is_dir() else 'zip')
             try:atomic_json(Path(path).parent/'strava-import-report.json',report)
             except OSError:report['report_write_error']=True
             return {'report':report,'data':load_archive(path,w.cancel if not w.cancel.is_set() else None,with_tracks=False),'path':path,'account':account}
@@ -665,6 +821,9 @@ class StudioMixin:
 
     def strava_import_done(self,result):
         report=result['report'];self.archive_path.setText(result['path']);self.data_page.filter_initialized=False
+        account=next((a for a in self.workspace.accounts if a['id']==result['account']['id']),None)
+        if account and report.get('source_path'):
+            account['import_source']={k:report[k] for k in ('source_path','source_copied','source_type')};self.save_workspace()
         self.data_page.loaded(result['data']);self.tabs.setCurrentIndex(2)
         text=self.tr(f"Strava-Import: {report['imported']} neue Aktivitäten · {report['duplicates']} bereits bekannt/aktualisiert · {report['files']} Aktivitätsdateien · {report['failed']} Fehler.",
                      f"Strava import: {report['imported']} new activities · {report['duplicates']} already known/updated · {report['files']} activity files · {report['failed']} errors.")
@@ -680,6 +839,6 @@ class StudioMixin:
         account=self.active_account
         if not account or account['provider']!='strava':return
         path=self.strava_database(account)
-        if not Path(path).is_file():self.message('Noch keine Strava-Daten importiert. Zuerst ein selbst heruntergeladenes Konto-ZIP auswählen.',
-                                              'No Strava data imported yet. Select your downloaded account ZIP first.');return
+        if not Path(path).is_file():self.message('Noch keine Strava-Daten importiert. Zuerst ein selbst heruntergeladenes Konto-ZIP oder einen entpackten Ordner auswählen.',
+                                              'No Strava data imported yet. Select your downloaded account ZIP or extracted folder first.');return
         self.archive_path.setText(path);self.data_page.filter_initialized=False;self.tabs.setCurrentIndex(2);self.data_page.reload()

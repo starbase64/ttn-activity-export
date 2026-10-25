@@ -4,9 +4,14 @@ import gzip
 import hashlib
 import io
 import math
+import os
 import re
+import shutil
+import stat
 import threading
 import zipfile
+from contextlib import contextmanager
+from types import SimpleNamespace
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path,PurePosixPath
@@ -32,6 +37,87 @@ def bounded_read(stream,limit):
     value=stream.read(limit+1)
     if len(value)>limit:raise ValueError('Member exceeds import limit')
     return value
+
+
+class FolderSource:
+    """ZIP-compatible read-only view of a folder; never follow symbolic links."""
+    def __init__(self,root):
+        self.root=Path(root).resolve();self.entries={}
+        for parent,dirs,files in os.walk(self.root,followlinks=False):
+            dirs[:]=[d for d in dirs if not (Path(parent)/d).is_symlink()]
+            for name in files:
+                path=Path(parent)/name
+                if path.is_symlink():continue
+                key=member_path(path.relative_to(self.root).as_posix())
+                if not path.is_file():continue
+                self.entries[key]=SimpleNamespace(filename=key,file_size=path.stat().st_size,is_dir=lambda:False)
+                if len(self.entries)>MAX_ZIP_FILES:raise ValueError('Folder member count limit')
+    def infolist(self):return list(self.entries.values())
+    def open(self,info):
+        path=self.root/info.filename
+        if path.is_symlink() or not path.resolve().is_relative_to(self.root):raise ValueError('Unsafe source path')
+        fd=os.open(path,os.O_RDONLY|getattr(os,'O_NOFOLLOW',0)|getattr(os,'O_BINARY',0))
+        if not stat.S_ISREG(os.fstat(fd).st_mode):os.close(fd);raise ValueError('Not a regular source file')
+        return os.fdopen(fd,'rb')
+
+
+@contextmanager
+def open_source(source):
+    source=Path(source)
+    if source.is_dir():yield FolderSource(source)
+    else:
+        with zipfile.ZipFile(source) as archive:yield archive
+
+
+def prepare_source(source,destination,copy_source=False,cancel=None):
+    """Validate either source type, optionally retain a complete copy in a fresh account subfolder."""
+    import uuid
+    source=Path(source).resolve();cancel=cancel or threading.Event()
+    with open_source(source) as archive:
+        infos=archive.infolist()
+        if len(infos)>MAX_ZIP_FILES:raise ValueError('Source member count limit')
+        manifests=[i for i in infos if not i.is_dir() and PurePosixPath(i.filename).name=='activities.csv']
+        if len(manifests)!=1:raise ValueError('Expected one activities.csv')
+        with archive.open(manifests[0]) as stream:
+            headers=next(csv.reader(io.StringIO(bounded_read(stream,MAX_CSV).decode('utf-8-sig'))),[])
+        if not {'Activity ID','Activity Date','Activity Name','Activity Type'}<=set(headers):raise ValueError('Unsupported activity CSV headers')
+    if not copy_source:return source
+    destination=Path(destination).resolve()
+    if source.is_dir() and destination.is_relative_to(source):raise ValueError('Copy destination is inside source folder')
+    destination.mkdir(parents=True,exist_ok=True)
+    target=destination/('strava-'+uuid.uuid4().hex)
+    staging=destination/('.copy-'+uuid.uuid4().hex)
+    staging.mkdir()
+    try:
+        total=0
+        if source.is_dir():
+            folder=FolderSource(source)
+            for info in folder.infolist():
+                out=staging/info.filename;out.parent.mkdir(parents=True,exist_ok=True)
+                with folder.open(info) as src,out.open('xb') as dst:
+                    while True:
+                        if cancel.is_set():raise InterruptedError('Source copy cancelled')
+                        chunk=src.read(1024**2)
+                        if not chunk:break
+                        total+=len(chunk)
+                        if total>MAX_TOTAL:raise ValueError('Source copy size limit')
+                        dst.write(chunk)
+            result=target
+        else:
+            with source.open('rb') as src,(staging/source.name).open('xb') as dst:
+                while True:
+                    if cancel.is_set():raise InterruptedError('Source copy cancelled')
+                    chunk=src.read(1024**2)
+                    if not chunk:break
+                    total+=len(chunk)
+                    if total>MAX_TOTAL:raise ValueError('Source copy size limit')
+                    dst.write(chunk)
+            result=target/source.name
+        staging.rename(target)
+        return result
+    except BaseException:
+        shutil.rmtree(staging,ignore_errors=True)
+        raise
 
 
 def timestamp(value):
@@ -88,7 +174,7 @@ def import_strava_archive(path,source,account,cancel=None,event=lambda *a:None):
     """Stream the ZIP; preserve CSV metadata even if a referenced activity file is absent/broken."""
     cancel=cancel or threading.Event()
     stats={'imported':0,'duplicates':0,'failed':0,'files':0,'rows':0,'errors':[],'cancelled':False,'limited':False}
-    with zipfile.ZipFile(source) as z:
+    with open_source(source) as z:
         entries={}
         infos=z.infolist()
         if len(infos)>MAX_ZIP_FILES:raise ValueError('Archive member count limit')
