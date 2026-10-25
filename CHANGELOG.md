@@ -1,3 +1,10 @@
+# 0.6.10-preview · confirmed Windows starter self-updates
+
+- Offer OK/Cancel for a newer installable published release. Cancel makes no download or installation changes; running account/track/download/export jobs finish before prompting.
+- Verify the fixed-repository GitHub asset digest, bounded ZIP paths, per-file manifest and actual app version. Prepare a separate version directory and invoke an external Windows helper only after confirmation.
+- Test the new private runtime/app using the verified shared package cache before atomically activating the original launcher’s new destination. Preserve existing program folders, custom files, profiles and downloaded data. Failed setup retains the previous destination; a later failed launch falls back through the same shortcut.
+- Add a cancellable preparation UI, installation progress, native offline update/failure/fallback checks and bilingual instructions. No system Python or admin rights required. Source/EXE/older starter distributions retain manual download fallback. One manual install is needed to introduce self-update support; binary delta patching remains future work.
+
 # 0.6.9 · remember account archive locations
 
 - Persist opened matching database locations immediately and valid edited locations on close, without requiring an account switch. Preserve explicit new SQLite targets without creating files, and retain the chosen location after Garmin sign-in restoration.

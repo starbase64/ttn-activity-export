@@ -16,6 +16,8 @@ Die App wird ausschließlich als **TTN Activity Export** ausgeliefert. Bestehend
 
 ## Aktueller Stand
 
+Dieser Zweig enthält **0.6.10-preview**: Windows-Starter-Updates mit OK/Abbrechen, geprüfter Einrichtung und automatischem Neustart. Die Testversion einmal manuell installieren; danach lassen sich spätere veröffentlichte Releases direkt installieren. Öffentlich bleibt vorerst 0.6.9.
+
 Die veröffentlichte Version ist **0.6.9**. **Garmin Connect wird unterstützt. Strava ist eine lokale Importquelle. Die Komoot-Online-Anbindung bleibt experimentell.**
 
 [Windows 10/11 x64 herunterladen](https://github.com/starbase64/ttn-activity-export/releases/download/v0.6.9/TTN-Activity-Export-Windows-0.6.9.zip) · [Release und Prüfsumme](https://github.com/starbase64/ttn-activity-export/releases/tag/v0.6.9)

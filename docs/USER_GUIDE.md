@@ -299,7 +299,7 @@ Recognized local failures show a translated explanation and allowlisted code suc
 
 **Check automatically at startup** saves your preference per user profile and defaults to off. When enabled, a normal app startup checks once. Demo/smoke runs never check automatically. Manual checks remain available. The check needs internet access to GitHub; it does not transmit Garmin/Komoot credentials or activity data. Connection errors and GitHub rate limits are shown explicitly and do not establish that the installed version is current.
 
-Preview installations include published prereleases; stable installations use stable releases only. Older versions are never offered as updates. If your test build is ahead of published releases, the app says so. Source-only changes, Git tags without a release, drafts and privately distributed test packages are not published updates. Automatic installation and incremental/delta updates remain planned.
+Preview installations include published prereleases; stable installations use stable releases only. Older versions are never offered as updates. If your test build is ahead of published releases, the app says so. Source-only changes, Git tags without a release, drafts and privately distributed test packages are not published updates. Confirmed Windows starter installation is added in 0.6.10; delta updates remain planned.
 
 
 ### Remembering a database location (since 0.6.9)
@@ -307,3 +307,10 @@ Preview installations include published prereleases; stable installations use st
 Choose the desired existing SQLite file under **Data → Open file**. Matching account archives are remembered immediately. Valid edited paths persist on close without an account switch. Explicitly typed new SQLite targets are saved without creating an empty database. Restored Garmin sign-in keeps the selection.
 
 The exact default root is `Downloads/TTN_Activity_Export`, with Garmin, Komoot and Strava account subdirectories. Existing files are not moved automatically. If you copied or moved the database to the new folder, select it there once. Foreign or invalid databases do not replace the saved account location.
+
+
+## Installing with OK/Cancel (since 0.6.10)
+
+Install the new Windows starter manually once. Later installable published updates offer **OK** or **Cancel**. Cancel downloads nothing and changes no installation. OK shows cancellable download/verification, then closes the app. Running account/download/export/GPS jobs are not interrupted. A separate helper tests the new private runtime/app, activates it and restarts through the same launcher/shortcut. Existing profiles, sessions, databases, downloads and custom files stay in place. Additional program folders retain previous versions for fallback and need free disk space; verified runtime/package cache downloads are reused.
+
+Failed installation/startup checks leave the previous version active; the launcher can also fall back after a later startup failure. Diagnostics are under `.updates` in the original program folder. Do not delete program version folders during setup. Source/EXE/other-platform installations keep the download-page fallback. Verification uses HTTPS, GitHub's asset digest and per-file hashes, not a separate code-signing certificate. Delta patching remains future work.

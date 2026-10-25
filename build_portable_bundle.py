@@ -51,7 +51,7 @@ if errorlevel 1 (\r
 )\r
 ''')
     (output/'Demo.cmd').write_bytes(b'@echo off\r\ncall "%~dp0Start-TTN-Activity-Export.cmd" --demo\r\n')
-    (output/'BITTE-ZUERST-LESEN.txt').write_text('''TTN Activity Export 0.6.9 — Windows x64 portable
+    (output/'BITTE-ZUERST-LESEN.txt').write_text('''TTN Activity Export 0.6.10-preview — Windows x64 portable
 
 1. Gesamte ZIP in einen eigenen Ordner entpacken.
 2. Start-TTN-Activity-Export.cmd doppelklicken.

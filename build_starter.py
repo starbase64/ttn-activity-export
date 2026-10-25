@@ -9,7 +9,7 @@ def build(output):
     source=Path(__file__).resolve().parent;output=Path(output);output.parent.mkdir(parents=True,exist_ok=True)
     prefix='TTN-Activity-Export/'
     with zipfile.ZipFile(output,'w',zipfile.ZIP_DEFLATED) as archive:
-        for name in ('Start-TTN-Activity-Export.cmd','bootstrap.ps1','windows_bootstrap.py','windows-dependencies.lock.json','LICENSE','THIRD_PARTY_NOTICES.md','README.md','CHANGELOG.md','RELEASE_NOTES.md','ROADMAP.md'):
+        for name in ('Start-TTN-Activity-Export.cmd','bootstrap.ps1','windows_bootstrap.py','windows_update.ps1','windows-dependencies.lock.json','LICENSE','THIRD_PARTY_NOTICES.md','README.md','CHANGELOG.md','RELEASE_NOTES.md','ROADMAP.md'):
             archive.write(source/name,prefix+name)
         excluded={'build_portable_bundle.py','build_starter.py','generate_windows_lock.py','windows_bootstrap.py','generate_help.py'}
         for path in sorted(source.glob('*.py')):
@@ -37,6 +37,12 @@ def build(output):
             'First-time setup downloads a private Python runtime and pinned dependencies.\n'
             'No admin rights, system Python changes or Garmin login during setup.\n'
             'Prepared under Linux; see GitHub Actions for Windows validation. Live Garmin testing remains account-specific.\n')
+        import ast
+        from updater import manifest_bytes
+        tree=ast.parse((source/'app.py').read_text(encoding='utf-8'))
+        version=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='VERSION' for t in n.targets))
+        files={name[len(prefix):]:archive.read(name) for name in archive.namelist()}
+        archive.writestr(prefix+'app-manifest.json',manifest_bytes(files,version))
     with zipfile.ZipFile(output) as archive:
         if archive.testzip():raise ValueError('Invalid starter archive')
     output.with_suffix(output.suffix+'.sha256').write_text(hashlib.sha256(output.read_bytes()).hexdigest()+'  '+output.name+'\n',encoding='ascii')
